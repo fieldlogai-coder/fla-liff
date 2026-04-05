@@ -331,16 +331,40 @@ let currentScreen = "sites";
 async function loadSites() {
   showLoading();
   try {
-    // workers テーブルで LIFF ユーザーに紐づく会社の現場を取得
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/sites?select=id,name&order=name`, {
-      headers: {
-        "apikey": SUPABASE_ANON,
-        "Authorization": `Bearer ${accessToken}`,
-      },
-    });
-    const sites = await res.json();
+    // 1. workersテーブルでLINEユーザーIDを照合してcompany_idを取得
+    const workerRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/workers?line_user_id=eq.${encodeURIComponent(currentUser.lineId)}&select=id,name,company_id`,
+      {
+        headers: {
+          "apikey": SUPABASE_ANON,
+          "Authorization": `Bearer ${SUPABASE_ANON}`,
+        },
+      }
+    );
+    const workers = await workerRes.json();
 
     const list = document.getElementById("site-list");
+
+    if (!workers || workers.length === 0) {
+      list.innerHTML = '<p class="empty">登録されていません。管理者に連絡してください。</p>';
+      showScreen("sites");
+      return;
+    }
+
+    const companyId = workers[0].company_id;
+
+    // 2. company_idに紐づくアクティブな現場を取得
+    const sitesRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/sites?company_id=eq.${companyId}&status=eq.active&select=id,name&order=name`,
+      {
+        headers: {
+          "apikey": SUPABASE_ANON,
+          "Authorization": `Bearer ${SUPABASE_ANON}`,
+        },
+      }
+    );
+    const sites = await sitesRes.json();
+
     if (!sites.length) {
       list.innerHTML = '<p class="empty">現場が登録されていません</p>';
     } else {
