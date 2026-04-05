@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>現場共有メモ</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    /* ── ヘッダー ── */
+    header {
+      background: #00b900;
+      color: #fff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    header h1 { font-size: 17px; flex: 1; }
+    header button {
+      background: rgba(255,255,255,0.25);
+      border: none;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    /* ── 画面コンテナ ── */
+    .screen { display: none; padding: 16px; }
+    .screen.active { display: block; }
+
+    /* ── ローディング ── */
+    #loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 60vh;
+      font-size: 15px;
+      color: #888;
+    }
+    #loading.hidden { display: none; }
+
+    /* ── 現場カード ── */
+    .site-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+    .site-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 16px;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      transition: transform .1s;
+    }
+    .site-card:active { transform: scale(.98); }
+    .site-card h3 { font-size: 16px; }
+    .site-card p { font-size: 13px; color: #888; margin-top: 4px; }
+
+    /* ── メモ一覧 ── */
+    .memo-list { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
+    .memo-card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    }
+    .memo-card .meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 8px;
+    }
+    .memo-card .meta .author { font-weight: bold; color: #555; }
+    .memo-card .content { font-size: 15px; white-space: pre-wrap; word-break: break-all; }
+    .memo-card .photos {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .memo-card .photos img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .empty { text-align: center; color: #aaa; padding: 40px 0; font-size: 14px; }
+
+    /* ── FAB（投稿ボタン） ── */
+    #fab {
+      position: fixed;
+      bottom: 24px;
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #00b900;
+      color: #fff;
+      font-size: 28px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,.25);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+    #fab.visible { display: flex; }
+
+    /* ── 投稿フォーム ── */
+    .form-section { margin-bottom: 16px; }
+    .form-section label { font-size: 13px; color: #555; display: block; margin-bottom: 6px; }
+    textarea {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 15px;
+      min-height: 120px;
+      resize: vertical;
+      font-family: inherit;
+    }
+    textarea:focus { outline: none; border-color: #00b900; }
+
+    .photo-preview {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .photo-preview .thumb {
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+    .photo-preview .thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+    .photo-preview .thumb .remove {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #e74c3c;
+      color: #fff;
+      border: none;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .add-photo-btn {
+      width: 80px;
+      height: 80px;
+      border: 2px dashed #ccc;
+      border-radius: 6px;
+      background: #fafafa;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #aaa;
+      gap: 4px;
+    }
+    .add-photo-btn span { font-size: 24px; }
+
+    .submit-btn {
+      width: 100%;
+      background: #00b900;
+      color: #fff;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .submit-btn:disabled { background: #b2dfb2; cursor: not-allowed; }
+
+    /* ── 写真ライトボックス ── */
+    #lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.85);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+    }
+    #lightbox.open { display: flex; }
+    #lightbox img { max-width: 90vw; max-height: 85vh; border-radius: 6px; }
+    #lightbox-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      color: #fff;
+      font-size: 28px;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+
+    /* ── エラートースト ── */
+    #toast {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #e74c3c;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 200;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1 id="header-title">現場共有メモ</h1>
+  <button id="back-btn" style="display:none" onclick="goBack()">◀ 戻る</button>
+</header>
+
+<!-- ローディング -->
+<div id="loading">読み込み中…</div>
+
+<!-- 画面①：現場選択 -->
+<div id="screen-sites" class="screen">
+  <div class="site-list" id="site-list"></div>
+</div>
+
+<!-- 画面②：メモ一覧 -->
+<div id="screen-memos" class="screen">
+  <div class="memo-list" id="memo-list"></div>
+</div>
+
+<!-- 画面③：投稿フォーム -->
+<div id="screen-post" class="screen">
+  <div class="form-section">
+    <label>メモ内容</label>
+    <textarea id="post-content" placeholder="現場の状況・連絡事項など…" maxlength="1000"></textarea>
+  </div>
+  <div class="form-section">
+    <label>写真（最大3枚）</label>
+    <div class="photo-preview" id="photo-preview">
+      <button class="add-photo-btn" id="add-photo-btn" onclick="pickPhoto()">
+        <span>📷</span>追加
+      </button>
+    </div>
+  </div>
+  <button class="submit-btn" id="submit-btn" onclick="submitMemo()">投稿する</button>
+</div>
+
+<!-- FAB -->
+<button id="fab" class="visible" onclick="showPost()" title="メモを投稿">＋</button>
+
+<!-- 写真ライトボックス -->
+<div id="lightbox" onclick="closeLightbox()">
+  <button id="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightbox-img" src="" alt="拡大表示" onclick="event.stopPropagation()" />
+</div>
+
+<!-- トースト -->
+<div id="toast"></div>
+
+<!-- hidden file input -->
+<input type="file" id="file-input" accept="image/*" style="display:none" onchange="onFileSelected(event)" />
+
+<script>
+// ── 設定 ───────────────────────────────────────────────────────────────
+const LIFF_ID        = "2009694631-Q9UpokY1";
+const SUPABASE_URL   = "https://qxeqaqnzbsuykmzwkvhx.supabase.co";
+const SUPABASE_ANON  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZXFhcW56YnN1eWttendrdmh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDQzNDQsImV4cCI6MjA4OTcyMDM0NH0.jbXmGxpT2ZZ5DtB590-5GH-Pt3ofVNIsysL-ybq1v18";
+const MEMO_API       = `${SUPABASE_URL}/functions/v1/memo-api`;
+const STORAGE_BUCKET = "memo-photos";
+
+// ── 状態 ───────────────────────────────────────────────────────────────
+let accessToken = "";
+let currentUser = null;        // { id, name }
+let currentSite = null;        // { id, name }
+let selectedFiles = [];        // File[] (最大3枚)
+let currentScreen = "sites";
+
+// ── 初期化 ─────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+
+    accessToken = liff.getAccessToken();
+    const profile = await liff.getProfile();
+    currentUser = { lineId: profile.userId, name: profile.displayName };
+
+    await loadSites();
+  } catch (e) {
+    showToast("初期化に失敗しました: " + e.message);
+    hideLoading();
+  }
+})();
+
+// ── 現場一覧取得 ─────────────────────────────────────────────────────
+async function loadSites() {
+  showLoading();
+  try {
+    // workers テーブルで LIFF ユーザーに紐づく会社の現場を取得
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/sites?select=id,name&order=name`, {
+      headers: {
+        "apikey": SUPABASE_ANON,
+        "Authorization": `Bearer ${accessToken}`,
+      },
+    });
+    const sites = await res.json();
+
+    const list = document.getElementById("site-list");
+    if (!sites.length) {
+      list.innerHTML = '<p class="empty">現場が登録されていません</p>';
+    } else {
+      list.innerHTML = sites.map(s => `
+        <div class="site-card" onclick="selectSite('${s.id}', '${escHtml(s.name)}')">
+          <h3>${escHtml(s.name)}</h3>
+          <p>タップしてメモを確認する</p>
+        </div>
+      `).join("");
+    }
+    showScreen("sites");
+  } catch (e) {
+    showToast("現場の取得に失敗しました");
+  } finally {
+    hideLoading();
+  }
+}
+
+// ── 現場選択 ─────────────────────────────────────────────────────────
+async function selectSite(siteId, siteName) {
+  currentSite = { id: siteId, name: siteName };
+  document.getElementById("header-title").textContent = siteName;
+  document.getElementById("back-btn").style.display = "block";
+  await loadMemos();
+}
+
+// ── メモ一覧取得 ─────────────────────────────────────────────────────
+async function loadMemos() {
+  showLoading();
+  try {
+    const res = await fetch(`${MEMO_API}?site_id=${currentSite.id}`, {
+      headers: { "Authorization": `Bearer ${accessToken}` },
+    });
+    const { memos, error } = await res.json();
+    if (error) throw new Error(error);
+
+    const list = document.getElementById("memo-list");
+    if (!memos || !memos.length) {
+      list.innerHTML = '<p class="empty">まだメモがありません</p>';
+    } else {
+      list.innerHTML = memos.map(m => renderMemo(m)).join("");
+    }
+    showScreen("memos");
+    document.getElementById("fab").classList.add("visible");
+  } catch (e) {
+    showToast("メモの取得に失敗しました");
+  } finally {
+    hideLoading();
+  }
+}
+
+function renderMemo(m) {
+  const author = m.users?.name ?? "不明";
+  const dt = formatDate(m.created_at);
+  const content = m.content ? `<div class="content">${escHtml(m.content)}</div>` : "";
+  const photos = (m.photo_urls || []).map(url =>
+    `<img src="${escHtml(url)}" loading="lazy" onclick="openLightbox('${escHtml(url)}')" />`
+  ).join("");
+  const photosHtml = photos ? `<div class="photos">${photos}</div>` : "";
+  return `
+    <div class="memo-card">
+      <div class="meta">
+        <span class="author">${escHtml(author)}</span>
+        <span>${dt}</span>
+      </div>
+      ${content}
+      ${photosHtml}
+    </div>
+  `;
+}
+
+// ── 投稿画面 ─────────────────────────────────────────────────────────
+function showPost() {
+  document.getElementById("post-content").value = "";
+  selectedFiles = [];
+  renderPhotoPreview();
+  showScreen("post");
+  document.getElementById("fab").classList.remove("visible");
+}
+
+function goBack() {
+  if (currentScreen === "post") {
+    showScreen("memos");
+    document.getElementById("fab").classList.add("visible");
+  } else if (currentScreen === "memos") {
+    currentSite = null;
+    document.getElementById("header-title").textContent = "現場共有メモ";
+    document.getElementById("back-btn").style.display = "none";
+    document.getElementById("fab").classList.remove("visible");
+    showScreen("sites");
+  }
+}
+
+function pickPhoto() {
+  if (selectedFiles.length >= 3) { showToast("写真は最大3枚です"); return; }
+  document.getElementById("file-input").click();
+}
+
+function onFileSelected(e) {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  if (!file.type.startsWith("image/")) { showToast("画像ファイルを選択してください"); return; }
+  if (selectedFiles.length >= 3) { showToast("写真は最大3枚です"); return; }
+  selectedFiles.push(file);
+  renderPhotoPreview();
+}
+
+function removePhoto(index) {
+  selectedFiles.splice(index, 1);
+  renderPhotoPreview();
+}
+
+function renderPhotoPreview() {
+  const container = document.getElementById("photo-preview");
+  const thumbs = selectedFiles.map((f, i) => {
+    const url = URL.createObjectURL(f);
+    return `
+      <div class="thumb">
+        <img src="${url}" />
+        <button class="remove" onclick="removePhoto(${i})">✕</button>
+      </div>
+    `;
+  }).join("");
+  const addBtn = selectedFiles.length < 3
+    ? `<button class="add-photo-btn" id="add-photo-btn" onclick="pickPhoto()"><span>📷</span>追加</button>`
+    : "";
+  container.innerHTML = thumbs + addBtn;
+}
+
+// ── 投稿処理 ─────────────────────────────────────────────────────────
+async function submitMemo() {
+  const content = document.getElementById("post-content").value.trim();
+  if (!content && selectedFiles.length === 0) {
+    showToast("メモか写真を入力してください");
+    return;
+  }
+
+  const btn = document.getElementById("submit-btn");
+  btn.disabled = true;
+  btn.textContent = "投稿中…";
+
+  try {
+    // 写真を Storage にアップロード
+    const photoUrls = [];
+    for (const file of selectedFiles) {
+      const url = await uploadPhoto(file);
+      photoUrls.push(url);
+    }
+
+    // メモ投稿
+    const res = await fetch(MEMO_API, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        site_id: currentSite.id,
+        content: content || null,
+        photo_urls: photoUrls,
+      }),
+    });
+    const { error } = await res.json();
+    if (error) throw new Error(error);
+
+    showToast("投稿しました！");
+    await loadMemos();         // 一覧を再取得してメモ画面へ
+  } catch (e) {
+    showToast("投稿に失敗しました: " + e.message);
+    btn.disabled = false;
+    btn.textContent = "投稿する";
+  }
+}
+
+// ── 写真アップロード ─────────────────────────────────────────────────
+async function uploadPhoto(file) {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${currentSite.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+
+  const res = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${path}`,
+    {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_ANON,
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": file.type,
+      },
+      body: file,
+    }
+  );
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.message ?? "写真のアップロードに失敗しました");
+  }
+  // 署名付き URL を生成して返す
+  const signRes = await fetch(
+    `${SUPABASE_URL}/storage/v1/object/sign/${STORAGE_BUCKET}/${path}`,
+    {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_ANON,
+        "Authorization": `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ expiresIn: 60 * 60 * 24 * 365 }),  // 1年
+    }
+  );
+  const { signedURL } = await signRes.json();
+  return `${SUPABASE_URL}/storage/v1${signedURL}`;
+}
+
+// ── ライトボックス ─────────────────────────────────────────────────
+function openLightbox(url) {
+  document.getElementById("lightbox-img").src = url;
+  document.getElementById("lightbox").classList.add("open");
+}
+function closeLightbox() {
+  document.getElementById("lightbox").classList.remove("open");
+  document.getElementById("lightbox-img").src = "";
+}
+
+// ── 画面切り替え ─────────────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(`screen-${name}`).classList.add("active");
+  currentScreen = name;
+}
+function showLoading() { document.getElementById("loading").classList.remove("hidden"); }
+function hideLoading()  { document.getElementById("loading").classList.add("hidden"); }
+
+// ── トースト ─────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+
+// ── ユーティリティ ────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+function formatDate(iso) {
+  const d = new Date(iso);
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+</script>
+</body>
+</html>
