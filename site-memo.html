@@ -352,6 +352,7 @@ async function loadSites() {
     }
 
     const companyId = workers[0].company_id;
+    currentUser.workerId = workers[0].id;
 
     // 2. company_idに紐づくアクティブな現場を取得
     const sitesRes = await fetch(
@@ -503,8 +504,8 @@ function renderPhotoPreview() {
 // ── 投稿処理 ─────────────────────────────────────────────────────────
 async function submitMemo() {
   const content = document.getElementById("post-content").value.trim();
-  if (!content && selectedFiles.length === 0) {
-    showToast("メモか写真を入力してください");
+  if (!content) {
+    showToast("メモ内容を入力してください");
     return;
   }
 
@@ -513,31 +514,28 @@ async function submitMemo() {
   btn.textContent = "投稿中…";
 
   try {
-    // 写真を Storage にアップロード
-    const photoUrls = [];
-    for (const file of selectedFiles) {
-      const url = await uploadPhoto(file);
-      photoUrls.push(url);
-    }
-
-    // メモ投稿
-    const res = await fetch(MEMO_API, {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/site_memos`, {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${accessToken}`,
+        "apikey": SUPABASE_ANON,
+        "Authorization": `Bearer ${SUPABASE_ANON}`,
         "Content-Type": "application/json",
+        "Prefer": "return=minimal",
       },
       body: JSON.stringify({
         site_id: currentSite.id,
-        content: content || null,
-        photo_urls: photoUrls,
+        user_id: currentUser.workerId,
+        content: content,
+        photo_urls: [],
       }),
     });
-    const { error } = await res.json();
-    if (error) throw new Error(error);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message ?? `HTTP ${res.status}`);
+    }
 
     showToast("投稿しました！");
-    await loadMemos();         // 一覧を再取得してメモ画面へ
+    await loadMemos();
   } catch (e) {
     showToast("投稿に失敗しました: " + e.message);
     btn.disabled = false;
