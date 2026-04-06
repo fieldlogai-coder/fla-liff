@@ -556,8 +556,8 @@ function renderPhotoPreview() {
 // ── 投稿処理 ─────────────────────────────────────────────────────────
 async function submitMemo() {
   const content = document.getElementById("post-content").value.trim();
-  if (!content) {
-    showToast("メモ内容を入力してください");
+  if (!content && selectedFiles.length === 0) {
+    showToast("メモ内容か写真を入力してください");
     return;
   }
 
@@ -569,9 +569,18 @@ async function submitMemo() {
 
   const btn = document.getElementById("submit-btn");
   btn.disabled = true;
-  btn.textContent = "投稿中…";
 
   try {
+    // 写真アップロード
+    const photoUrls = [];
+    for (let i = 0; i < selectedFiles.length; i++) {
+      btn.textContent = `写真アップロード中… (${i + 1}/${selectedFiles.length})`;
+      const url = await uploadPhoto(selectedFiles[i]);
+      photoUrls.push(url);
+    }
+
+    btn.textContent = "投稿中…";
+
     const res = await fetch(`${SUPABASE_URL}/rest/v1/site_memos`, {
       method: "POST",
       headers: {
@@ -584,7 +593,7 @@ async function submitMemo() {
         site_id: currentSite.id,
         user_id: currentUser.workerId,
         content: content,
-        photo_urls: [],
+        photo_urls: photoUrls,
       }),
     });
 
@@ -644,10 +653,35 @@ async function confirmMemo(memoId) {
   }
 }
 
+// ── 画像圧縮 ──────────────────────────────────────────────────────────
+function compressImage(file, maxPx = 1200, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const objUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objUrl);
+      let { width: w, height: h } = img;
+      if (w > maxPx || h > maxPx) {
+        if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else       { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = w; canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        blob => blob ? resolve(blob) : reject(new Error("圧縮に失敗しました")),
+        "image/jpeg", quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(objUrl); reject(new Error("画像の読み込みに失敗しました")); };
+    img.src = objUrl;
+  });
+}
+
 // ── 写真アップロード ─────────────────────────────────────────────────
 async function uploadPhoto(file) {
-  const ext = file.name.split(".").pop() || "jpg";
-  const path = `${currentSite.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const compressed = await compressImage(file);
+  const path = `${currentSite.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
 
   const res = await fetch(
     `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${path}`,
@@ -655,31 +689,17 @@ async function uploadPhoto(file) {
       method: "POST",
       headers: {
         "apikey": SUPABASE_ANON,
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": file.type,
+        "Authorization": `Bearer ${SUPABASE_ANON}`,
+        "Content-Type": "image/jpeg",
       },
-      body: file,
+      body: compressed,
     }
   );
   if (!res.ok) {
-    const err = await res.json();
-    throw new Error(err.message ?? "写真のアップロードに失敗しました");
+    const errText = await res.text();
+    throw new Error(errText || "写真のアップロードに失敗しました");
   }
-  // 署名付き URL を生成して返す
-  const signRes = await fetch(
-    `${SUPABASE_URL}/storage/v1/object/sign/${STORAGE_BUCKET}/${path}`,
-    {
-      method: "POST",
-      headers: {
-        "apikey": SUPABASE_ANON,
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ expiresIn: 60 * 60 * 24 * 365 }),  // 1年
-    }
-  );
-  const { signedURL } = await signRes.json();
-  return `${SUPABASE_URL}/storage/v1${signedURL}`;
+  return `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
 }
 
 // ── ライトボックス ─────────────────────────────────────────────────
