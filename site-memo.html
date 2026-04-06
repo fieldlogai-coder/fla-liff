@@ -228,13 +228,16 @@
       background: none;
       border: none;
       cursor: pointer;
-      font-size: 15px;
-      padding: 0 0 0 8px;
-      opacity: 0.45;
-      vertical-align: middle;
+      font-size: 12px;
+      color: #e74c3c;
+      opacity: 0.6;
+      padding: 5px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      flex-shrink: 0;
       line-height: 1;
     }
-    .delete-btn:active { opacity: 1; }
+    .delete-btn:active { opacity: 1; background: #fdecea; }
 
     /* ── 確認セクション ── */
     .confirm-section {
@@ -495,19 +498,20 @@ function renderMemo(m) {
     : `<button class="confirm-btn" onclick="confirmMemo(${m.id})">確認</button>`;
 
   const deleteBtnHtml = isOwn
-    ? `<button class="delete-btn" onclick="deleteMemo(${m.id})" title="削除">🗑</button>`
+    ? `<button class="delete-btn" onclick="deleteMemo(${m.id})">削除</button>`
     : "";
 
   return `
     <div class="memo-card">
       <div class="meta">
         <span class="author">${escHtml(author)}</span>
-        <span>${dt}${deleteBtnHtml}</span>
+        <span>${dt}</span>
       </div>
       ${content}
       ${photosHtml}
       <div class="confirm-section">
         ${confirmedNamesHtml}
+        ${deleteBtnHtml}
         ${confirmBtnHtml}
       </div>
     </div>
