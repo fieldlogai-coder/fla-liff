@@ -223,6 +223,19 @@
       border: none;
     }
 
+    /* ── 削除ボタン ── */
+    .delete-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 15px;
+      padding: 0 0 0 8px;
+      opacity: 0.45;
+      vertical-align: middle;
+      line-height: 1;
+    }
+    .delete-btn:active { opacity: 1; }
+
     /* ── 確認セクション ── */
     .confirm-section {
       margin-top: 10px;
@@ -469,7 +482,10 @@ function renderMemo(m) {
     .filter(c => c.workers?.name)
     .map(c => escHtml(c.workers.name));
   // eslint-disable-next-line eqeqeq
-  const alreadyConfirmed = confirmations.some(c => c.worker_id == currentUser.workerId);
+  const isOwn = m.user_id == currentUser.workerId;
+  // 投稿者本人は確認レコードがなくても確認済みとみなす（memo_confirmations作成前のメモ対応）
+  // eslint-disable-next-line eqeqeq
+  const alreadyConfirmed = isOwn || confirmations.some(c => c.worker_id == currentUser.workerId);
 
   const confirmedNamesHtml = confirmedNames.length > 0
     ? `<div class="confirmed-names">✓ ${confirmedNames.join("、")}</div>`
@@ -478,11 +494,15 @@ function renderMemo(m) {
     ? `<button class="confirm-btn confirmed" disabled>確認済み ✓</button>`
     : `<button class="confirm-btn" onclick="confirmMemo(${m.id})">確認</button>`;
 
+  const deleteBtnHtml = isOwn
+    ? `<button class="delete-btn" onclick="deleteMemo(${m.id})" title="削除">🗑</button>`
+    : "";
+
   return `
     <div class="memo-card">
       <div class="meta">
         <span class="author">${escHtml(author)}</span>
-        <span>${dt}</span>
+        <span>${dt}${deleteBtnHtml}</span>
       </div>
       ${content}
       ${photosHtml}
@@ -620,6 +640,8 @@ async function submitMemo() {
     } catch (_) { /* 確認登録失敗は無視してメモ投稿は成功とみなす */ }
 
     showToast("投稿しました！");
+    btn.textContent = "投稿する";
+    btn.disabled = false;
     await loadMemos();
   } catch (e) {
     showToast("投稿に失敗しました: " + e.message);
@@ -650,6 +672,32 @@ async function confirmMemo(memoId) {
     await loadMemos();
   } catch (e) {
     showToast("確認に失敗しました");
+  }
+}
+
+// ── 削除処理 ─────────────────────────────────────────────────────────
+async function deleteMemo(memoId) {
+  if (!confirm("このメモを削除しますか？")) return;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/site_memos?id=eq.${memoId}&user_id=eq.${currentUser.workerId}`,
+      {
+        method: "DELETE",
+        headers: {
+          "apikey": SUPABASE_ANON,
+          "Authorization": `Bearer ${SUPABASE_ANON}`,
+        },
+      }
+    );
+    if (!res.ok) {
+      const errText = await res.text();
+      showToast("削除に失敗しました: " + errText);
+      return;
+    }
+    showToast("削除しました");
+    await loadMemos();
+  } catch (e) {
+    showToast("削除に失敗しました");
   }
 }
 
