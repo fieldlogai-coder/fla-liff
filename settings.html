@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>設定・確認</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      min-height: 100vh;
+    }
+
+    /* ── ヘッダー ── */
+    header {
+      background: #00b900;
+      color: #fff;
+      padding: 14px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: 48px;
+      display: flex;
+      align-items: center;
+    }
+    header h1 { font-size: 17px; }
+
+    /* ── タブ ── */
+    #tab-bar {
+      display: flex;
+      background: #fff;
+      border-bottom: 2px solid #e0e0e0;
+      position: sticky;
+      top: 48px;
+      z-index: 99;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .tab {
+      flex: 1;
+      min-width: 70px;
+      padding: 11px 6px;
+      border: none;
+      background: none;
+      font-size: 13px;
+      color: #888;
+      cursor: pointer;
+      white-space: nowrap;
+      border-bottom: 3px solid transparent;
+      transition: color .15s;
+      font-family: inherit;
+    }
+    .tab.active { color: #00b900; border-bottom-color: #00b900; font-weight: bold; }
+
+    /* ── ローディング ── */
+    #loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 60vh;
+      font-size: 15px;
+      color: #888;
+    }
+    #loading.hidden { display: none; }
+
+    /* ── セクション ── */
+    .section { display: none; padding: 16px; padding-bottom: 80px; }
+    .section.active { display: block; }
+
+    /* ── カード共通 ── */
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      margin-bottom: 10px;
+    }
+    .card-title { font-size: 15px; font-weight: bold; }
+    .card-sub { font-size: 12px; color: #888; margin-top: 4px; }
+    .card-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
+
+    /* ── プロフィール ── */
+    .info-label { font-size: 12px; color: #888; margin-top: 10px; }
+    .info-label:first-child { margin-top: 0; }
+    .info-value { font-size: 15px; font-weight: bold; margin-top: 2px; }
+
+    /* ── 報告履歴 ── */
+    .section-label {
+      font-size: 13px;
+      font-weight: bold;
+      color: #555;
+      margin: 16px 0 8px;
+    }
+    .history-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 14px;
+    }
+    .history-row:last-child { border-bottom: none; }
+    .history-date { color: #888; font-size: 12px; width: 48px; flex-shrink: 0; }
+    .history-site { flex: 1; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #e8f5e9;
+      color: #27ae60;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .badge.half { background: #fff8e1; color: #f39c12; }
+
+    /* ── 追加ボタン ── */
+    .add-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 14px;
+      background: #00b900;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 4px;
+      font-family: inherit;
+    }
+    .add-btn:active { background: #009900; }
+
+    /* ── ロールバッジ ── */
+    .role-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #e3f2fd;
+      color: #1976d2;
+      flex-shrink: 0;
+    }
+    .role-admin { background: #fce4ec; color: #c62828; }
+    .role-foreman { background: #fff3e0; color: #e65100; }
+
+    /* ── 操作ボタン (小) ── */
+    .btn-sm {
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 6px;
+      border: 1px solid #ddd;
+      background: #fff;
+      cursor: pointer;
+      color: #555;
+      font-family: inherit;
+    }
+    .btn-sm:active { background: #f5f5f5; }
+    .btn-sm.danger { border-color: #e74c3c; color: #e74c3c; }
+    .btn-sm.primary { border-color: #00b900; color: #00b900; }
+
+    /* ── 単価 ── */
+    .price-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .price-row:last-child { border-bottom: none; }
+    .price-label { flex: 1; font-size: 14px; }
+    .price-value { font-size: 16px; font-weight: bold; min-width: 80px; text-align: right; }
+
+    /* ── プレースホルダーセクション ── */
+    .placeholder-section {
+      text-align: center;
+      padding: 20px;
+      background: #fff;
+      border-radius: 10px;
+      color: #bbb;
+      font-size: 13px;
+      margin-top: 8px;
+      border: 2px dashed #e0e0e0;
+    }
+
+    /* ── モーダル（ボトムシート） ── */
+    #modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.5);
+      z-index: 200;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    #modal.open { display: flex; }
+    .modal-box {
+      background: #fff;
+      border-radius: 16px 16px 0 0;
+      padding: 24px 20px 32px;
+      width: 100%;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+    .modal-title { font-size: 16px; font-weight: bold; margin-bottom: 16px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { font-size: 13px; color: #555; display: block; margin-bottom: 6px; }
+    .form-group input, .form-group select {
+      width: 100%;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 15px;
+      font-family: inherit;
+    }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: #00b900; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+    .modal-actions button {
+      flex: 1;
+      padding: 13px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+    }
+    .btn-cancel { background: #f0f0f0; color: #555; }
+    .btn-submit { background: #00b900; color: #fff; }
+    .btn-submit:disabled { background: #b2dfb2; cursor: not-allowed; }
+    .btn-warning { background: #e74c3c; color: #fff; }
+    .modal-msg { font-size: 14px; line-height: 1.6; }
+    .modal-msg strong { color: #333; }
+    .modal-note { font-size: 12px; color: #888; margin-top: 6px; }
+
+    /* ── トースト ── */
+    #toast {
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 300;
+    }
+    #toast.show { opacity: 1; }
+    #toast.err { background: #e74c3c; }
+
+    .empty { text-align: center; color: #aaa; padding: 30px 0; font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<header><h1>設定・確認</h1></header>
+
+<nav id="tab-bar">
+  <button class="tab active" onclick="showTab('info')">自分の情報</button>
+  <button class="tab" onclick="showTab('sites')">現場</button>
+  <button class="tab" onclick="showTab('workers')">作業員</button>
+  <button class="tab" id="tab-pricing" style="display:none" onclick="showTab('pricing')">単価</button>
+</nav>
+
+<div id="loading">読み込み中…</div>
+
+<!-- セクション1: 自分の情報 -->
+<div id="section-info" class="section">
+  <div class="card" id="profile-card"></div>
+  <div class="section-label">直近10件の報告履歴</div>
+  <div class="card" id="history-card"><div class="empty">読み込み中…</div></div>
+</div>
+
+<!-- セクション2: 現場 -->
+<div id="section-sites" class="section">
+  <div id="sites-list"></div>
+  <button class="add-btn" onclick="openAddSite()">＋ 現場を追加</button>
+</div>
+
+<!-- セクション3: 作業員 -->
+<div id="section-workers" class="section">
+  <div id="workers-list"></div>
+  <button class="add-btn" id="add-worker-btn" style="display:none" onclick="openAddWorker()">＋ 作業員を追加</button>
+</div>
+
+<!-- セクション4: 単価 (admin only) -->
+<div id="section-pricing" class="section">
+  <div class="card" id="pricing-card"><div class="empty">読み込み中…</div></div>
+  <div class="placeholder-section">将来追加予定：残業手当・夜勤手当の設定</div>
+</div>
+
+<!-- モーダル（ボトムシート） -->
+<div id="modal" onclick="onModalBg(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-title" id="modal-title"></div>
+    <div id="modal-body"></div>
+    <div class="modal-actions" id="modal-actions"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── 定数 ─────────────────────────────────────────────────────────────
+const LIFF_ID      = "2009694631-Q9UpokY1"; // TODO: 設定画面専用LIFFに差し替え
+const SUPA_URL     = "https://qxeqaqnzbsuykmzwkvhx.supabase.co";
+const SUPA_ANON    = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZXFhcW56YnN1eWttendrdmh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDQzNDQsImV4cCI6MjA4OTcyMDM0NH0.jbXmGxpT2ZZ5DtB590-5GH-Pt3ofVNIsysL-ybq1v18";
+
+// ── 状態 ─────────────────────────────────────────────────────────────
+let cu = null;           // currentUser: { lineId, workerId, name, role, companyId, companyName }
+let allSites = [];       // Site[]
+let allWorkers = [];     // Worker[]
+let pricing = {};        // { full_price, half_price }
+
+// modal用
+let modalMode  = "";
+let pSiteName  = "";     // pending site name (類似確認待ち)
+let pBilling   = "";     // pending billing name
+let pSiteId    = null;   // pending site id (終了・編集用)
+let pWorkerId  = null;   // pending worker id (編集用)
+
+// ── 初期化 ───────────────────────────────────────────────────────────
+(async () => {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    const profile = await liff.getProfile();
+    cu = { lineId: profile.userId };
+    await boot();
+  } catch (e) {
+    toast("初期化失敗: " + e.message, true);
+    hide();
+  }
+})();
+
+async function boot() {
+  const res = await get(`/workers?line_user_id=eq.${enc(cu.lineId)}&select=id,name,role,company_id,companies(name)`);
+  if (!res.ok) { toast("ユーザー取得失敗", true); hide(); return; }
+  const rows = await res.json();
+  if (!rows.length) {
+    document.getElementById("profile-card").innerHTML = '<div class="empty">登録されていません。管理者に連絡してください。</div>';
+    hide(); showSec("info"); return;
+  }
+  const w = rows[0];
+  cu = { ...cu, workerId: w.id, name: w.name, role: w.role, companyId: w.company_id, companyName: w.companies?.name ?? "" };
+  if (cu.role === "admin") {
+    document.getElementById("tab-pricing").style.display = "";
+    document.getElementById("add-worker-btn").style.display = "";
+  }
+  renderProfile();
+  await Promise.all([loadHistory(), loadSites(), loadWorkers(), ...(cu.role === "admin" ? [loadPricing()] : [])]);
+  hide(); showSec("info");
+}
+
+// ── セクション1: 自分の情報 ──────────────────────────────────────────
+function renderProfile() {
+  const rl = roleLabel(cu.role);
+  document.getElementById("profile-card").innerHTML = `
+    <div class="info-label">名前</div><div class="info-value">${esc(cu.name)}</div>
+    <div class="info-label">役割</div><div class="info-value">${rl}</div>
+    <div class="info-label">所属会社</div><div class="info-value">${esc(cu.companyName)}</div>
+  `;
+}
+
+async function loadHistory() {
+  const res = await get(`/report_details?worker_id=eq.${cu.workerId}&is_subcontractor=eq.false&select=report_date,duration,sites(name)&order=report_date.desc&limit=10`);
+  const el = document.getElementById("history-card");
+  if (!res.ok) { el.innerHTML = '<div class="empty">取得に失敗しました</div>'; return; }
+  const rows = await res.json();
+  if (!rows.length) { el.innerHTML = '<div class="empty">報告履歴がありません</div>'; return; }
+  el.innerHTML = rows.map(r => {
+    const [, mm, dd] = r.report_date.split("-");
+    const dur = r.duration === "full" ? "終日" : "半日";
+    const cls = r.duration === "full" ? "" : " half";
+    return `<div class="history-row">
+      <span class="history-date">${+mm}/${+dd}</span>
+      <span class="history-site">${esc(r.sites?.name ?? "不明")}</span>
+      <span class="badge${cls}">${dur}</span>
+    </div>`;
+  }).join("");
+}
+
+// ── セクション2: 現場 ────────────────────────────────────────────────
+async function loadSites() {
+  const res = await get(`/sites?company_id=eq.${cu.companyId}&select=id,name,status,companies(name),workers!created_by(name)&order=name`);
+  if (!res.ok) { document.getElementById("sites-list").innerHTML = '<div class="empty">取得に失敗しました</div>'; return; }
+  allSites = await res.json();
+  renderSites();
+}
+
+function renderSites() {
+  const isAdmin = cu.role === "admin";
+  const active = allSites.filter(s => s.status === "active");
+  const el = document.getElementById("sites-list");
+  if (!active.length) { el.innerHTML = '<div class="empty">現場が登録されていません</div>'; return; }
+  el.innerHTML = active.map(s => {
+    const billing = s.companies?.name ?? "";
+    const creator = s.workers?.name ?? "";
+    const sub = [billing ? `請求先：${esc(billing)}` : "", creator ? `登録者：${esc(creator)}` : ""].filter(Boolean).join("　");
+    const adminBtns = isAdmin ? `
+      <button class="btn-sm primary" onclick="openEditSite(${s.id},'${esc(s.name)}')">編集</button>
+      <button class="btn-sm danger"  onclick="openEndSite(${s.id},'${esc(s.name)}')">終了</button>` : "";
+    return `<div class="card">
+      <div class="card-title">${esc(s.name)}</div>
+      ${sub ? `<div class="card-sub">${sub}</div>` : ""}
+      ${isAdmin ? `<div class="card-actions">${adminBtns}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function openAddSite() {
+  modalMode = "add-site";
+  const isAdmin = cu.role === "admin";
+  setModal("現場を追加", `
+    <div class="form-group"><label>現場名</label>
+      <input type="text" id="mi-site-name" placeholder="〇〇現場" maxlength="50" /></div>
+    ${isAdmin ? `<div class="form-group"><label>請求先（省略可）</label>
+      <input type="text" id="mi-billing" placeholder="△△工業" maxlength="50" /></div>` : ""}
+  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+     <button class="btn-submit" onclick="submitModal()">登録</button>`);
+}
+
+function openEditSite(id, name) {
+  pSiteId = id;
+  modalMode = "edit-site";
+  setModal("現場名を編集", `
+    <div class="form-group"><label>現場名</label>
+      <input type="text" id="mi-site-name" value="${esc(name)}" maxlength="50" /></div>
+  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+     <button class="btn-submit" onclick="submitModal()">保存</button>`);
+}
+
+function openEndSite(id, name) {
+  pSiteId = id;
+  modalMode = "end-site";
+  setModal("現場を終了", `
+    <p class="modal-msg">「<strong>${esc(name)}</strong>」を終了しますか？</p>
+    <p class="modal-note">終了後は一覧から非表示になります</p>
+  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+     <button class="btn-warning" onclick="submitModal()">終了する</button>`);
+}
+
+// ── セクション3: 作業員 ──────────────────────────────────────────────
+async function loadWorkers() {
+  const res = await get(`/workers?company_id=eq.${cu.companyId}&select=id,name,role&order=name`);
+  if (!res.ok) { document.getElementById("workers-list").innerHTML = '<div class="empty">取得に失敗しました</div>'; return; }
+  allWorkers = await res.json();
+  renderWorkers();
+}
+
+function renderWorkers() {
+  const isAdmin = cu.role === "admin";
+  const el = document.getElementById("workers-list");
+  if (!allWorkers.length) { el.innerHTML = '<div class="empty">作業員が登録されていません</div>'; return; }
+  el.innerHTML = allWorkers.map(w => {
+    const rc = w.role === "admin" ? " role-admin" : w.role === "foreman" ? " role-foreman" : "";
+    const adminBtns = isAdmin && w.id !== cu.workerId ? `
+      <button class="btn-sm" onclick="openEditWorker(${w.id},'${esc(w.name)}','${w.role}')">編集</button>
+      <button class="btn-sm primary" onclick="openChangeRole(${w.id},'${esc(w.name)}','${w.role}')">役割変更</button>` : "";
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="card-title">${esc(w.name)}</span>
+        <span class="role-badge${rc}">${roleLabel(w.role)}</span>
+      </div>
+      ${isAdmin ? `<div class="card-actions">${adminBtns}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function openAddWorker() {
+  modalMode = "add-worker";
+  setModal("作業員を追加", `
+    <div class="form-group"><label>名前</label>
+      <input type="text" id="mi-worker-name" placeholder="山田太郎" maxlength="30" /></div>
+    <div class="form-group"><label>役割</label>
+      <select id="mi-worker-role">
+        <option value="worker">作業員</option>
+        <option value="foreman">職長</option>
+        <option value="admin">管理者</option>
+      </select></div>
+  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+     <button class="btn-submit" onclick="submitModal()">追加</button>`);
+}
+
+function openEditWorker(id, name, role) {
+  pWorkerId = id;
+  modalMode = "edit-worker";
+  setModal(`${esc(name)} の名前を編集`, `
+    <div class="form-group"><label>名前</label>
+      <input type="text" id="mi-worker-name" value="${esc(name)}" maxlength="30" /></div>
+  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+     <button class="btn-submit" onclick="submitModal()">保存</button>`);
+}
+
+function openChangeRole(id, name, role) {
+  pWorkerId = id;
+  modalMode = "change-role";
+  setModal(`${esc(name)} の役割変更`, `
+    <div class="form-group"><label>役割</label>
+      <select id="mi-worker-role">
+        <option value="worker" ${role==="worker"?"selected":""}>作業員</option>
+        <option value="foreman" ${role==="foreman"?"selected":""}>職長</option>
+        <option value="admin" ${role==="admin"?"selected":""}>管理者</option>
+      </select></div>
+  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+     <button class="btn-submit" onclick="submitModal()">変更</button>`);
+}
+
+// ── セクション4: 単価 ────────────────────────────────────────────────
+async function loadPricing() {
+  const res = await get(`/companies?id=eq.${cu.companyId}&select=full_price,half_price`);
+  if (!res.ok) return;
+  const rows = await res.json();
+  if (!rows.length) return;
+  pricing = rows[0];
+  renderPricing();
+}
+
+function renderPricing() {
+  const hp = pricing.half_price != null
+    ? `¥${pricing.half_price.toLocaleString()}`
+    : `（未設定 ＝ 終日の半額）`;
+  document.getElementById("pricing-card").innerHTML = `
+    <div class="price-row">
+      <span class="price-label">終日単価</span>
+      <span class="price-value">¥${(pricing.full_price ?? 0).toLocaleString()}</span>
+    </div>
+    <div class="price-row">
+      <span class="price-label">半日単価</span>
+      <span class="price-value" style="font-size:13px;color:#555">${hp}</span>
+    </div>
+    <div class="card-actions">
+      <button class="btn-sm primary" onclick="openEditPricing()">編集</button>
+    </div>`;
+}
+
+function openEditPricing() {
+  modalMode = "edit-pricing";
+  setModal("単価を編集", `
+    <div class="form-group"><label>終日単価（円）</label>
+      <input type="number" id="mi-full-price" value="${pricing.full_price ?? ""}" placeholder="25000" min="1" /></div>
+    <div class="form-group"><label>半日単価（円・空欄で終日の半額）</label>
+      <input type="number" id="mi-half-price" value="${pricing.half_price ?? ""}" placeholder="空欄で終日の半額" min="1" /></div>
+  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+     <button class="btn-submit" onclick="submitModal()">保存</button>`);
+}
+
+// ── モーダル送信ディスパッチ ─────────────────────────────────────────
+async function submitModal() {
+  const btn = document.querySelector("#modal-actions .btn-submit, #modal-actions .btn-warning");
+  if (btn) btn.disabled = true;
+  try {
+    if      (modalMode === "add-site")     await doAddSite();
+    else if (modalMode === "edit-site")    await doEditSite();
+    else if (modalMode === "end-site")     await doEndSite();
+    else if (modalMode === "add-worker")   await doAddWorker();
+    else if (modalMode === "edit-worker")  await doEditWorker();
+    else if (modalMode === "change-role")  await doChangeRole();
+    else if (modalMode === "edit-pricing") await doEditPricing();
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+// ── 現場追加 ─────────────────────────────────────────────────────────
+async function doAddSite() {
+  const name    = val("mi-site-name");
+  const billing = val("mi-billing");
+  if (!name) { toast("現場名を入力してください", true); return; }
+
+  const activeSiteNames = allSites.filter(s => s.status === "active").map(s => s.name);
+  const sim = findSimilar(name, activeSiteNames);
+  if (sim) {
+    pSiteName = name; pBilling = billing;
+    modalMode = "similar-confirm";
+    setModal("登録済みの現場があります", `
+      <p class="modal-msg">「<strong>${esc(sim)}</strong>」が登録済みです。こちらではありませんか？</p>
+    `, `<button class="btn-submit" onclick="closeModal()">はい（登録しない）</button>
+       <button class="btn-cancel" onclick="doNewSite()">いいえ（新規登録する）</button>`);
+    return;
+  }
+  await insertSite(name, billing);
+}
+
+async function doNewSite() { closeModal(); await insertSite(pSiteName, pBilling); }
+
+async function insertSite(name, billing) {
+  let compId = cu.companyId;
+  if (cu.role === "admin" && billing) {
+    const fr = await get(`/companies?name=eq.${enc(billing)}&select=id`);
+    if (fr.ok) {
+      const found = await fr.json();
+      if (found.length) {
+        compId = found[0].id;
+      } else {
+        const pr = await get(`/companies?id=eq.${cu.companyId}&select=full_price,half_price`);
+        const pd = pr.ok ? (await pr.json())[0] : { full_price: 25000, half_price: null };
+        const cr = await post("/companies", { name: billing, full_price: pd.full_price ?? 25000, half_price: pd.half_price ?? null });
+        if (cr.ok) { const cd = await cr.json(); if (cd.length) compId = cd[0].id; }
+      }
+    }
+  }
+  const res = await post("/sites", { company_id: compId, name, status: "active", created_by: cu.workerId });
+  if (!res.ok) { toast("登録に失敗しました: " + await res.text(), true); return; }
+  closeModal(); toast(`「${name}」を登録しました`); await loadSites();
+}
+
+// ── 現場編集 ─────────────────────────────────────────────────────────
+async function doEditSite() {
+  const name = val("mi-site-name");
+  if (!name) { toast("現場名を入力してください", true); return; }
+  const res = await patch(`/sites?id=eq.${pSiteId}`, { name });
+  if (!res.ok) { toast("更新に失敗しました", true); return; }
+  closeModal(); toast("現場名を更新しました"); await loadSites();
+}
+
+// ── 現場終了 ─────────────────────────────────────────────────────────
+async function doEndSite() {
+  const res = await patch(`/sites?id=eq.${pSiteId}`, { status: "done" });
+  if (!res.ok) { toast("終了処理に失敗しました", true); return; }
+  closeModal(); toast("現場を終了しました"); await loadSites();
+}
+
+// ── 作業員追加 ────────────────────────────────────────────────────────
+async function doAddWorker() {
+  const name = val("mi-worker-name");
+  const role = val("mi-worker-role") || "worker";
+  if (!name) { toast("名前を入力してください", true); return; }
+  const res = await post("/workers", { company_id: cu.companyId, name, role, line_user_id: null });
+  if (!res.ok) { toast("追加に失敗しました", true); return; }
+  closeModal(); toast(`${name}さんを追加しました`); await loadWorkers();
+}
+
+// ── 作業員名前編集 ────────────────────────────────────────────────────
+async function doEditWorker() {
+  const name = val("mi-worker-name");
+  if (!name) { toast("名前を入力してください", true); return; }
+  const res = await patch(`/workers?id=eq.${pWorkerId}`, { name });
+  if (!res.ok) { toast("更新に失敗しました", true); return; }
+  closeModal(); toast("名前を更新しました"); await loadWorkers();
+}
+
+// ── 役割変更 ─────────────────────────────────────────────────────────
+async function doChangeRole() {
+  const role = val("mi-worker-role") || "worker";
+  const res = await patch(`/workers?id=eq.${pWorkerId}`, { role });
+  if (!res.ok) { toast("変更に失敗しました", true); return; }
+  closeModal(); toast("役割を変更しました"); await loadWorkers();
+}
+
+// ── 単価変更 ─────────────────────────────────────────────────────────
+async function doEditPricing() {
+  const fp = parseInt(val("mi-full-price") || "0", 10);
+  const hs = val("mi-half-price");
+  const hp = hs ? parseInt(hs, 10) : null;
+  if (!fp || fp <= 0) { toast("終日単価を正しく入力してください", true); return; }
+  if (hs && (!hp || hp <= 0)) { toast("半日単価を正しく入力してください", true); return; }
+  const res = await patch(`/companies?id=eq.${cu.companyId}`, { full_price: fp, half_price: hp });
+  if (!res.ok) { toast("更新に失敗しました", true); return; }
+  pricing.full_price = fp; pricing.half_price = hp;
+  closeModal(); renderPricing(); toast("単価を更新しました");
+}
+
+// ── タブ切り替え ─────────────────────────────────────────────────────
+function showTab(tab) {
+  document.querySelectorAll(".tab").forEach(t => {
+    t.classList.toggle("active", t.getAttribute("onclick") === `showTab('${tab}')`);
+  });
+  showSec(tab);
+}
+
+function showSec(name) {
+  document.querySelectorAll(".section").forEach(s => s.classList.remove("active"));
+  document.getElementById(`section-${name}`).classList.add("active");
+}
+
+// ── モーダル制御 ─────────────────────────────────────────────────────
+function setModal(title, body, actions) {
+  document.getElementById("modal-title").innerHTML = title;
+  document.getElementById("modal-body").innerHTML = body;
+  document.getElementById("modal-actions").innerHTML = actions;
+  document.getElementById("modal").classList.add("open");
+  setTimeout(() => {
+    const f = document.querySelector("#modal-body input, #modal-body select");
+    if (f) { f.focus(); if (f.select) f.select(); }
+  }, 120);
+}
+function closeModal() { document.getElementById("modal").classList.remove("open"); modalMode = ""; }
+function onModalBg(e) { if (e.target === document.getElementById("modal")) closeModal(); }
+
+// ── REST ヘルパー ─────────────────────────────────────────────────────
+const H = (extra = {}) => ({
+  "apikey": SUPA_ANON, "Authorization": `Bearer ${SUPA_ANON}`,
+  "Content-Type": "application/json", ...extra,
+});
+const get   = p       => fetch(`${SUPA_URL}/rest/v1${p}`, { headers: H() });
+const post  = (p, b)  => fetch(`${SUPA_URL}/rest/v1${p}`, { method: "POST",  headers: H({ "Prefer": "return=representation" }), body: JSON.stringify(b) });
+const patch = (p, b)  => fetch(`${SUPA_URL}/rest/v1${p}`, { method: "PATCH", headers: H({ "Prefer": "return=minimal" }), body: JSON.stringify(b) });
+
+// ── 類似名チェック ────────────────────────────────────────────────────
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: n + 1 }, (_, i) => i);
+  for (let i = 1; i <= m; i++) {
+    let prev = dp[0]; dp[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = dp[j];
+      dp[j] = a[i-1] === b[j-1] ? prev : 1 + Math.min(prev, dp[j], dp[j-1]);
+      prev = tmp;
+    }
+  }
+  return dp[n];
+}
+function findSimilar(name, names) {
+  for (const n of names) {
+    if (n.startsWith(name) || name.startsWith(n)) return n;
+    if (levenshtein(name, n) <= 3) return n;
+  }
+  return null;
+}
+
+// ── ユーティリティ ────────────────────────────────────────────────────
+function roleLabel(r) { return r === "admin" ? "管理者" : r === "foreman" ? "職長" : "作業員"; }
+function val(id) { return (document.getElementById(id)?.value ?? "").trim(); }
+function enc(s) { return encodeURIComponent(s); }
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+function toast(msg, isErr = false) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.className = isErr ? "err show" : "show";
+  setTimeout(() => t.classList.remove("show"), 3000);
+}
+function hide() { document.getElementById("loading").classList.add("hidden"); }
+</script>
+</body>
+</html>
