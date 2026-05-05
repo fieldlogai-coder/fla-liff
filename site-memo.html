@@ -402,6 +402,7 @@ async function loadSites() {
 
     const companyId = workers[0].company_id;
     currentUser.workerId = workers[0].id;
+    currentUser.companyId = workers[0].company_id;
 
     // 2. company_idに紐づくアクティブな現場を取得
     const sitesRes = await fetch(
@@ -614,6 +615,7 @@ async function submitMemo() {
         "Prefer": "return=representation",  // return=minimalだとRLSブロック時も204になるため
       },
       body: JSON.stringify({
+        company_id: currentUser.companyId,
         site_id: currentSite.id,
         user_id: currentUser.workerId,
         content: content,
@@ -639,7 +641,7 @@ async function submitMemo() {
           "Content-Type": "application/json",
           "Prefer": "return=minimal",
         },
-        body: JSON.stringify({ memo_id: memoId, worker_id: currentUser.workerId }),
+        body: JSON.stringify({ company_id: currentUser.companyId, memo_id: memoId, worker_id: currentUser.workerId }),
       });
     } catch (_) { /* 確認登録失敗は無視してメモ投稿は成功とみなす */ }
 
@@ -665,7 +667,7 @@ async function confirmMemo(memoId) {
         "Content-Type": "application/json",
         "Prefer": "return=minimal",
       },
-      body: JSON.stringify({ memo_id: memoId, worker_id: currentUser.workerId }),
+      body: JSON.stringify({ company_id: currentUser.companyId, memo_id: memoId, worker_id: currentUser.workerId }),
     });
     if (!res.ok) {
       const errText = await res.text();

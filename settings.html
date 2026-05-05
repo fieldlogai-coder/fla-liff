@@ -374,7 +374,12 @@ function renderProfile() {
 async function loadHistory() {
   const res = await get(`/report_details?worker_id=eq.${cu.workerId}&is_subcontractor=eq.false&select=report_date,duration,sites(name)&order=report_date.desc&limit=10`);
   const el = document.getElementById("history-card");
-  if (!res.ok) { el.innerHTML = '<div class="empty">取得に失敗しました</div>'; return; }
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => "(no body)");
+    console.error("[loadHistory] HTTP error", res.status, errorText);
+    el.innerHTML = `<div class="empty">取得に失敗しました (HTTP ${res.status})</div>`;
+    return;
+  }
   const rows = await res.json();
   if (!rows.length) { el.innerHTML = '<div class="empty">報告履歴がありません</div>'; return; }
   el.innerHTML = rows.map(r => {
