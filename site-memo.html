@@ -351,9 +351,12 @@ const SUPABASE_URL   = "https://qxeqaqnzbsuykmzwkvhx.supabase.co";
 const SUPABASE_ANON  = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZXFhcW56YnN1eWttendrdmh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDQzNDQsImV4cCI6MjA4OTcyMDM0NH0.jbXmGxpT2ZZ5DtB590-5GH-Pt3ofVNIsysL-ybq1v18";
 const MEMO_API       = `${SUPABASE_URL}/functions/v1/memo-api`;
 const STORAGE_BUCKET = "memo-photos";
+// M4.1 P2: LINE IDトークンを auth-session に渡し、company_id/worker_id 入りの Supabase JWT を取得する
+const AUTH_FN        = `${SUPABASE_URL}/functions/v1/auth-session`;
 
 // ── 状態 ───────────────────────────────────────────────────────────────
-let accessToken = "";
+let flaToken    = "";          // Supabase JWT（auth-session 発行・role=authenticated）
+let flaTokenExp = 0;           // JWT 失効時刻（ms epoch）
 let currentUser = null;        // { id, name }
 let currentSite = null;        // { id, name }
 let selectedFiles = [];        // File[] (最大3枚)
@@ -365,10 +368,10 @@ let currentScreen = "sites";
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login(); return; }
 
-    accessToken = liff.getAccessToken();
     const profile = await liff.getProfile();
     currentUser = { lineId: profile.userId, name: profile.displayName };
 
+    await ensureToken();   // 認証経路を先に確立（失敗ならここで止める）
     await loadSites();
   } catch (e) {
     showToast("初期化に失敗しました: " + e.message);
@@ -376,19 +379,44 @@ let currentScreen = "sites";
   }
 })();
 
+// ── 認証（M4.1 P2）─────────────────────────────────────────────────────
+// LINE ID トークン → auth-session → Supabase JWT。期限が近ければ再取得。
+async function ensureToken() {
+  if (flaToken && Date.now() < flaTokenExp - 60000) return flaToken;
+  const idToken = liff.getIDToken();
+  if (!idToken) throw new Error("IDトークンを取得できません（再ログインしてください）");
+  const res = await fetch(AUTH_FN, {
+    method: "POST",
+    headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ id_token: idToken }),
+  });
+  if (!res.ok) throw new Error(`認証に失敗しました (HTTP ${res.status})`);
+  const data = await res.json();
+  flaToken = data.access_token;
+  flaTokenExp = Date.now() + ((data.expires_in ?? 3600) * 1000);
+  return flaToken;
+}
+
+// REST 呼び出しヘルパー: apikey は anon 据え置き、Authorization は user JWT。401 は1回だけ再取得して再試行。
+// ※ 写真アップロード（Storage）は anon のまま（uploadPhoto は本ヘルパーを通さない）。
+async function sbFetch(path, init = {}) {
+  await ensureToken();
+  const run = () => fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+    ...init,
+    headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${flaToken}`, ...(init.headers || {}) },
+  });
+  let res = await run();
+  if (res.status === 401) { flaToken = ""; await ensureToken(); res = await run(); }
+  return res;
+}
+
 // ── 現場一覧取得 ─────────────────────────────────────────────────────
 async function loadSites() {
   showLoading();
   try {
     // 1. workersテーブルでLINEユーザーIDを照合してcompany_idを取得
-    const workerRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/workers?line_user_id=eq.${encodeURIComponent(currentUser.lineId)}&select=id,name,company_id`,
-      {
-        headers: {
-          "apikey": SUPABASE_ANON,
-          "Authorization": `Bearer ${SUPABASE_ANON}`,
-        },
-      }
+    const workerRes = await sbFetch(
+      `/workers?line_user_id=eq.${encodeURIComponent(currentUser.lineId)}&select=id,name,company_id`
     );
     const workers = await workerRes.json();
 
@@ -405,14 +433,8 @@ async function loadSites() {
     currentUser.companyId = workers[0].company_id;
 
     // 2. company_idに紐づくアクティブな現場を取得
-    const sitesRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/sites?company_id=eq.${companyId}&status=eq.active&select=id,name&order=name`,
-      {
-        headers: {
-          "apikey": SUPABASE_ANON,
-          "Authorization": `Bearer ${SUPABASE_ANON}`,
-        },
-      }
+    const sitesRes = await sbFetch(
+      `/sites?company_id=eq.${companyId}&status=eq.active&select=id,name&order=name`
     );
     const sites = await sitesRes.json();
 
@@ -446,14 +468,8 @@ async function selectSite(siteId, siteName) {
 async function loadMemos() {
   showLoading();
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/site_memos?site_id=eq.${currentSite.id}&select=id,content,photo_urls,created_at,user_id,workers!user_id(name),memo_confirmations(worker_id,workers!worker_id(name))&order=created_at.desc&limit=50`,
-      {
-        headers: {
-          "apikey": SUPABASE_ANON,
-          "Authorization": `Bearer ${SUPABASE_ANON}`,
-        },
-      }
+    const res = await sbFetch(
+      `/site_memos?site_id=eq.${currentSite.id}&select=id,content,photo_urls,created_at,user_id,workers!user_id(name),memo_confirmations(worker_id,workers!worker_id(name))&order=created_at.desc&limit=50`
     );
     const memos = await res.json();
 
@@ -606,11 +622,9 @@ async function submitMemo() {
 
     btn.textContent = "投稿中…";
 
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/site_memos`, {
+    const res = await sbFetch(`/site_memos`, {
       method: "POST",
       headers: {
-        "apikey": SUPABASE_ANON,
-        "Authorization": `Bearer ${SUPABASE_ANON}`,
         "Content-Type": "application/json",
         "Prefer": "return=representation",  // return=minimalだとRLSブロック時も204になるため
       },
@@ -633,11 +647,9 @@ async function submitMemo() {
     try {
       const posted = JSON.parse(resText);
       const memoId = Array.isArray(posted) ? posted[0].id : posted.id;
-      await fetch(`${SUPABASE_URL}/rest/v1/memo_confirmations`, {
+      await sbFetch(`/memo_confirmations`, {
         method: "POST",
         headers: {
-          "apikey": SUPABASE_ANON,
-          "Authorization": `Bearer ${SUPABASE_ANON}`,
           "Content-Type": "application/json",
           "Prefer": "return=minimal",
         },
@@ -659,11 +671,9 @@ async function submitMemo() {
 // ── 確認処理 ─────────────────────────────────────────────────────────
 async function confirmMemo(memoId) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/memo_confirmations`, {
+    const res = await sbFetch(`/memo_confirmations`, {
       method: "POST",
       headers: {
-        "apikey": SUPABASE_ANON,
-        "Authorization": `Bearer ${SUPABASE_ANON}`,
         "Content-Type": "application/json",
         "Prefer": "return=minimal",
       },
@@ -685,15 +695,9 @@ async function confirmMemo(memoId) {
 async function deleteMemo(memoId) {
   if (!confirm("このメモを削除しますか？")) return;
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/site_memos?id=eq.${memoId}&user_id=eq.${currentUser.workerId}`,
-      {
-        method: "DELETE",
-        headers: {
-          "apikey": SUPABASE_ANON,
-          "Authorization": `Bearer ${SUPABASE_ANON}`,
-        },
-      }
+    const res = await sbFetch(
+      `/site_memos?id=eq.${memoId}&user_id=eq.${currentUser.workerId}`,
+      { method: "DELETE" }
     );
     if (!res.ok) {
       const errText = await res.text();
