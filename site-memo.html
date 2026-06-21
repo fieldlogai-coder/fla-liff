@@ -385,9 +385,11 @@ async function ensureToken() {
   if (flaToken && Date.now() < flaTokenExp - 60000) return flaToken;
   const idToken = liff.getIDToken();
   if (!idToken) throw new Error("IDトークンを取得できません（再ログインしてください）");
+  // auth-session(EF) は Authorization の anon JWT だけで通る。apikey を送ると CORS 許可ヘッダ外で
+  // プリフライトに弾かれる（"Load failed"）ため、ここでは apikey を付けない。
   const res = await fetch(AUTH_FN, {
     method: "POST",
-    headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${SUPABASE_ANON}`, "Content-Type": "application/json" },
+    headers: { "Authorization": `Bearer ${SUPABASE_ANON}`, "Content-Type": "application/json" },
     body: JSON.stringify({ id_token: idToken }),
   });
   if (!res.ok) throw new Error(`認証に失敗しました (HTTP ${res.status})`);
