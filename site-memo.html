@@ -358,6 +358,7 @@ const AUTH_FN        = `${SUPABASE_URL}/functions/v1/auth-session`;
 let flaToken    = "";          // Supabase JWT（auth-session 発行・role=authenticated）
 let flaTokenExp = 0;           // JWT 失効時刻（ms epoch）
 let currentUser = null;        // { id, name }
+let siteList    = [];          // 現場一覧（onclickにIDだけ渡し名前はここから引く）
 let currentSite = null;        // { id, name }
 let selectedFiles = [];        // File[] (最大3枚)
 let currentScreen = "sites";
@@ -439,12 +440,13 @@ async function loadSites() {
       `/sites?company_id=eq.${companyId}&status=eq.active&select=id,name&order=name`
     );
     const sites = await sitesRes.json();
+    siteList = sites || [];
 
     if (!sites.length) {
       list.innerHTML = '<p class="empty">現場が登録されていません</p>';
     } else {
       list.innerHTML = sites.map(s => `
-        <div class="site-card" onclick="selectSite('${s.id}', '${escHtml(s.name)}')">
+        <div class="site-card" onclick="selectSite('${s.id}')">
           <h3>${escHtml(s.name)}</h3>
           <p>タップしてメモを確認する</p>
         </div>
@@ -459,9 +461,11 @@ async function loadSites() {
 }
 
 // ── 現場選択 ─────────────────────────────────────────────────────────
-async function selectSite(siteId, siteName) {
-  currentSite = { id: siteId, name: siteName };
-  document.getElementById("header-title").textContent = siteName;
+async function selectSite(siteId) {
+  const site = siteList.find(s => String(s.id) === String(siteId));
+  if (!site) return;
+  currentSite = { id: site.id, name: site.name };
+  document.getElementById("header-title").textContent = site.name;
   document.getElementById("back-btn").style.display = "block";
   await loadMemos();
 }
@@ -495,7 +499,7 @@ function renderMemo(m) {
   const dt = formatDate(m.created_at);
   const content = m.content ? `<div class="content">${escHtml(m.content)}</div>` : "";
   const photos = (m.photo_urls || []).map(url =>
-    `<img src="${escHtml(url)}" loading="lazy" onclick="openLightbox('${escHtml(url)}')" />`
+    `<img src="${escHtml(url)}" loading="lazy" onclick="openLightbox(this.src)" />`
   ).join("");
   const photosHtml = photos ? `<div class="photos">${photos}</div>` : "";
 
@@ -606,7 +610,8 @@ async function submitMemo() {
 
   // workerId未設定チェック（loadSites()が完了していない場合）
   if (!currentUser || !currentUser.workerId) {
-    alert("エラー: workerId未設定\ncurrentUser=" + JSON.stringify(currentUser));
+    console.error("[submitMemo] workerId未設定", currentUser);
+    showToast("読み込み中です。少し待って再度お試しください");
     return;
   }
 
@@ -641,7 +646,7 @@ async function submitMemo() {
 
     const resText = await res.text();
     if (!res.ok) {
-      alert(`投稿エラー [HTTP ${res.status}]\n${resText}`);
+      console.error("[submitMemo]", res.status, resText);
       throw new Error(`HTTP ${res.status}`);
     }
 
@@ -682,8 +687,8 @@ async function confirmMemo(memoId) {
       body: JSON.stringify({ company_id: currentUser.companyId, memo_id: memoId, worker_id: currentUser.workerId }),
     });
     if (!res.ok) {
-      const errText = await res.text();
-      showToast("確認に失敗しました: " + errText);
+      console.error("[confirmMemo]", res.status, await res.text().catch(() => ""));
+      showToast("確認に失敗しました");
       return;
     }
     showToast("確認しました！");
@@ -702,8 +707,8 @@ async function deleteMemo(memoId) {
       { method: "DELETE" }
     );
     if (!res.ok) {
-      const errText = await res.text();
-      showToast("削除に失敗しました: " + errText);
+      console.error("[deleteMemo]", res.status, await res.text().catch(() => ""));
+      showToast("削除に失敗しました");
       return;
     }
     showToast("削除しました");
@@ -756,8 +761,8 @@ async function uploadPhoto(file) {
     }
   );
   if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(errText || "写真のアップロードに失敗しました");
+    console.error("[uploadPhoto]", res.status, await res.text().catch(() => ""));
+    throw new Error("写真のアップロードに失敗しました");
   }
   return `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${path}`;
 }
@@ -795,7 +800,8 @@ function escHtml(str) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 function formatDate(iso) {
   const d = new Date(iso);

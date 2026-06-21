@@ -417,8 +417,8 @@ function renderSites() {
     const creator = s.workers?.name ?? "";
     const sub = [billing ? `請求先：${esc(billing)}` : "", creator ? `登録者：${esc(creator)}` : ""].filter(Boolean).join("　");
     const adminBtns = isAdmin ? `
-      <button class="btn-sm primary" onclick="openEditSite(${s.id},'${esc(s.name)}')">編集</button>
-      <button class="btn-sm danger"  onclick="openEndSite(${s.id},'${esc(s.name)}')">終了</button>` : "";
+      <button class="btn-sm primary" onclick="openEditSite('${s.id}')">編集</button>
+      <button class="btn-sm danger"  onclick="openEndSite('${s.id}')">終了</button>` : "";
     return `<div class="card">
       <div class="card-title">${esc(s.name)}</div>
       ${sub ? `<div class="card-sub">${sub}</div>` : ""}
@@ -439,21 +439,25 @@ function openAddSite() {
      <button class="btn-submit" onclick="submitModal()">登録</button>`);
 }
 
-function openEditSite(id, name) {
+function openEditSite(id) {
+  const site = allSites.find(s => String(s.id) === String(id));
+  if (!site) return;
   pSiteId = id;
   modalMode = "edit-site";
   setModal("現場名を編集", `
     <div class="form-group"><label>現場名</label>
-      <input type="text" id="mi-site-name" value="${esc(name)}" maxlength="50" /></div>
+      <input type="text" id="mi-site-name" value="${esc(site.name)}" maxlength="50" /></div>
   `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
      <button class="btn-submit" onclick="submitModal()">保存</button>`);
 }
 
-function openEndSite(id, name) {
+function openEndSite(id) {
+  const site = allSites.find(s => String(s.id) === String(id));
+  if (!site) return;
   pSiteId = id;
   modalMode = "end-site";
   setModal("現場を終了", `
-    <p class="modal-msg">「<strong>${esc(name)}</strong>」を終了しますか？</p>
+    <p class="modal-msg">「<strong>${esc(site.name)}</strong>」を終了しますか？</p>
     <p class="modal-note">終了後は一覧から非表示になります</p>
   `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
      <button class="btn-warning" onclick="submitModal()">終了する</button>`);
@@ -474,8 +478,8 @@ function renderWorkers() {
   el.innerHTML = allWorkers.map(w => {
     const rc = w.role === "admin" ? " role-admin" : w.role === "foreman" ? " role-foreman" : "";
     const adminBtns = isAdmin && w.id !== cu.workerId ? `
-      <button class="btn-sm" onclick="openEditWorker(${w.id},'${esc(w.name)}','${w.role}')">編集</button>
-      <button class="btn-sm primary" onclick="openChangeRole(${w.id},'${esc(w.name)}','${w.role}')">役割変更</button>` : "";
+      <button class="btn-sm" onclick="openEditWorker('${w.id}')">編集</button>
+      <button class="btn-sm primary" onclick="openChangeRole('${w.id}')">役割変更</button>` : "";
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span class="card-title">${esc(w.name)}</span>
@@ -501,20 +505,25 @@ function openAddWorker() {
      <button class="btn-submit" onclick="submitModal()">追加</button>`);
 }
 
-function openEditWorker(id, name, role) {
+function openEditWorker(id) {
+  const w = allWorkers.find(x => String(x.id) === String(id));
+  if (!w) return;
   pWorkerId = id;
   modalMode = "edit-worker";
-  setModal(`${esc(name)} の名前を編集`, `
+  setModal(`${esc(w.name)} の名前を編集`, `
     <div class="form-group"><label>名前</label>
-      <input type="text" id="mi-worker-name" value="${esc(name)}" maxlength="30" /></div>
+      <input type="text" id="mi-worker-name" value="${esc(w.name)}" maxlength="30" /></div>
   `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
      <button class="btn-submit" onclick="submitModal()">保存</button>`);
 }
 
-function openChangeRole(id, name, role) {
+function openChangeRole(id) {
+  const w = allWorkers.find(x => String(x.id) === String(id));
+  if (!w) return;
+  const role = w.role;
   pWorkerId = id;
   modalMode = "change-role";
-  setModal(`${esc(name)} の役割変更`, `
+  setModal(`${esc(w.name)} の役割変更`, `
     <div class="form-group"><label>役割</label>
       <select id="mi-worker-role">
         <option value="worker" ${role==="worker"?"selected":""}>作業員</option>
@@ -620,7 +629,7 @@ async function insertSite(name, billing) {
     }
   }
   const res = await post("/sites", { company_id: compId, name, status: "active", created_by: cu.workerId });
-  if (!res.ok) { toast("登録に失敗しました: " + await res.text(), true); return; }
+  if (!res.ok) { console.error("[insertSite]", res.status, await res.text().catch(() => "")); toast("登録に失敗しました", true); return; }
   closeModal(); toast(`「${name}」を登録しました`); await loadSites();
 }
 
@@ -773,7 +782,7 @@ function roleLabel(r) { return r === "admin" ? "管理者" : r === "foreman" ? "
 function val(id) { return (document.getElementById(id)?.value ?? "").trim(); }
 function enc(s) { return encodeURIComponent(s); }
 function esc(s) {
-  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 function toast(msg, isErr = false) {
   const t = document.getElementById("toast");
