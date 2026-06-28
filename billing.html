@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>請求</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
+      background: #f4f3ed;     /* 請求系の暖色背景（デザイントークン統一は移行プラン⑥で） */
+      color: #1f1e1c;
+      min-height: 100vh;
+    }
+    header {
+      background: #1d9e75;     /* 請求のアクセント緑（日報のLINE緑とは別系統・⑥で正式統一） */
+      color: #fff;
+      padding: 14px 16px;
+      padding-top: calc(14px + env(safe-area-inset-top));
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center;
+    }
+    header h1 { font-size: 17px; }
+
+    #loading {
+      display: flex; justify-content: center; align-items: center;
+      height: 60vh; font-size: 15px; color: #888;
+    }
+    #loading.hidden { display: none; }
+
+    .wrap { padding: 16px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+
+    .card {
+      background: #fff; border-radius: 12px; padding: 16px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 12px;
+    }
+    .info-label { font-size: 12px; color: #8a8780; margin-top: 10px; }
+    .info-label:first-child { margin-top: 0; }
+    .info-value { font-size: 16px; font-weight: bold; margin-top: 2px; }
+
+    .section-label { font-size: 13px; font-weight: bold; color: #555; margin: 18px 0 8px; }
+
+    .empty {
+      text-align: center; color: #aaa; padding: 36px 16px; font-size: 14px;
+      background: #fff; border-radius: 12px; border: 2px dashed #e2e0d8;
+      line-height: 1.7;
+    }
+
+    #toast {
+      position: fixed; left: 50%; transform: translateX(-50%);
+      bottom: calc(40px + env(safe-area-inset-bottom));
+      background: #e74c3c; color: #fff; padding: 10px 20px; border-radius: 20px;
+      font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 300;
+      max-width: 86vw; text-align: center;
+    }
+    #toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+<header><h1>請求</h1></header>
+
+<div id="loading">読み込み中…</div>
+
+<div class="wrap" id="content" style="display:none">
+  <div class="card" id="profile-card"></div>
+
+  <div class="section-label">請求一覧</div>
+  <div class="empty">
+    請求データはまだありません。<br>
+    （請求の作成・発行は今後ここに追加します）
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- 共通基盤：LIFF SDK → fla-core.js → ページ内スクリプト の順で読み込む -->
+<script src="./fla-core.js?v=2026-06-21"></script>
+<script>
+// ── 設定 ───────────────────────────────────────────────────────────────
+// ⚠ 移行プラン②：LINE Developers で請求用LIFFを登録後、その LIFF ID をここに反映する。
+//   エンドポイント = https://fieldlogai-coder.github.io/fla-liff/billing.html / scope = openid + profile
+const LIFF_ID = "REPLACE_WITH_BILLING_LIFF_ID";
+
+// 共通基盤（fla-core.js）から取得
+const SUPA_URL  = FLA.SUPA_URL;
+const SUPA_ANON = FLA.SUPA_ANON;
+
+let cu = null;  // { lineId, workerId, name, role, companyId, companyName }
+
+// ── 初期化 ───────────────────────────────────────────────────────────
+(async () => {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    const profile = await liff.getProfile();
+    cu = { lineId: profile.userId };
+    await FLA.ensureToken();   // 認証経路を確立（auth-session 無改修で通ることの実証）
+    await boot();
+  } catch (e) {
+    toast("初期化に失敗しました: " + e.message);
+    hide();
+  }
+})();
+
+async function boot() {
+  // 身元表示（workers は踏み台ポリシーで authenticated 読み取り可）
+  const res = await FLA.rest(`/workers?line_user_id=eq.${enc(cu.lineId)}&select=id,name,role,company_id,companies(name)`);
+  if (!res.ok) { toast("ユーザー取得に失敗しました (HTTP " + res.status + ")"); hide(); return; }
+  const rows = await res.json();
+  if (!rows.length) {
+    document.getElementById("profile-card").innerHTML =
+      '<div class="empty" style="border:none;padding:8px 0">登録されていません。管理者に連絡してください。</div>';
+    show(); return;
+  }
+  const w = rows[0];
+  cu = { ...cu, workerId: w.id, name: w.name, role: w.role, companyId: w.company_id, companyName: w.companies?.name ?? "" };
+  renderProfile();
+  show();
+}
+
+function renderProfile() {
+  const rl = cu.role === "admin" ? "管理者" : cu.role === "foreman" ? "職長" : "作業員";
+  document.getElementById("profile-card").innerHTML = `
+    <div class="info-label">利用者</div><div class="info-value">${esc(cu.name)}</div>
+    <div class="info-label">役割</div><div class="info-value">${rl}</div>
+    <div class="info-label">所属会社</div><div class="info-value">${esc(cu.companyName)}</div>
+  `;
+}
+
+// ── ユーティリティ ────────────────────────────────────────────────────
+function enc(s) { return encodeURIComponent(s); }
+function esc(s) { return FLA.esc(s); }
+function show() { document.getElementById("loading").classList.add("hidden"); document.getElementById("content").style.display = "block"; }
+function hide() { document.getElementById("loading").classList.add("hidden"); }
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 3500);
+}
+</script>
+</body>
+</html>
