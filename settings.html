@@ -309,17 +309,17 @@
 
 <div id="toast"></div>
 
+<script src="./fla-core.js?v=2026-06-21"></script>
 <script>
 // ── 定数 ─────────────────────────────────────────────────────────────
 const LIFF_ID      = "2009694631-cnI1l3gj";
-const SUPA_URL     = "https://qxeqaqnzbsuykmzwkvhx.supabase.co";
-const SUPA_ANON    = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZXFhcW56YnN1eWttendrdmh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDQzNDQsImV4cCI6MjA4OTcyMDM0NH0.jbXmGxpT2ZZ5DtB590-5GH-Pt3ofVNIsysL-ybq1v18";
-// M4.1 P2: LINE IDトークンを auth-session に渡し、company_id/worker_id 入りの Supabase JWT を取得する
-const AUTH_FN      = `${SUPA_URL}/functions/v1/auth-session`;
+// 共通基盤（fla-core.js）から取得。SUPA_URL/SUPA_ANON/AUTH_FN は FLA に集約
+const SUPA_URL     = FLA.SUPA_URL;
+const SUPA_ANON    = FLA.SUPA_ANON;
+const AUTH_FN      = FLA.AUTH_FN;
 
 // ── 状態 ─────────────────────────────────────────────────────────────
-let flaToken    = "";    // Supabase JWT（auth-session 発行・role=authenticated）
-let flaTokenExp = 0;     // JWT 失効時刻（ms epoch）。余裕をもって再取得する
+// 認証トークン状態は共通基盤（fla-core.js）が保持する
 let cu = null;           // currentUser: { lineId, workerId, name, role, companyId, companyName }
 let allSites = [];       // Site[]
 let allWorkers = [];     // Worker[]
@@ -339,7 +339,7 @@ let pWorkerId  = null;   // pending worker id (編集用)
     if (!liff.isLoggedIn()) { liff.login(); return; }
     const profile = await liff.getProfile();
     cu = { lineId: profile.userId };
-    await ensureToken();   // 認証経路を先に確立（失敗ならここで止める）
+    await FLA.ensureToken();   // 認証経路を先に確立（失敗ならここで止める）
     await boot();
   } catch (e) {
     toast("初期化失敗: " + e.message, true);
@@ -716,44 +716,10 @@ function setModal(title, body, actions) {
 function closeModal() { document.getElementById("modal").classList.remove("open"); modalMode = ""; }
 function onModalBg(e) { if (e.target === document.getElementById("modal")) closeModal(); }
 
-// ── 認証（M4.1 P2）─────────────────────────────────────────────────────
-// LINE ID トークン → auth-session → Supabase JWT。期限が近ければ再取得。
-async function ensureToken() {
-  if (flaToken && Date.now() < flaTokenExp - 60000) return flaToken;
-  const idToken = liff.getIDToken();
-  if (!idToken) throw new Error("IDトークンを取得できません（再ログインしてください）");
-  // auth-session(EF) は Authorization の anon JWT だけで通る。apikey を送ると CORS 許可ヘッダ外で
-  // プリフライトに弾かれる（"Load failed"）ため、ここでは apikey を付けない。
-  const res = await fetch(AUTH_FN, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${SUPA_ANON}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ id_token: idToken }),
-  });
-  if (!res.ok) throw new Error(`認証に失敗しました (HTTP ${res.status})`);
-  const data = await res.json();
-  flaToken = data.access_token;
-  flaTokenExp = Date.now() + ((data.expires_in ?? 3600) * 1000);
-  return flaToken;
-}
-
-// ── REST ヘルパー ─────────────────────────────────────────────────────
-// apikey は anon 据え置き、Authorization は user JWT。401（期限切れ等）は1回だけ再取得して再試行。
-async function authed(method, p, body, prefer) {
-  await ensureToken();
-  const build = () => {
-    const headers = { "apikey": SUPA_ANON, "Authorization": `Bearer ${flaToken}`, "Content-Type": "application/json" };
-    if (prefer) headers["Prefer"] = prefer;
-    const init = { method, headers };
-    if (body !== undefined) init.body = JSON.stringify(body);
-    return fetch(`${SUPA_URL}/rest/v1${p}`, init);
-  };
-  let res = await build();
-  if (res.status === 401) { flaToken = ""; await ensureToken(); res = await build(); }
-  return res;
-}
-const get   = p       => authed("GET", p);
-const post  = (p, b)  => authed("POST", p, b, "return=representation");
-const patch = (p, b)  => authed("PATCH", p, b, "return=minimal");
+// ── REST ヘルパー（共通基盤 FLA.rest の薄いラッパ。挙動は従来どおり）──
+const get   = p       => FLA.rest(p);
+const post  = (p, b)  => FLA.rest(p, { method: "POST",  headers: { "Content-Type": "application/json", "Prefer": "return=representation" }, body: JSON.stringify(b) });
+const patch = (p, b)  => FLA.rest(p, { method: "PATCH", headers: { "Content-Type": "application/json", "Prefer": "return=minimal" }, body: JSON.stringify(b) });
 
 // ── 類似名チェック ────────────────────────────────────────────────────
 function levenshtein(a, b) {
@@ -781,9 +747,7 @@ function findSimilar(name, names) {
 function roleLabel(r) { return r === "admin" ? "管理者" : r === "foreman" ? "職長" : "作業員"; }
 function val(id) { return (document.getElementById(id)?.value ?? "").trim(); }
 function enc(s) { return encodeURIComponent(s); }
-function esc(s) {
-  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
-}
+function esc(s) { return FLA.esc(s); }
 function toast(msg, isErr = false) {
   const t = document.getElementById("toast");
   t.textContent = msg;
