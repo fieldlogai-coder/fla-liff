@@ -6,137 +6,521 @@
   <title>請求</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
-      background: #f4f3ed;     /* 請求系の暖色背景（デザイントークン統一は移行プラン⑥で） */
-      color: #1f1e1c;
-      min-height: 100vh;
+    /* ── 最小デザイントークン（移行⑥の基準点。請求系アクセント緑）── */
+    :root{
+      --acc:#1d9e75; --acc-dark:#178a66;
+      --bg:#f4f3ed; --card:#fff; --ink:#1f1e1c; --sub:#6b6a63; --line:#e2e0d8;
+      --info-bg:#e7f4ee; --info-ink:#178a66; --warn:#c0392b; --ok-bg:#e7f4ee; --ok-ink:#1f9a63;
+      --r:12px; --r-sm:8px;
     }
-    header {
-      background: #1d9e75;     /* 請求のアクセント緑（日報のLINE緑とは別系統・⑥で正式統一） */
-      color: #fff;
-      padding: 14px 16px;
-      padding-top: calc(14px + env(safe-area-inset-top));
-      position: sticky; top: 0; z-index: 100;
-      display: flex; align-items: center;
-    }
-    header h1 { font-size: 17px; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;-webkit-text-size-adjust:100%;}
+    header{background:var(--acc);color:#fff;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:10px;}
+    header h1{font-size:17px;flex:1;}
+    header button{background:rgba(255,255,255,.25);border:none;color:#fff;padding:6px 12px;border-radius:var(--r-sm);font-size:13px;cursor:pointer;font-family:inherit;}
 
-    #loading {
-      display: flex; justify-content: center; align-items: center;
-      height: 60vh; font-size: 15px; color: #888;
-    }
-    #loading.hidden { display: none; }
+    #loading{display:flex;justify-content:center;align-items:center;height:60vh;font-size:15px;color:var(--sub);}
+    #loading.hidden{display:none;}
 
-    .wrap { padding: 16px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+    .screen{display:none;padding:14px 14px calc(24px + env(safe-area-inset-bottom));}
+    .screen.active{display:block;}
 
-    .card {
-      background: #fff; border-radius: 12px; padding: 16px;
-      box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 12px;
-    }
-    .info-label { font-size: 12px; color: #8a8780; margin-top: 10px; }
-    .info-label:first-child { margin-top: 0; }
-    .info-value { font-size: 16px; font-weight: bold; margin-top: 2px; }
+    .card{background:var(--card);border-radius:var(--r);padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:10px;}
+    .muted{color:var(--sub);font-size:12px;}
+    .sec-label{font-size:13px;font-weight:bold;color:#555;margin:8px 2px 8px;}
 
-    .section-label { font-size: 13px; font-weight: bold; color: #555; margin: 18px 0 8px; }
+    /* 一覧 */
+    .inv-row{display:flex;align-items:center;gap:10px;}
+    .inv-main{flex:1;min-width:0;}
+    .inv-title{font-size:15px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .inv-sub{font-size:12px;color:var(--sub);margin-top:2px;}
+    .inv-amt{font-size:16px;font-weight:bold;white-space:nowrap;}
+    .badge{font-size:11px;padding:2px 9px;border-radius:999px;white-space:nowrap;flex-shrink:0;}
+    .b-draft{background:#f0eee6;color:#8a887f;}
+    .b-issued{background:var(--ok-bg);color:var(--ok-ink);}
+    .b-void{background:#fdecea;color:var(--warn);}
 
-    .empty {
-      text-align: center; color: #aaa; padding: 36px 16px; font-size: 14px;
-      background: #fff; border-radius: 12px; border: 2px dashed #e2e0d8;
-      line-height: 1.7;
-    }
+    .site-card{cursor:pointer;}
+    .site-card:active{transform:scale(.99);}
+    .site-name{font-size:16px;font-weight:bold;}
 
-    #toast {
-      position: fixed; left: 50%; transform: translateX(-50%);
-      bottom: calc(40px + env(safe-area-inset-bottom));
-      background: #e74c3c; color: #fff; padding: 10px 20px; border-radius: 20px;
-      font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 300;
-      max-width: 86vw; text-align: center;
-    }
-    #toast.show { opacity: 1; }
+    /* 出来高入力 */
+    .ctx{display:flex;flex-direction:column;gap:2px;}
+    .ctx .prime{font-size:13px;color:var(--sub);}
+    .ctx .site{font-size:16px;font-weight:bold;}
+    .pill{display:inline-flex;align-items:center;gap:6px;background:var(--info-bg);color:var(--info-ink);font-size:12px;padding:4px 10px;border-radius:var(--r-sm);margin-top:8px;}
+    .note{background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:10px 12px;font-size:13px;line-height:1.5;}
+    .amt-box{background:var(--bg);border-radius:var(--r);padding:14px;}
+    .amt-box label{font-size:13px;color:var(--sub);display:block;margin-bottom:6px;}
+    .amt-input{display:flex;align-items:baseline;gap:6px;}
+    .amt-input .yen{font-size:22px;font-weight:500;}
+    .amt-input input{flex:1;font-size:30px;font-weight:600;border:none;background:transparent;width:100%;font-family:inherit;color:var(--ink);border-bottom:2px solid var(--line);padding-bottom:2px;}
+    .amt-input input:focus{outline:none;border-bottom-color:var(--acc);}
+    .prog-wrap{margin-top:14px;}
+    .prog-head{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-bottom:6px;}
+    .prog-bar{height:10px;background:#eceae2;border-radius:999px;overflow:hidden;}
+    .prog-fill{height:100%;background:var(--acc);border-radius:999px;transition:width .15s;}
+    .prog-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:4px;}
+    .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+    .mini{background:var(--bg);border-radius:var(--r-sm);padding:10px 12px;}
+    .mini .k{font-size:12px;color:var(--sub);}
+    .mini .v{font-size:17px;font-weight:600;}
+    .total-box{padding:12px 14px;border:1px solid var(--line);border-radius:var(--r);}
+    .total-row{display:flex;justify-content:space-between;align-items:center;}
+    .total-row .lab{font-size:13px;color:var(--sub);}
+    .total-row .big{font-size:24px;font-weight:600;}
+    .neg{color:var(--warn);}
+
+    .btn{width:100%;height:48px;font-size:15px;font-weight:600;border:none;border-radius:var(--r);cursor:pointer;font-family:inherit;}
+    .btn-primary{background:var(--acc);color:#fff;}
+    .btn-primary:active{background:var(--acc-dark);}
+    .btn-primary:disabled{background:#a9d8c6;}
+    .btn-ghost{background:var(--card);color:var(--ink);border:1px solid var(--line);}
+    .add-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--acc);color:#fff;}
+
+    .line-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);}
+    .diff{background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:6px 12px;font-size:12px;}
+
+    /* 確認 summary rows */
+    .sum{padding:12px 14px;border:1px solid var(--line);border-radius:var(--r);}
+    .sum .r{display:flex;justify-content:space-between;font-size:13px;color:var(--sub);padding:2px 0;}
+    .sum .r.total{margin-top:6px;padding-top:8px;border-top:1px solid var(--line);align-items:center;}
+    .sum .r.total .big{font-size:24px;font-weight:600;color:var(--ink);}
+
+    /* モーダル */
+    #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:20px;}
+    #modal.open{display:flex;}
+    .modal-box{background:var(--card);border-radius:var(--r);padding:18px;width:100%;max-width:320px;}
+    .modal-box .t{font-size:16px;font-weight:600;margin-bottom:6px;}
+    .modal-box .d{font-size:13px;color:var(--sub);line-height:1.6;margin-bottom:16px;}
+    .modal-actions{display:grid;grid-template-columns:1fr 1.2fr;gap:10px;}
+
+    /* 完了 */
+    .done-check{width:64px;height:64px;border-radius:50%;background:var(--ok-bg);display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:34px;color:var(--ok-ink);}
+
+    .empty{text-align:center;color:#aaa;padding:34px 16px;font-size:14px;background:var(--card);border-radius:var(--r);border:2px dashed var(--line);line-height:1.7;}
+    #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(40px + env(safe-area-inset-bottom));background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .3s;pointer-events:none;z-index:300;max-width:86vw;text-align:center;}
+    #toast.show{opacity:1;} #toast.err{background:var(--warn);}
   </style>
 </head>
 <body>
 
-<header><h1>請求</h1></header>
+<header>
+  <h1 id="hdr-title">請求</h1>
+  <button id="back-btn" style="display:none" onclick="goBack()">◀ 戻る</button>
+</header>
 
 <div id="loading">読み込み中…</div>
 
-<div class="wrap" id="content" style="display:none">
+<!-- ① 請求一覧 -->
+<div id="screen-list" class="screen">
   <div class="card" id="profile-card"></div>
+  <div class="sec-label">請求一覧</div>
+  <div id="inv-list"></div>
+  <button class="btn add-btn" style="margin-top:6px" onclick="startNew()">＋ 今月の請求をつくる</button>
+</div>
 
-  <div class="section-label">請求一覧</div>
-  <div class="empty">
-    請求データはまだありません。<br>
-    （請求の作成・発行は今後ここに追加します）
+<!-- ② 現場選択 -->
+<div id="screen-site" class="screen">
+  <div class="note" style="margin-bottom:10px">請求する現場を選んでください（元請は現場に紐づいて自動で決まります）。</div>
+  <div id="site-list"></div>
+</div>
+
+<!-- ④ 出来高（請負）入力 -->
+<div id="screen-input" class="screen">
+  <div class="card">
+    <div class="ctx">
+      <span class="prime" id="in-prime"></span>
+      <span class="site" id="in-site"></span>
+    </div>
+    <span class="pill">出来高（請負）</span>
+  </div>
+  <div class="note" style="margin-bottom:10px">前回までの請求は記録済みです。今月進んだぶんだけ入れてください。</div>
+
+  <div class="card">
+    <div class="amt-box">
+      <label>今月分の出来高（税抜・円）</label>
+      <div class="amt-input">
+        <span class="yen">¥</span>
+        <input type="text" inputmode="numeric" id="in-b" placeholder="0" oninput="onBInput()" />
+      </div>
+    </div>
+
+    <div class="prog-wrap">
+      <div class="prog-head"><span>工事全体の進みぐあい</span><span><span id="in-pct">0.0</span>%</span></div>
+      <div class="prog-bar"><div class="prog-fill" id="in-bar" style="width:0%"></div></div>
+      <div class="prog-foot"><span>当初請負 ¥<span id="in-contract">0</span></span><span>残額 ¥<span id="in-rem">0</span></span></div>
+    </div>
+
+    <div class="grid2" style="margin-top:14px">
+      <div class="mini"><div class="k">出来高の累計</div><div class="v">¥<span id="in-cum">0</span></div></div>
+      <div class="mini"><div class="k">消費税（10%）</div><div class="v">¥<span id="in-tax">0</span></div></div>
+    </div>
+
+    <div class="total-box" style="margin-top:14px">
+      <div class="total-row"><span class="lab">今月の請求額（税込）</span><span class="big">¥<span id="in-total">0</span></span></div>
+      <div class="line-item" style="margin-top:10px;border:none;padding:8px 0"><span id="in-line-label">一式</span><span style="margin-left:auto;font-weight:600">¥<span id="in-line">0</span></span></div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="goConfirm()">この内容で確認する</button>
+</div>
+
+<!-- ⑤ 確認 -->
+<div id="screen-confirm" class="screen">
+  <div class="card">
+    <div style="font-size:16px;font-weight:600" id="cf-prime"></div>
+    <div class="muted" id="cf-site" style="margin-top:2px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <span class="badge b-issued">請負請求書</span>
+      <span class="badge b-draft" id="cf-period"></span>
+      <span class="badge b-draft">番号は発行時に自動</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="grid2">
+      <div class="mini"><div class="k">前回まで（請求済）</div><div class="v">¥<span id="cf-c">0</span></div></div>
+      <div class="mini"><div class="k">今月分</div><div class="v">¥<span id="cf-b">0</span></div></div>
+      <div class="mini"><div class="k">当初請負</div><div class="v">¥<span id="cf-a">0</span></div></div>
+      <div class="mini"><div class="k">請求残額</div><div class="v" id="cf-rem-wrap">¥<span id="cf-rem">0</span></div></div>
+    </div>
+    <div class="line-item" style="margin-top:12px"><span id="cf-line-label">一式</span><span style="margin-left:auto;font-weight:600">¥<span id="cf-line">0</span></span></div>
+    <div class="sum" style="margin-top:12px">
+      <div class="r"><span>税抜 合計</span><span>¥<span id="cf-sub">0</span></span></div>
+      <div class="r"><span>消費税（10%）</span><span>¥<span id="cf-tax">0</span></span></div>
+      <div class="r total"><span>税込 請求額</span><span class="big">¥<span id="cf-total">0</span></span></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:10px">
+    <button class="btn btn-ghost" onclick="goBack()">修正する</button>
+    <button class="btn btn-primary" onclick="openIssue()">この内容で発行する</button>
+  </div>
+</div>
+
+<!-- ⑥ 完了 -->
+<div id="screen-done" class="screen">
+  <div style="text-align:center;padding:20px 10px 6px">
+    <div class="done-check">✓</div>
+    <div style="font-size:18px;font-weight:600">発行しました</div>
+    <div class="muted" id="done-no" style="margin-top:4px"></div>
+  </div>
+  <div class="card" style="margin-top:6px">
+    <div class="muted" id="done-ctx"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+      <span class="muted">税込</span><span style="font-size:22px;font-weight:600">¥<span id="done-total">0</span></span>
+    </div>
+  </div>
+  <div class="muted" style="text-align:center;margin:6px 0 12px">内容を直すと、新しい版として履歴に残ります。</div>
+  <button class="btn btn-ghost" onclick="toList()">請求一覧へもどる</button>
+</div>
+
+<!-- 発行確認モーダル -->
+<div id="modal">
+  <div class="modal-box">
+    <div class="t">この請求書を発行しますか？</div>
+    <div class="d">発行すると番号が付き、内容が履歴に残ります。あとから直す場合は新しい版として記録されます。</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">戻る</button>
+      <button class="btn btn-primary" id="modal-issue" onclick="doIssue()">発行する</button>
+    </div>
   </div>
 </div>
 
 <div id="toast"></div>
 
-<!-- 共通基盤：LIFF SDK → fla-core.js → ページ内スクリプト の順で読み込む -->
-<script src="./fla-core.js?v=2026-06-21"></script>
+<script src="./fla-core.js?v=2026-06-30"></script>
 <script>
 // ── 設定 ───────────────────────────────────────────────────────────────
-// ⚠ 移行プラン②：LINE Developers で請求用LIFFを登録後、その LIFF ID をここに反映する。
-//   エンドポイント = https://fieldlogai-coder.github.io/fla-liff/billing.html / scope = openid + profile
-const LIFF_ID = "2009694631-7HvWrIGj";
-
-// 共通基盤（fla-core.js）から取得
+const LIFF_ID   = "2009694631-7HvWrIGj";
 const SUPA_URL  = FLA.SUPA_URL;
-const SUPA_ANON = FLA.SUPA_ANON;
+const TAX_RATE  = 0.10;           // 表示用（正本は company_settings / issue_invoice）
+const ISSUE_FN  = `${SUPA_URL}/functions/v1/billing-issue`;
 
-let cu = null;  // { lineId, workerId, name, role, companyId, companyName }
+// ── 状態 ───────────────────────────────────────────────────────────────
+let cu = null;        // { lineId, workerId, name, role, companyId, companyName, canBill }
+let siteList = [];    // 請求可能な現場
+let sel = null;       // 選択中: { site, primeName, contract, C, periodStart, periodEnd, existingDraftId, amount, cumulative, pct, tax, total }
+let submitting = false;
 
-// ── 初期化 ───────────────────────────────────────────────────────────
+// ── REST 薄ヘルパー（fla-core の FLA.rest） ─────────────────────────────
+const rGet  = (p)        => FLA.rest(p);
+const rPost = (p, b, pf) => FLA.rest(p, { method:"POST", headers:{ "Content-Type":"application/json", "Prefer": pf || "return=representation" }, body: JSON.stringify(b) });
+const rDel  = (p)        => FLA.rest(p, { method:"DELETE" });
+
+// ── 初期化 ─────────────────────────────────────────────────────────────
 (async () => {
   try {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login(); return; }
     const profile = await liff.getProfile();
     cu = { lineId: profile.userId };
-    await FLA.ensureToken();   // 認証経路を確立（auth-session 無改修で通ることの実証）
+    await FLA.ensureToken();
     await boot();
   } catch (e) {
-    toast("初期化に失敗しました: " + e.message);
-    hide();
+    toast("初期化に失敗しました: " + e.message, true);
+    hideLoading();
   }
 })();
 
 async function boot() {
-  // 身元表示（workers は踏み台ポリシーで authenticated 読み取り可）
-  const res = await FLA.rest(`/workers?line_user_id=eq.${enc(cu.lineId)}&select=id,name,role,company_id,companies(name)`);
-  if (!res.ok) { toast("ユーザー取得に失敗しました (HTTP " + res.status + ")"); hide(); return; }
+  const res = await rGet(`/workers?line_user_id=eq.${enc(cu.lineId)}&select=id,name,role,company_id,can_bill,companies(name)`);
+  if (!res.ok) { toast("ユーザー取得に失敗しました (HTTP " + res.status + ")", true); hideLoading(); return; }
   const rows = await res.json();
   if (!rows.length) {
-    document.getElementById("profile-card").innerHTML =
-      '<div class="empty" style="border:none;padding:8px 0">登録されていません。管理者に連絡してください。</div>';
-    show(); return;
+    document.getElementById("profile-card").innerHTML = '<div class="empty" style="border:none;padding:8px 0">登録されていません。管理者に連絡してください。</div>';
+    hideLoading(); showScreen("list"); return;
   }
   const w = rows[0];
-  cu = { ...cu, workerId: w.id, name: w.name, role: w.role, companyId: w.company_id, companyName: w.companies?.name ?? "" };
+  cu = { ...cu, workerId: w.id, name: w.name, role: w.role, companyId: w.company_id, companyName: w.companies?.name ?? "", canBill: !!w.can_bill };
   renderProfile();
-  show();
+  if (!cu.canBill) {
+    document.getElementById("inv-list").innerHTML = '<div class="empty">請求を扱う権限がありません。<br>管理者に連絡してください。</div>';
+    document.querySelector("#screen-list .add-btn").style.display = "none";
+    hideLoading(); showScreen("list"); return;
+  }
+  await loadInvoices();
+  hideLoading(); showScreen("list");
 }
 
 function renderProfile() {
   const rl = cu.role === "admin" ? "管理者" : cu.role === "foreman" ? "職長" : "作業員";
-  document.getElementById("profile-card").innerHTML = `
-    <div class="info-label">利用者</div><div class="info-value">${esc(cu.name)}</div>
-    <div class="info-label">役割</div><div class="info-value">${rl}</div>
-    <div class="info-label">所属会社</div><div class="info-value">${esc(cu.companyName)}</div>
-  `;
+  document.getElementById("profile-card").innerHTML =
+    `<div class="muted">利用者</div><div style="font-size:15px;font-weight:bold">${esc(cu.name)}（${rl}）</div>
+     <div class="muted" style="margin-top:6px">所属会社</div><div style="font-size:15px;font-weight:bold">${esc(cu.companyName)}</div>`;
 }
 
-// ── ユーティリティ ────────────────────────────────────────────────────
+// ── ① 請求一覧 ─────────────────────────────────────────────────────────
+async function loadInvoices() {
+  const res = await rGet(`/billing_invoices?select=id,invoice_number,status,total_amount,period_end,sites(name),prime_contractors(name)&order=created_at.desc&limit=50`);
+  const el = document.getElementById("inv-list");
+  if (!res.ok) { el.innerHTML = '<div class="empty">取得に失敗しました</div>'; return; }
+  const rows = await res.json();
+  if (!rows.length) { el.innerHTML = '<div class="empty">請求はまだありません。<br>「今月の請求をつくる」から始めてください。</div>'; return; }
+  el.innerHTML = rows.map(r => {
+    const st = r.status === "issued" ? ["b-issued","発行済み"] : r.status === "void" ? ["b-void","取消"] : ["b-draft","下書き"];
+    const no = r.invoice_number ? `No.${esc(r.invoice_number)}　` : "";
+    return `<div class="card"><div class="inv-row">
+      <div class="inv-main">
+        <div class="inv-title">${esc(r.prime_contractors?.name ?? "元請未設定")}</div>
+        <div class="inv-sub">${esc(r.sites?.name ?? "")}　${no}${fmtDate(r.period_end)}締</div>
+      </div>
+      <div style="text-align:right">
+        <div class="inv-amt">¥${fmt(r.total_amount ?? 0)}</div>
+        <span class="badge ${st[0]}">${st[1]}</span>
+      </div>
+    </div></div>`;
+  }).join("");
+}
+
+// ── ② 現場選択 ─────────────────────────────────────────────────────────
+async function startNew() {
+  const res = await rGet(`/sites?company_id=eq.${cu.companyId}&status=eq.active&prime_contractor_id=not.is.null&select=id,name,prime_contractor_id,prime_contractors(name)&order=name`);
+  const el = document.getElementById("site-list");
+  if (!res.ok) { el.innerHTML = '<div class="empty">取得に失敗しました</div>'; showScreen("site"); return; }
+  siteList = await res.json();
+  if (!siteList.length) {
+    el.innerHTML = '<div class="empty">請求できる現場がありません。<br>現場に「元請」と「請負契約」の登録が必要です（マスタ設定）。</div>';
+  } else {
+    el.innerHTML = siteList.map(s => `
+      <div class="card site-card" onclick="selectSite('${s.id}')">
+        <div class="site-name">${esc(s.name)}</div>
+        <div class="muted" style="margin-top:2px">元請：${esc(s.prime_contractors?.name ?? "未設定")}</div>
+      </div>`).join("");
+  }
+  showScreen("site");
+}
+
+async function selectSite(siteId) {
+  const site = siteList.find(s => String(s.id) === String(siteId));
+  if (!site) return;
+
+  // 請負契約（A-2）。無ければ入れない。
+  const cr = await rGet(`/construction_contracts?site_id=eq.${siteId}&status=eq.active&select=id,contract_amount,work_type_id,prime_contractor_id,work_types(name)&order=created_at&limit=1`);
+  if (!cr.ok) { toast("契約の取得に失敗しました", true); return; }
+  const contracts = await cr.json();
+  if (!contracts.length) { toast("この現場は請負契約が未登録です（マスタ登録が必要）", true); return; }
+  const contract = contracts[0];
+
+  // 当月の期間
+  const { periodStart, periodEnd } = currentPeriod();
+
+  // 二重発行ガード（同現場・同締め期間の非取消）
+  const ex = await rGet(`/billing_invoices?site_id=eq.${siteId}&period_end=eq.${periodEnd}&status=neq.void&select=id,status,invoice_number`);
+  let existingDraftId = null;
+  if (ex.ok) {
+    const exRows = await ex.json();
+    const issued = exRows.find(r => r.status === "issued");
+    if (issued) { toast(`この現場の今月分は発行済みです（No.${issued.invoice_number ?? "-"}）`, true); await backToList(); return; }
+    const draft = exRows.find(r => r.status === "draft");
+    if (draft) existingDraftId = draft.id;
+  }
+
+  // 既請求累計 C（発行済 A-2 明細の合計）
+  let C = 0;
+  const pr = await rGet(`/billing_invoice_lines?mode=eq.A2_rate&contract_id=eq.${contract.id}&select=amount,billing_invoices!inner(status)&billing_invoices.status=eq.issued`);
+  if (pr.ok) { const prows = await pr.json(); C = prows.reduce((s, r) => s + (r.amount || 0), 0); }
+
+  sel = {
+    site, primeName: site.prime_contractors?.name ?? "未設定",
+    contract, workLabel: (contract.work_types?.name ? contract.work_types.name + "　一式" : "一式"),
+    C, periodStart, periodEnd, existingDraftId,
+  };
+
+  // 入力画面初期化
+  document.getElementById("in-prime").textContent = "元請　" + sel.primeName;
+  document.getElementById("in-site").textContent = site.name;
+  document.getElementById("in-contract").textContent = fmt(contract.contract_amount);
+  document.getElementById("in-line-label").textContent = sel.workLabel;
+  document.getElementById("in-b").value = "";
+  recalc(0);
+  showScreen("input");
+}
+
+// ── ④ 出来高計算（サーバと同じ丸めで“実際に請求される額”を表示）──────────
+function recalc(B) {
+  const A = sel.contract.contract_amount, C = sel.C;
+  // 進捗% は numeric(6,2)。サーバは cumulative=round(pct/100*A), amount=cumulative-C。表示もそれに合わせる。
+  const pctExact = A ? (C + B) / A * 100 : 0;
+  const pct2 = Math.round(pctExact * 100) / 100;
+  const cumulative = Math.round(pct2 / 100 * A);
+  const amount = cumulative - C;                 // 実際に請求される今月分
+  const tax = Math.floor(amount * TAX_RATE);     // 端数=floor（company_settings 既定）
+  const total = amount + tax;
+  const rem = A - cumulative;
+  sel.amount = amount; sel.cumulative = cumulative; sel.pct = pct2; sel.tax = tax; sel.total = total; sel.rem = rem;
+
+  document.getElementById("in-pct").textContent = pct2.toFixed(1);
+  document.getElementById("in-bar").style.width = Math.max(0, Math.min(100, pct2)) + "%";
+  document.getElementById("in-cum").textContent = fmt(cumulative);
+  document.getElementById("in-tax").textContent = fmt(tax);
+  document.getElementById("in-total").textContent = fmt(total);
+  document.getElementById("in-line").textContent = fmt(amount);
+  const remEl = document.getElementById("in-rem");
+  remEl.textContent = fmt(rem);
+  remEl.parentElement.classList.toggle("neg", rem < 0);
+}
+
+function onBInput() {
+  const el = document.getElementById("in-b");
+  const digits = (el.value || "").replace(/[^0-9]/g, "");
+  el.value = digits ? Number(digits).toLocaleString("ja-JP") : "";
+  recalc(digits ? parseInt(digits, 10) : 0);
+}
+
+// ── ⑤ 確認 ─────────────────────────────────────────────────────────────
+function goConfirm() {
+  if (!sel || sel.amount === undefined) return;
+  if (sel.amount === 0) { toast("今月分の金額を入れてください", true); return; }
+  document.getElementById("cf-prime").textContent = sel.primeName + "　御中";
+  document.getElementById("cf-site").textContent = sel.site.name;
+  document.getElementById("cf-period").textContent = "締め " + fmtDate(sel.periodEnd);
+  document.getElementById("cf-c").textContent = fmt(sel.C);
+  document.getElementById("cf-b").textContent = fmt(sel.amount);
+  document.getElementById("cf-a").textContent = fmt(sel.contract.contract_amount);
+  document.getElementById("cf-rem").textContent = fmt(sel.rem);
+  document.getElementById("cf-rem-wrap").classList.toggle("neg", sel.rem < 0);
+  document.getElementById("cf-line-label").textContent = sel.workLabel;
+  document.getElementById("cf-line").textContent = fmt(sel.amount);
+  document.getElementById("cf-sub").textContent = fmt(sel.amount);
+  document.getElementById("cf-tax").textContent = fmt(sel.tax);
+  document.getElementById("cf-total").textContent = fmt(sel.total);
+  showScreen("confirm");
+}
+
+// ── ⑥ 発行 ─────────────────────────────────────────────────────────────
+function openIssue() { document.getElementById("modal").classList.add("open"); }
+function closeModal() { document.getElementById("modal").classList.remove("open"); }
+
+async function doIssue() {
+  if (submitting) return;
+  submitting = true;
+  const btn = document.getElementById("modal-issue");
+  btn.disabled = true;
+  try {
+    // 1. 下書きヘッダ（既存draftがあれば再利用し明細を作り直す）
+    let invoiceId = sel.existingDraftId;
+    if (invoiceId) {
+      await rDel(`/billing_invoice_lines?invoice_id=eq.${invoiceId}`);
+    } else {
+      const ir = await rPost(`/billing_invoices`, {
+        company_id: cu.companyId, invoice_type: "ukeoi",
+        prime_contractor_id: sel.contract.prime_contractor_id, site_id: sel.site.id,
+        period_start: sel.periodStart, period_end: sel.periodEnd,
+        tax_category: "taxable", status: "draft",
+      });
+      if (!ir.ok) { console.error("[draft]", ir.status, await ir.text().catch(()=> "")); throw new Error("下書きの作成に失敗しました"); }
+      invoiceId = (await ir.json())[0].id;
+    }
+    // 2. 明細（A-2：契約＋進捗%）。金額はサーバが確定するので送らない。
+    const lr = await rPost(`/billing_invoice_lines`, {
+      company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
+      work_type_id: sel.contract.work_type_id, mode: "A2_rate",
+      description: sel.workLabel, contract_id: sel.contract.id, progress_pct: sel.pct, sort_order: 0,
+    }, "return=minimal");
+    if (!lr.ok) { console.error("[line]", lr.status, await lr.text().catch(()=> "")); throw new Error("明細の作成に失敗しました"); }
+
+    // 3. 発行（billing-issue EF・金額確定の正本）。apikey は付けない（CORS）。
+    const token = await FLA.ensureToken();
+    const res = await fetch(ISSUE_FN, {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ invoice_id: invoiceId, changed_by: cu.workerId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { console.error("[issue]", res.status, data); throw new Error(data.error ? "発行に失敗しました" : "発行に失敗しました"); }
+
+    // 4. 完了
+    const inv = data.invoice || {};
+    closeModal();
+    document.getElementById("done-no").textContent = "請求書番号　No. " + (inv.invoice_number ?? "-");
+    document.getElementById("done-ctx").textContent = `${sel.primeName}　御中 ／ ${sel.site.name}`;
+    document.getElementById("done-total").textContent = fmt(inv.total_amount ?? sel.total);
+    showScreen("done");
+    document.getElementById("back-btn").style.display = "none";
+    await loadInvoices();
+  } catch (e) {
+    closeModal();
+    toast(e.message || "発行に失敗しました", true);
+  } finally {
+    submitting = false; btn.disabled = false;
+  }
+}
+
+// ── ナビゲーション ──────────────────────────────────────────────────────
+function showScreen(name) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById("screen-" + name).classList.add("active");
+  document.getElementById("hdr-title").textContent = (name === "list") ? "請求" : (name === "site") ? "現場を選ぶ" : (name === "done") ? "請求" : "今月の請求をつくる";
+  document.getElementById("back-btn").style.display = (name === "list" || name === "done") ? "none" : "block";
+  window.scrollTo(0, 0);
+}
+function goBack() {
+  const cur = document.querySelector(".screen.active")?.id;
+  if (cur === "screen-confirm") showScreen("input");
+  else if (cur === "screen-input") showScreen("site");
+  else if (cur === "screen-site") showScreen("list");
+}
+async function toList() { await backToList(); }
+async function backToList() { await loadInvoices(); showScreen("list"); }
+
+// ── ユーティリティ ──────────────────────────────────────────────────────
+function currentPeriod() {
+  const d = new Date();
+  const y = d.getFullYear(), m = d.getMonth(); // 0-based
+  const mm = String(m + 1).padStart(2, "0");
+  const last = new Date(y, m + 1, 0).getDate();
+  return { periodStart: `${y}-${mm}-01`, periodEnd: `${y}-${mm}-${String(last).padStart(2, "0")}` };
+}
+function fmt(n) { return Number(n || 0).toLocaleString("ja-JP"); }
+function fmtDate(iso) { if (!iso) return ""; const [y, m, d] = iso.split("-"); return `${+m}/${+d}`; }
 function enc(s) { return encodeURIComponent(s); }
 function esc(s) { return FLA.esc(s); }
-function show() { document.getElementById("loading").classList.add("hidden"); document.getElementById("content").style.display = "block"; }
-function hide() { document.getElementById("loading").classList.add("hidden"); }
-function toast(msg) {
+function hideLoading() { document.getElementById("loading").classList.add("hidden"); }
+function toast(msg, err) {
   const t = document.getElementById("toast");
-  t.textContent = msg; t.classList.add("show");
+  t.textContent = msg; t.className = err ? "err show" : "show";
   setTimeout(() => t.classList.remove("show"), 3500);
 }
 </script>
