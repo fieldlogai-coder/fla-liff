@@ -381,18 +381,17 @@ async function selectSite(siteId) {
 // ── ④ 出来高計算（サーバと同じ丸めで“実際に請求される額”を表示）──────────
 function recalc(B) {
   const A = sel.contract.contract_amount, C = sel.C;
-  // 進捗% は numeric(6,2)。サーバは cumulative=round(pct/100*A), amount=cumulative-C。表示もそれに合わせる。
-  const pctExact = A ? (C + B) / A * 100 : 0;
-  const pct2 = Math.round(pctExact * 100) / 100;
-  const cumulative = Math.round(pct2 / 100 * A);
-  const amount = cumulative - C;                 // 実際に請求される今月分
+  // 金額ベース: 今月分＝入力額そのもの。累計＝既請求+今月分。進捗%は表示用（金額計算には使わない）。
+  const amount = B;
+  const cumulative = C + amount;
+  const pct = A ? cumulative / A * 100 : 0;
   const tax = Math.floor(amount * TAX_RATE);     // 端数=floor（company_settings 既定）
   const total = amount + tax;
   const rem = A - cumulative;
-  sel.amount = amount; sel.cumulative = cumulative; sel.pct = pct2; sel.tax = tax; sel.total = total; sel.rem = rem;
+  sel.amount = amount; sel.cumulative = cumulative; sel.pct = Math.round(pct * 100) / 100; sel.tax = tax; sel.total = total; sel.rem = rem;
 
-  document.getElementById("in-pct").textContent = pct2.toFixed(1);
-  document.getElementById("in-bar").style.width = Math.max(0, Math.min(100, pct2)) + "%";
+  document.getElementById("in-pct").textContent = pct.toFixed(1);
+  document.getElementById("in-bar").style.width = Math.max(0, Math.min(100, pct)) + "%";
   document.getElementById("in-cum").textContent = fmt(cumulative);
   document.getElementById("in-tax").textContent = fmt(tax);
   document.getElementById("in-total").textContent = fmt(total);
@@ -457,7 +456,7 @@ async function doIssue() {
     const lr = await rPost(`/billing_invoice_lines`, {
       company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
       work_type_id: sel.contract.work_type_id, mode: "A2_rate",
-      description: sel.workLabel, contract_id: sel.contract.id, progress_pct: sel.pct, sort_order: 0,
+      description: sel.workLabel, contract_id: sel.contract.id, progress_pct: sel.pct, amount: sel.amount, sort_order: 0,
     }, "return=minimal");
     if (!lr.ok) { console.error("[line]", lr.status, await lr.text().catch(()=> "")); throw new Error("明細の作成に失敗しました"); }
 
