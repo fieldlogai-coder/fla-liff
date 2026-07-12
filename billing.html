@@ -104,8 +104,8 @@
     .sum .r.total .big{font-size:24px;font-weight:600;color:var(--ink);}
 
     /* モーダル */
-    #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:20px;}
-    #modal.open{display:flex;}
+    #modal,#modal-void{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:20px;}
+    #modal.open,#modal-void.open{display:flex;}
     .modal-box{background:var(--card);border-radius:var(--r);padding:18px;width:100%;max-width:320px;}
     .modal-box .t{font-size:16px;font-weight:600;margin-bottom:6px;}
     .modal-box .d{font-size:13px;color:var(--sub);line-height:1.6;margin-bottom:16px;}
@@ -311,7 +311,7 @@
 <div id="screen-done" class="screen">
   <div style="text-align:center;padding:20px 10px 6px">
     <div class="done-check">✓</div>
-    <div style="font-size:18px;font-weight:600">発行しました</div>
+    <div style="font-size:18px;font-weight:600" id="done-title">発行しました</div>
     <div class="muted" id="done-no" style="margin-top:4px"></div>
   </div>
   <div class="card" style="margin-top:6px">
@@ -324,14 +324,54 @@
   <button class="btn btn-ghost" onclick="toList()">請求一覧へもどる</button>
 </div>
 
+<!-- 請求 詳細（発行済み/取消） -->
+<div id="screen-detail" class="screen">
+  <div class="card">
+    <div style="font-size:16px;font-weight:600" id="dt-prime"></div>
+    <div class="muted" id="dt-site" style="margin-top:2px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <span class="badge" id="dt-status"></span>
+      <span class="badge b-draft" id="dt-no"></span>
+      <span class="badge b-draft" id="dt-period"></span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="line-item" id="dt-line" style="margin-bottom:10px"></div>
+    <div class="sum">
+      <div class="r"><span>税抜 合計</span><span>¥<span id="dt-sub">0</span></span></div>
+      <div class="r"><span>消費税（10%）</span><span>¥<span id="dt-tax">0</span></span></div>
+      <div class="r total"><span>税込 請求額</span><span class="big">¥<span id="dt-total">0</span></span></div>
+    </div>
+  </div>
+  <div class="sec-label">改訂履歴（最新が正）</div>
+  <div class="card" id="dt-history"></div>
+  <div id="dt-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <button class="btn btn-ghost" style="border-color:var(--warn);color:var(--warn)" onclick="openVoid()">取消する</button>
+    <button class="btn btn-primary" onclick="reviseInvoice()">修正する（改訂）</button>
+  </div>
+  <div id="dt-voided" class="muted" style="display:none;text-align:center;margin-top:8px">この請求は取消済みです。</div>
+</div>
+
 <!-- 発行確認モーダル -->
 <div id="modal">
   <div class="modal-box">
-    <div class="t">この請求書を発行しますか？</div>
-    <div class="d">発行すると番号が付き、内容が履歴に残ります。あとから直す場合は新しい版として記録されます。</div>
+    <div class="t" id="modal-title">この請求書を発行しますか？</div>
+    <div class="d" id="modal-desc">発行すると番号が付き、内容が履歴に残ります。あとから直す場合は新しい版として記録されます。</div>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">戻る</button>
       <button class="btn btn-primary" id="modal-issue" onclick="doIssue()">発行する</button>
+    </div>
+  </div>
+</div>
+
+<!-- 取消確認モーダル -->
+<div id="modal-void">
+  <div class="modal-box">
+    <div class="t">この請求書を取消しますか？</div>
+    <div class="d">取消すると無効になります（履歴には残ります）。同じ内容で出し直す場合は新しく作成してください。</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeVoid()">戻る</button>
+      <button class="btn" style="background:var(--warn);color:#fff" id="modal-void-btn" onclick="doVoid()">取消する</button>
     </div>
   </div>
 </div>
@@ -350,7 +390,8 @@ const ISSUE_FN  = `${SUPA_URL}/functions/v1/billing-issue`;
 let cu = null;        // { lineId, workerId, name, role, companyId, companyName, canBill }
 let siteList = [];    // 請求可能な現場
 let workTypeList = []; // 工種（常用）
-let sel = null;       // 選択中: { site, primeName, type, contract/C(請負) or workType/ff/fh/…(常用), periodStart, periodEnd, existingDraftId }
+let sel = null;       // 選択中: { site, primeName, type, …, periodStart, periodEnd, existingDraftId, reviseInvoiceId }
+let detailInv = null; // 詳細画面で表示中の請求（改訂/取消の対象）
 let submitting = false;
 
 // ── REST 薄ヘルパー（fla-core の FLA.rest） ─────────────────────────────
@@ -402,15 +443,21 @@ function renderProfile() {
 
 // ── ① 請求一覧 ─────────────────────────────────────────────────────────
 async function loadInvoices() {
-  const res = await rGet(`/billing_invoices?select=id,invoice_number,status,total_amount,period_end,sites(name),prime_contractors(name)&order=created_at.desc&limit=50`);
+  const res = await rGet(`/billing_invoices?select=id,invoice_number,status,total_amount,period_end,sites(name),prime_contractors(name),billing_invoice_revisions(revision_no)&order=created_at.desc&limit=50`);
   const el = document.getElementById("inv-list");
   if (!res.ok) { el.innerHTML = '<div class="empty">取得に失敗しました</div>'; return; }
   const rows = await res.json();
   if (!rows.length) { el.innerHTML = '<div class="empty">請求はまだありません。<br>「今月の請求をつくる」から始めてください。</div>'; return; }
   el.innerHTML = rows.map(r => {
-    const st = r.status === "issued" ? ["b-issued","発行済み"] : r.status === "void" ? ["b-void","取消"] : ["b-draft","下書き"];
+    const maxRev = (r.billing_invoice_revisions || []).reduce((m, x) => Math.max(m, x.revision_no || 0), 0);
+    let st;
+    if (r.status === "void") st = ["b-void", "取消"];
+    else if (r.status === "issued") st = maxRev >= 2 ? ["b-draft", `第${maxRev}版`] : ["b-issued", "発行済み"];
+    else st = ["b-draft", "下書き"];
     const no = r.invoice_number ? `No.${esc(r.invoice_number)}　` : "";
-    return `<div class="card"><div class="inv-row">
+    const tap = r.status !== "draft" ? ` onclick="openDetail('${r.id}')" style="cursor:pointer"` : "";
+    const dim = r.status === "void" ? "opacity:.55;" : "";
+    return `<div class="card"${tap}><div class="inv-row" style="${dim}">
       <div class="inv-main">
         <div class="inv-title">${esc(r.prime_contractors?.name ?? "元請未設定")}</div>
         <div class="inv-sub">${esc(r.sites?.name ?? "")}　${no}${fmtDate(r.period_end)}締</div>
@@ -567,6 +614,105 @@ function goConfirmJoyo() {
   showScreen("confirm-joyo");
 }
 
+// ── 詳細（発行済み/取消）＋ 改訂/取消 ──────────────────────────────────
+async function openDetail(id) {
+  const res = await rGet(`/billing_invoices?id=eq.${id}&select=*,sites(name),prime_contractors(name),billing_invoice_lines(*),billing_invoice_revisions(revision_no,change_note,total_amount,created_at)`);
+  if (!res.ok) { toast("取得に失敗しました", true); return; }
+  const rows = await res.json();
+  if (!rows.length) return;
+  const inv = rows[0];
+  detailInv = inv;
+  const line = (inv.billing_invoice_lines || [])[0] || {};
+  const revs = (inv.billing_invoice_revisions || []).map(x => x.revision_no);
+  const maxRev = revs.length ? Math.max(...revs) : 1;
+
+  document.getElementById("dt-prime").textContent = (inv.prime_contractors?.name ?? "元請未設定") + "　御中";
+  document.getElementById("dt-site").textContent = inv.sites?.name ?? "";
+  const stEl = document.getElementById("dt-status");
+  if (inv.status === "void") { stEl.className = "badge b-void"; stEl.textContent = "取消"; }
+  else { stEl.className = "badge b-issued"; stEl.textContent = maxRev >= 2 ? `発行済み・第${maxRev}版` : "発行済み"; }
+  document.getElementById("dt-no").textContent = inv.invoice_number ? "No." + inv.invoice_number : "番号なし";
+  document.getElementById("dt-period").textContent = "締め " + fmtDate(inv.period_end);
+  document.getElementById("dt-line").innerHTML =
+    `<span>${esc(line.description ?? (inv.invoice_type === "joyo_other" ? "常用" : "一式"))}</span><span style="margin-left:auto;font-weight:600">¥${fmt(line.amount ?? 0)}</span>`;
+  document.getElementById("dt-sub").textContent = fmt(inv.subtotal_amount ?? 0);
+  document.getElementById("dt-tax").textContent = fmt(inv.tax_amount ?? 0);
+  document.getElementById("dt-total").textContent = fmt(inv.total_amount ?? 0);
+
+  const hist = (inv.billing_invoice_revisions || []).slice().sort((a, b) => a.revision_no - b.revision_no);
+  document.getElementById("dt-history").innerHTML = hist.length
+    ? hist.map(h => `<div style="display:flex;font-size:13px;padding:7px 0;border-bottom:1px solid var(--line)"><span>第${h.revision_no}版　${esc(h.change_note ?? "")}</span><span style="margin-left:auto;font-weight:600">¥${fmt(h.total_amount ?? 0)}</span></div>`).join("")
+    : '<div class="muted">履歴なし</div>';
+
+  const issued = inv.status === "issued";
+  document.getElementById("dt-actions").style.display = issued ? "grid" : "none";
+  document.getElementById("dt-voided").style.display = issued ? "none" : "block";
+  showScreen("detail");
+}
+
+// 修正する（改訂）: 現在の明細を入力画面にロードし、reviseInvoiceId を立てる
+async function reviseInvoice() {
+  const inv = detailInv;
+  if (!inv || inv.status !== "issued") return;
+  const line = (inv.billing_invoice_lines || [])[0];
+  if (!line) { toast("明細がありません", true); return; }
+  const site = { id: inv.site_id, name: inv.sites?.name ?? "", prime_contractor_id: inv.prime_contractor_id, prime_contractors: { name: inv.prime_contractors?.name } };
+  sel = { site, primeName: inv.prime_contractors?.name ?? "未設定", periodStart: inv.period_start, periodEnd: inv.period_end, existingDraftId: null, reviseInvoiceId: inv.id };
+
+  if (line.mode === "A2_rate") {
+    const cr = await rGet(`/construction_contracts?id=eq.${line.contract_id}&select=id,contract_amount,work_type_id,prime_contractor_id,work_types(name)&limit=1`);
+    const contracts = cr.ok ? await cr.json() : [];
+    if (!contracts.length) { toast("契約が見つかりません", true); return; }
+    const contract = contracts[0];
+    let C = 0;   // 自分の版を除く既請求累計
+    const pr = await rGet(`/billing_invoice_lines?mode=eq.A2_rate&contract_id=eq.${contract.id}&invoice_id=neq.${inv.id}&select=amount,billing_invoices!inner(status)&billing_invoices.status=eq.issued`);
+    if (pr.ok) { const prows = await pr.json(); C = prows.reduce((s, r) => s + (r.amount || 0), 0); }
+    sel.type = "ukeoi"; sel.contract = contract; sel.C = C;
+    sel.workLabel = (contract.work_types?.name ? contract.work_types.name + "　一式" : "一式");
+    document.getElementById("in-prime").textContent = "元請　" + sel.primeName;
+    document.getElementById("in-site").textContent = site.name;
+    document.getElementById("in-contract").textContent = fmt(contract.contract_amount);
+    document.getElementById("in-line-label").textContent = sel.workLabel;
+    document.getElementById("in-b").value = fmt(line.amount ?? 0);
+    recalc(line.amount ?? 0);
+    showScreen("input");
+  } else {
+    const wr = await rGet(`/work_types?company_id=eq.${cu.companyId}&select=id,name&order=name`);
+    workTypeList = wr.ok ? await wr.json() : [];
+    sel.type = "joyo";
+    document.getElementById("jw-type").innerHTML = workTypeList.map(w => `<option value="${w.id}"${String(w.id) === String(line.work_type_id) ? " selected" : ""}>${esc(w.name)}</option>`).join("");
+    document.getElementById("jo-prime").textContent = "元請　" + sel.primeName;
+    document.getElementById("jo-site").textContent = site.name;
+    document.getElementById("jw-ff").value = String(line.jinku_full ?? 0);
+    document.getElementById("jw-fh").value = String(line.jinku_half ?? 0);
+    document.getElementById("jw-up").value = line.unit_price ?? "";
+    document.getElementById("jw-hp").value = line.half_price ?? "";
+    document.getElementById("jw-mat").value = line.material_amount ?? "";
+    document.getElementById("jw-ppl").value = ""; document.getElementById("jw-days").value = "";
+    recomputeJoyo();
+    showScreen("joyo");
+  }
+}
+
+function openVoid() { document.getElementById("modal-void").classList.add("open"); }
+function closeVoid() { document.getElementById("modal-void").classList.remove("open"); }
+async function doVoid() {
+  if (submitting || !detailInv) return;
+  submitting = true;
+  const btn = document.getElementById("modal-void-btn"); btn.disabled = true;
+  try {
+    const token = await FLA.ensureToken();
+    const res = await fetch(ISSUE_FN, {
+      method: "POST", headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ invoice_id: detailInv.id, changed_by: cu.workerId, mode: "void", note: "取消" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { console.error("[void]", res.status, data); throw new Error("取消に失敗しました"); }
+    closeVoid(); toast("取消しました"); await backToList();
+  } catch (e) { closeVoid(); toast(e.message || "取消に失敗しました", true); }
+  finally { submitting = false; btn.disabled = false; }
+}
+
 // ── ④ 出来高計算（サーバと同じ丸めで“実際に請求される額”を表示）──────────
 function recalc(B) {
   const A = sel.contract.contract_amount, C = sel.C;
@@ -617,8 +763,16 @@ function goConfirm() {
   showScreen("confirm");
 }
 
-// ── ⑥ 発行 ─────────────────────────────────────────────────────────────
-function openIssue() { document.getElementById("modal").classList.add("open"); }
+// ── ⑥ 発行 / 改訂 ───────────────────────────────────────────────────────
+function openIssue() {
+  const rev = !!(sel && sel.reviseInvoiceId);
+  document.getElementById("modal-title").textContent = rev ? "この内容で改訂しますか？" : "この請求書を発行しますか？";
+  document.getElementById("modal-desc").textContent = rev
+    ? "同じ請求書番号のまま、新しい版として履歴に残ります。"
+    : "発行すると番号が付き、内容が履歴に残ります。あとから直す場合は新しい版として記録されます。";
+  document.getElementById("modal-issue").textContent = rev ? "改訂する" : "発行する";
+  document.getElementById("modal").classList.add("open");
+}
 function closeModal() { document.getElementById("modal").classList.remove("open"); }
 
 async function doIssue() {
@@ -626,10 +780,15 @@ async function doIssue() {
   submitting = true;
   const btn = document.getElementById("modal-issue");
   btn.disabled = true;
+  const isRevise = !!sel.reviseInvoiceId;
   try {
-    // 1. 下書きヘッダ（既存draftがあれば再利用し明細を作り直す）
-    let invoiceId = sel.existingDraftId;
-    if (invoiceId) {
+    // 1. 対象invoice（改訂=既存発行済／通常=既存draft再利用 or 新規draft）。明細は作り直す。
+    let invoiceId;
+    if (isRevise) {
+      invoiceId = sel.reviseInvoiceId;
+      await rDel(`/billing_invoice_lines?invoice_id=eq.${invoiceId}`);
+    } else if (sel.existingDraftId) {
+      invoiceId = sel.existingDraftId;
       await rDel(`/billing_invoice_lines?invoice_id=eq.${invoiceId}`);
     } else {
       const ir = await rPost(`/billing_invoices`, {
@@ -659,14 +818,15 @@ async function doIssue() {
     const res = await fetch(ISSUE_FN, {
       method: "POST",
       headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ invoice_id: invoiceId, changed_by: cu.workerId }),
+      body: JSON.stringify({ invoice_id: invoiceId, changed_by: cu.workerId, mode: isRevise ? "revise" : "issue", note: isRevise ? "改訂" : null }),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) { console.error("[issue]", res.status, data); throw new Error(data.error ? "発行に失敗しました" : "発行に失敗しました"); }
+    if (!res.ok) { console.error("[issue]", res.status, data); throw new Error(isRevise ? "改訂に失敗しました" : "発行に失敗しました"); }
 
     // 4. 完了
     const inv = data.invoice || {};
     closeModal();
+    document.getElementById("done-title").textContent = isRevise ? "改訂しました" : "発行しました";
     document.getElementById("done-no").textContent = "請求書番号　No. " + (inv.invoice_number ?? "-");
     document.getElementById("done-ctx").textContent = `${sel.primeName}　御中 ／ ${sel.site.name}`;
     document.getElementById("done-total").textContent = fmt(inv.total_amount ?? sel.total);
@@ -685,17 +845,22 @@ async function doIssue() {
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById("screen-" + name).classList.add("active");
-  document.getElementById("hdr-title").textContent = (name === "list") ? "請求" : (name === "site") ? "現場を選ぶ" : (name === "done") ? "請求" : "今月の請求をつくる";
+  const rev = !!(sel && sel.reviseInvoiceId);
+  document.getElementById("hdr-title").textContent =
+    (name === "list") ? "請求" : (name === "site") ? "現場を選ぶ" : (name === "done") ? "請求" :
+    (name === "detail") ? "請求の詳細" : rev ? "請求を修正する" : "今月の請求をつくる";
   document.getElementById("back-btn").style.display = (name === "list" || name === "done") ? "none" : "block";
   window.scrollTo(0, 0);
 }
 function goBack() {
   const cur = document.querySelector(".screen.active")?.id;
+  const rev = !!(sel && sel.reviseInvoiceId);
   if (cur === "screen-confirm") showScreen("input");
   else if (cur === "screen-confirm-joyo") showScreen("joyo");
-  else if (cur === "screen-input") showScreen("type");
-  else if (cur === "screen-joyo") showScreen("type");
+  else if (cur === "screen-input") showScreen(rev ? "detail" : "type");
+  else if (cur === "screen-joyo") showScreen(rev ? "detail" : "type");
   else if (cur === "screen-type") showScreen("site");
+  else if (cur === "screen-detail") showScreen("list");
   else if (cur === "screen-site") showScreen("list");
 }
 async function toList() { await backToList(); }
