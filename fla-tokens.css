@@ -1,0 +1,24 @@
+/* fla-tokens.css — FLA 共通デザイントークン（移行⑥・2026-07-12 制定）
+   用語の正本: docs/UI_TERMINOLOGY.md ／ 見た目の正本: 本ファイル
+   読み込み順: LIFF SDK → 本CSS → 各ページの<style>
+   キャッシュ対策: <link rel="stylesheet" href="./fla-tokens.css?v=YYYYMMDD">
+
+   面ごとのアクセント:
+     請求面 = --acc-billing（深緑）／ 日報面 = --acc-daily（LINE緑）
+   既定は請求面基準。日報面のページは自身の<style>で
+     :root{ --acc:var(--acc-daily); --acc-dark:var(--acc-daily-dark); }
+   と上書きして使う。日報3面（settings / site-memo / リッチメニュー）への適用は v2 で順次。
+   2026-07-12 時点の使用ページ: billing.html のみ */
+:root{
+  /* 面アクセント */
+  --acc-billing:#1d9e75; --acc-billing-dark:#178a66;
+  --acc-daily:#00b900;   --acc-daily-dark:#009e00;
+  /* 既定アクセント（請求面基準） */
+  --acc:var(--acc-billing); --acc-dark:var(--acc-billing-dark);
+  /* 地・カード・文字・罫線 */
+  --bg:#f4f3ed; --card:#fff; --ink:#1f1e1c; --sub:#6b6a63; --line:#e2e0d8;
+  /* 意味色（案内・警告・完了） */
+  --info-bg:#e7f4ee; --info-ink:#178a66; --warn:#c0392b; --ok-bg:#e7f4ee; --ok-ink:#1f9a63;
+  /* 角丸 */
+  --r:12px; --r-sm:8px;
+}

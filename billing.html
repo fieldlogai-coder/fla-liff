@@ -5,14 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>請求</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-12" />
   <style>
-    /* ── 最小デザイントークン（移行⑥の基準点。請求系アクセント緑）── */
-    :root{
-      --acc:#1d9e75; --acc-dark:#178a66;
-      --bg:#f4f3ed; --card:#fff; --ink:#1f1e1c; --sub:#6b6a63; --line:#e2e0d8;
-      --info-bg:#e7f4ee; --info-ink:#178a66; --warn:#c0392b; --ok-bg:#e7f4ee; --ok-ink:#1f9a63;
-      --r:12px; --r-sm:8px;
-    }
+    /* デザイントークン（--acc/--bg/--r 等）は fla-tokens.css（正本）から読み込み。移行⑥ */
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;-webkit-text-size-adjust:100%;}
     header{background:var(--acc);color:#fff;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:10px;}
