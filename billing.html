@@ -71,6 +71,22 @@
     .total-row .big{font-size:24px;font-weight:600;}
     .neg{color:var(--warn);}
 
+    /* 常用入力 */
+    .form-row{display:flex;align-items:center;gap:10px;}
+    .fl{font-size:13px;color:var(--sub);flex-shrink:0;}
+    #jw-type{flex:1;height:44px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--card);padding:0 10px;font-size:15px;font-family:inherit;}
+    .jlabel{font-size:14px;font-weight:600;margin:14px 0 6px;}
+    .stepper{display:flex;align-items:center;gap:10px;}
+    .stbtn{width:48px;height:48px;border:1px solid var(--line);background:var(--card);border-radius:var(--r-sm);font-size:22px;cursor:pointer;flex-shrink:0;font-family:inherit;}
+    .stbtn.wide{width:auto;padding:0 14px;font-size:14px;font-weight:600;margin-left:auto;}
+    .stepper input{flex:1;min-width:0;height:48px;text-align:center;font-size:24px;font-weight:600;border:1px solid var(--line);border-radius:var(--r-sm);font-family:inherit;}
+    .helper{background:var(--bg);border-radius:var(--r-sm);padding:10px 12px;margin-top:10px;}
+    .helper-row{display:flex;align-items:center;gap:8px;margin-top:8px;}
+    .helper-row input{width:66px;height:40px;text-align:center;border:1px solid var(--line);border-radius:var(--r-sm);font-family:inherit;font-size:16px;}
+    .fl2{font-size:12px;color:var(--sub);}
+    .fl2 input{width:100%;height:44px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 12px;font-size:16px;font-family:inherit;margin-top:4px;}
+    .stepper input:focus,.helper-row input:focus,.fl2 input:focus,#jw-type:focus{outline:none;border-color:var(--acc);}
+
     .btn{width:100%;height:48px;font-size:15px;font-weight:600;border:none;border-radius:var(--r);cursor:pointer;font-family:inherit;}
     .btn-primary{background:var(--acc);color:#fff;}
     .btn-primary:active{background:var(--acc-dark);}
@@ -124,6 +140,98 @@
 <div id="screen-site" class="screen">
   <div class="note" style="margin-bottom:10px">請求する現場を選んでください（元請は現場に紐づいて自動で決まります）。</div>
   <div id="site-list"></div>
+</div>
+
+<!-- ③ 請求の種類 -->
+<div id="screen-type" class="screen">
+  <div class="card">
+    <div class="ctx">
+      <span class="prime" id="type-prime"></span>
+      <span class="site" id="type-site"></span>
+    </div>
+  </div>
+  <div class="note" style="margin-bottom:12px">この現場の請求の種類を選んでください。</div>
+  <button class="btn btn-primary" style="margin-bottom:10px" onclick="chooseUkeoi()">出来高（請負）</button>
+  <button class="btn btn-ghost" onclick="chooseJoyo()">常用（人工）</button>
+</div>
+
+<!-- ④ 常用（人工）入力 -->
+<div id="screen-joyo" class="screen">
+  <div class="card">
+    <div class="ctx">
+      <span class="prime" id="jo-prime"></span>
+      <span class="site" id="jo-site"></span>
+    </div>
+    <span class="pill">常用（人工）</span>
+  </div>
+
+  <div class="card">
+    <div class="form-row" style="margin-bottom:12px"><span class="fl">工種</span><select id="jw-type" onchange="onWorkTypeChange()"></select></div>
+
+    <div class="jlabel">終日（1人工）</div>
+    <div class="stepper">
+      <button class="stbtn" onclick="adjNinku('jw-ff',-1)">−</button>
+      <input type="text" inputmode="numeric" id="jw-ff" value="0" oninput="onNinkuInput('jw-ff')" />
+      <button class="stbtn" onclick="adjNinku('jw-ff',1)">＋</button>
+    </div>
+    <div class="helper">
+      <span class="muted">まとめて計算（人数 × 日数）</span>
+      <div class="helper-row">
+        <input type="text" inputmode="numeric" id="jw-ppl" placeholder="人数" />
+        <span class="muted">人 ×</span>
+        <input type="text" inputmode="numeric" id="jw-days" placeholder="日数" />
+        <span class="muted">日</span>
+        <button class="stbtn wide" onclick="applyJoyoHelper()">＋ 加算</button>
+      </div>
+    </div>
+
+    <div class="jlabel">半日（0.5人工）</div>
+    <div class="stepper">
+      <button class="stbtn" onclick="adjNinku('jw-fh',-1)">−</button>
+      <input type="text" inputmode="numeric" id="jw-fh" value="0" oninput="onNinkuInput('jw-fh')" />
+      <button class="stbtn" onclick="adjNinku('jw-fh',1)">＋</button>
+    </div>
+
+    <div class="grid2" style="margin-top:14px">
+      <label class="fl2">終日の単価（円）<input type="text" inputmode="numeric" id="jw-up" oninput="onNinkuInput('jw-up')" /></label>
+      <label class="fl2">半日の単価（空欄=終日の半額）<input type="text" inputmode="numeric" id="jw-hp" oninput="onNinkuInput('jw-hp')" /></label>
+    </div>
+    <label class="fl2" style="display:block;margin-top:12px">材料費（あれば・円）<input type="text" inputmode="numeric" id="jw-mat" oninput="onNinkuInput('jw-mat')" /></label>
+
+    <div class="total-box" style="margin-top:14px">
+      <div class="total-row"><span class="lab">この工種　<span id="jw-ninku">0.0</span>人工</span><span>税抜 ¥<span id="jw-sub">0</span></span></div>
+      <div class="total-row" style="margin-top:4px"><span class="lab">消費税（10%）</span><span>¥<span id="jw-tax">0</span></span></div>
+      <div class="total-row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)"><span class="lab">税込</span><span class="big">¥<span id="jw-total">0</span></span></div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" onclick="goConfirmJoyo()">この内容で確認する</button>
+</div>
+
+<!-- ⑤ 常用 確認 -->
+<div id="screen-confirm-joyo" class="screen">
+  <div class="card">
+    <div style="font-size:16px;font-weight:600" id="cj-prime"></div>
+    <div class="muted" id="cj-site" style="margin-top:2px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+      <span class="badge b-issued">常用・請負外請求書</span>
+      <span class="badge b-draft" id="cj-period"></span>
+      <span class="badge b-draft">番号は発行時に自動</span>
+    </div>
+  </div>
+  <div class="card">
+    <div class="line-item"><span id="cj-line-label">工種</span><span style="margin-left:auto;font-weight:600">¥<span id="cj-line">0</span></span></div>
+    <div class="muted" id="cj-detail" style="margin-top:8px"></div>
+    <div class="sum" style="margin-top:12px">
+      <div class="r"><span>税抜 合計</span><span>¥<span id="cj-sub">0</span></span></div>
+      <div class="r"><span>消費税（10%）</span><span>¥<span id="cj-tax">0</span></span></div>
+      <div class="r total"><span>税込 請求額</span><span class="big">¥<span id="cj-total">0</span></span></div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:10px">
+    <button class="btn btn-ghost" onclick="goBack()">修正する</button>
+    <button class="btn btn-primary" onclick="openIssue()">この内容で発行する</button>
+  </div>
 </div>
 
 <!-- ④ 出来高（請負）入力 -->
@@ -241,7 +349,8 @@ const ISSUE_FN  = `${SUPA_URL}/functions/v1/billing-issue`;
 // ── 状態 ───────────────────────────────────────────────────────────────
 let cu = null;        // { lineId, workerId, name, role, companyId, companyName, canBill }
 let siteList = [];    // 請求可能な現場
-let sel = null;       // 選択中: { site, primeName, contract, C, periodStart, periodEnd, existingDraftId, amount, cumulative, pct, tax, total }
+let workTypeList = []; // 工種（常用）
+let sel = null;       // 選択中: { site, primeName, type, contract/C(請負) or workType/ff/fh/…(常用), periodStart, periodEnd, existingDraftId }
 let submitting = false;
 
 // ── REST 薄ヘルパー（fla-core の FLA.rest） ─────────────────────────────
@@ -336,17 +445,10 @@ async function selectSite(siteId) {
   const site = siteList.find(s => String(s.id) === String(siteId));
   if (!site) return;
 
-  // 請負契約（A-2）。無ければ入れない。
-  const cr = await rGet(`/construction_contracts?site_id=eq.${siteId}&status=eq.active&select=id,contract_amount,work_type_id,prime_contractor_id,work_types(name)&order=created_at&limit=1`);
-  if (!cr.ok) { toast("契約の取得に失敗しました", true); return; }
-  const contracts = await cr.json();
-  if (!contracts.length) { toast("この現場は請負契約が未登録です（マスタ登録が必要）", true); return; }
-  const contract = contracts[0];
-
   // 当月の期間
   const { periodStart, periodEnd } = currentPeriod();
 
-  // 二重発行ガード（同現場・同締め期間の非取消）
+  // 二重発行ガード（同現場・同締め期間の非取消。種類に関わらず1現場1枚/月）
   const ex = await rGet(`/billing_invoices?site_id=eq.${siteId}&period_end=eq.${periodEnd}&status=neq.void&select=id,status,invoice_number`);
   let existingDraftId = null;
   if (ex.ok) {
@@ -357,18 +459,31 @@ async function selectSite(siteId) {
     if (draft) existingDraftId = draft.id;
   }
 
+  sel = { site, primeName: site.prime_contractors?.name ?? "未設定", periodStart, periodEnd, existingDraftId };
+  document.getElementById("type-prime").textContent = "元請　" + sel.primeName;
+  document.getElementById("type-site").textContent = site.name;
+  showScreen("type");
+}
+
+// ── ③→請負(A-2) ────────────────────────────────────────────────────────
+async function chooseUkeoi() {
+  const site = sel.site;
+  const cr = await rGet(`/construction_contracts?site_id=eq.${site.id}&status=eq.active&select=id,contract_amount,work_type_id,prime_contractor_id,work_types(name)&order=created_at&limit=1`);
+  if (!cr.ok) { toast("契約の取得に失敗しました", true); return; }
+  const contracts = await cr.json();
+  if (!contracts.length) { toast("この現場は請負契約が未登録です（マスタ登録が必要）", true); return; }
+  const contract = contracts[0];
+
   // 既請求累計 C（発行済 A-2 明細の合計）
   let C = 0;
   const pr = await rGet(`/billing_invoice_lines?mode=eq.A2_rate&contract_id=eq.${contract.id}&select=amount,billing_invoices!inner(status)&billing_invoices.status=eq.issued`);
   if (pr.ok) { const prows = await pr.json(); C = prows.reduce((s, r) => s + (r.amount || 0), 0); }
 
-  sel = {
-    site, primeName: site.prime_contractors?.name ?? "未設定",
-    contract, workLabel: (contract.work_types?.name ? contract.work_types.name + "　一式" : "一式"),
-    C, periodStart, periodEnd, existingDraftId,
-  };
+  sel.type = "ukeoi";
+  sel.contract = contract;
+  sel.workLabel = (contract.work_types?.name ? contract.work_types.name + "　一式" : "一式");
+  sel.C = C;
 
-  // 入力画面初期化
   document.getElementById("in-prime").textContent = "元請　" + sel.primeName;
   document.getElementById("in-site").textContent = site.name;
   document.getElementById("in-contract").textContent = fmt(contract.contract_amount);
@@ -376,6 +491,80 @@ async function selectSite(siteId) {
   document.getElementById("in-b").value = "";
   recalc(0);
   showScreen("input");
+}
+
+// ── ③→常用(A-1) ────────────────────────────────────────────────────────
+async function chooseJoyo() {
+  const wr = await rGet(`/work_types?company_id=eq.${cu.companyId}&select=id,name&order=name`);
+  workTypeList = wr.ok ? await wr.json() : [];
+  if (!workTypeList.length) { toast("工種が未登録です（マスタ登録が必要）", true); return; }
+  sel.type = "joyo";
+  document.getElementById("jw-type").innerHTML = workTypeList.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join("");
+  document.getElementById("jo-prime").textContent = "元請　" + sel.primeName;
+  document.getElementById("jo-site").textContent = sel.site.name;
+  ["jw-ff","jw-fh"].forEach(id => document.getElementById(id).value = "0");
+  ["jw-mat","jw-ppl","jw-days"].forEach(id => document.getElementById(id).value = "");
+  await onWorkTypeChange();
+  showScreen("joyo");
+}
+
+// 工種を変えたら billing_prices から単価を自動プレフィル（現場優先→元請レベル）
+async function onWorkTypeChange() {
+  const wtId = document.getElementById("jw-type").value;
+  const site = sel.site;
+  let up = "", hp = "";
+  const pr = await rGet(`/billing_prices?company_id=eq.${cu.companyId}&prime_contractor_id=eq.${site.prime_contractor_id}&work_type_id=eq.${wtId}&mode=eq.A1_unit&select=site_id,unit_price,half_price`);
+  if (pr.ok) {
+    const rows = await pr.json();
+    const m = rows.find(r => String(r.site_id) === String(site.id)) || rows.find(r => r.site_id == null);
+    if (m) { up = m.unit_price ?? ""; hp = m.half_price ?? ""; }
+  }
+  document.getElementById("jw-up").value = up;
+  document.getElementById("jw-hp").value = hp;
+  recomputeJoyo();
+}
+
+function recomputeJoyo() {
+  const ff = numv("jw-ff"), fh = numv("jw-fh"), up = numv("jw-up"), hp = numv("jw-hp"), mat = numv("jw-mat");
+  const ninku = ff * 1 + fh * 0.5;
+  const halfEff = hp || Math.round(up / 2);   // 半日単価 空欄なら終日の半額（サーバと同じ）
+  const line = ff * up + fh * halfEff + mat;
+  const tax = Math.floor(line * TAX_RATE);
+  const total = line + tax;
+  sel.ff = ff; sel.fh = fh; sel.unitPrice = up; sel.halfPrice = (hp || null); sel.material = mat;
+  sel.line = line; sel.tax = tax; sel.total = total; sel.ninku = ninku;
+  document.getElementById("jw-ninku").textContent = ninku.toFixed(1);
+  document.getElementById("jw-sub").textContent = fmt(line);
+  document.getElementById("jw-tax").textContent = fmt(tax);
+  document.getElementById("jw-total").textContent = fmt(total);
+}
+
+function numv(id) { return parseInt((document.getElementById(id).value || "").replace(/[^0-9]/g, ""), 10) || 0; }
+function onNinkuInput(id) { const el = document.getElementById(id); el.value = (el.value || "").replace(/[^0-9]/g, ""); recomputeJoyo(); }
+function adjNinku(id, d) { const el = document.getElementById(id); el.value = String(Math.max(0, (parseInt(el.value || "0", 10) || 0) + d)); recomputeJoyo(); }
+function applyJoyoHelper() {
+  const add = numv("jw-ppl") * numv("jw-days");   // 人数×日数を「加算」（複数班に対応）
+  if (add > 0) { const el = document.getElementById("jw-ff"); el.value = String((parseInt(el.value || "0", 10) || 0) + add); }
+  document.getElementById("jw-ppl").value = ""; document.getElementById("jw-days").value = "";
+  recomputeJoyo();
+}
+
+function goConfirmJoyo() {
+  if (!sel || sel.line === undefined) return;
+  if (!sel.unitPrice) { toast("終日の単価を入れてください", true); return; }
+  if (sel.line <= 0) { toast("人工または材料費を入れてください", true); return; }
+  sel.workType = workTypeList.find(w => String(w.id) === document.getElementById("jw-type").value);
+  document.getElementById("cj-prime").textContent = sel.primeName + "　御中";
+  document.getElementById("cj-site").textContent = sel.site.name;
+  document.getElementById("cj-period").textContent = "締め " + fmtDate(sel.periodEnd);
+  document.getElementById("cj-line-label").textContent = sel.workType ? sel.workType.name : "常用";
+  document.getElementById("cj-line").textContent = fmt(sel.line);
+  document.getElementById("cj-detail").textContent =
+    `終日 ${sel.ff}人工 × ¥${fmt(sel.unitPrice)}／半日 ${sel.fh}人工` + (sel.material ? `／材料 ¥${fmt(sel.material)}` : "");
+  document.getElementById("cj-sub").textContent = fmt(sel.line);
+  document.getElementById("cj-tax").textContent = fmt(sel.tax);
+  document.getElementById("cj-total").textContent = fmt(sel.total);
+  showScreen("confirm-joyo");
 }
 
 // ── ④ 出来高計算（サーバと同じ丸めで“実際に請求される額”を表示）──────────
@@ -444,20 +633,25 @@ async function doIssue() {
       await rDel(`/billing_invoice_lines?invoice_id=eq.${invoiceId}`);
     } else {
       const ir = await rPost(`/billing_invoices`, {
-        company_id: cu.companyId, invoice_type: "ukeoi",
-        prime_contractor_id: sel.contract.prime_contractor_id, site_id: sel.site.id,
+        company_id: cu.companyId,
+        invoice_type: sel.type === "joyo" ? "joyo_other" : "ukeoi",
+        prime_contractor_id: sel.site.prime_contractor_id, site_id: sel.site.id,
         period_start: sel.periodStart, period_end: sel.periodEnd,
         tax_category: "taxable", status: "draft",
       });
       if (!ir.ok) { console.error("[draft]", ir.status, await ir.text().catch(()=> "")); throw new Error("下書きの作成に失敗しました"); }
       invoiceId = (await ir.json())[0].id;
     }
-    // 2. 明細（A-2：契約＋進捗%）。金額はサーバが確定するので送らない。
-    const lr = await rPost(`/billing_invoice_lines`, {
-      company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
-      work_type_id: sel.contract.work_type_id, mode: "A2_rate",
-      description: sel.workLabel, contract_id: sel.contract.id, progress_pct: sel.pct, amount: sel.amount, sort_order: 0,
-    }, "return=minimal");
+    // 2. 明細（種類で分岐）。金額はサーバ(issue_invoice)が確定。
+    const line = sel.type === "joyo"
+      ? { company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
+          work_type_id: sel.workType.id, mode: "A1_unit", description: sel.workType.name,
+          jinku_full: sel.ff, jinku_half: sel.fh, unit_price: sel.unitPrice, half_price: sel.halfPrice,
+          material_amount: sel.material, sort_order: 0 }
+      : { company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
+          work_type_id: sel.contract.work_type_id, mode: "A2_rate", description: sel.workLabel,
+          contract_id: sel.contract.id, progress_pct: sel.pct, amount: sel.amount, sort_order: 0 };
+    const lr = await rPost(`/billing_invoice_lines`, line, "return=minimal");
     if (!lr.ok) { console.error("[line]", lr.status, await lr.text().catch(()=> "")); throw new Error("明細の作成に失敗しました"); }
 
     // 3. 発行（billing-issue EF・金額確定の正本）。apikey は付けない（CORS）。
@@ -498,7 +692,10 @@ function showScreen(name) {
 function goBack() {
   const cur = document.querySelector(".screen.active")?.id;
   if (cur === "screen-confirm") showScreen("input");
-  else if (cur === "screen-input") showScreen("site");
+  else if (cur === "screen-confirm-joyo") showScreen("joyo");
+  else if (cur === "screen-input") showScreen("type");
+  else if (cur === "screen-joyo") showScreen("type");
+  else if (cur === "screen-type") showScreen("site");
   else if (cur === "screen-site") showScreen("list");
 }
 async function toList() { await backToList(); }
