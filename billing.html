@@ -97,6 +97,28 @@
     .line-item{display:flex;align-items:center;gap:8px;font-size:13px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);}
     .diff{background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:6px 12px;font-size:12px;}
 
+    /* マスタ設定（④c） */
+    .tap{cursor:pointer;}
+    .tap:active{transform:scale(.99);}
+    .icn{width:38px;height:38px;border-radius:10px;background:var(--info-bg);color:var(--info-ink);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+    .chev{color:#c5c3b9;font-size:18px;flex-shrink:0;}
+    .m-row{display:flex;align-items:center;gap:10px;}
+    .m-main{flex:1;min-width:0;}
+    .m-title{font-size:15px;font-weight:bold;}
+    .m-sub{font-size:12px;color:var(--sub);margin-top:2px;line-height:1.5;}
+    .half{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .fl2.mt{display:block;margin-top:12px;}
+    .fl2.m0{display:block;margin-top:0;}
+    .fl2 select{width:100%;height:44px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 10px;font-size:16px;font-family:inherit;margin-top:4px;background:var(--card);color:var(--ink);}
+    .fl2 select:focus{outline:none;border-color:var(--acc);}
+    .chkline{display:flex;align-items:center;gap:10px;padding:11px 12px;border:1px solid var(--line);border-radius:var(--r-sm);margin-top:8px;font-size:14px;cursor:pointer;}
+    .chkline input{width:18px;height:18px;accent-color:var(--acc);flex-shrink:0;}
+    .chkline.dis{opacity:.55;cursor:default;}
+    .price-line{display:flex;align-items:center;gap:8px;font-size:13px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);margin-top:8px;cursor:pointer;}
+    .price-line .who{flex:1;font-weight:600;}
+    .price-line .p{color:var(--sub);white-space:nowrap;}
+    .price-line .p b{color:var(--ink);}
+
     /* 確認 summary rows */
     .sum{padding:12px 14px;border:1px solid var(--line);border-radius:var(--r);}
     .sum .r{display:flex;justify-content:space-between;font-size:13px;color:var(--sub);padding:2px 0;}
@@ -123,6 +145,7 @@
 
 <header>
   <h1 id="hdr-title">請求</h1>
+  <button id="master-btn" style="display:none" onclick="openMaster()">マスタ</button>
   <button id="back-btn" style="display:none" onclick="goBack()">◀ 戻る</button>
 </header>
 
@@ -350,6 +373,129 @@
     <button class="btn btn-primary" onclick="reviseInvoice()">修正する（改訂）</button>
   </div>
   <div id="dt-voided" class="muted" style="display:none;text-align:center;margin-top:8px">この請求は取消済みです。</div>
+</div>
+
+<!-- ⑦ マスタ設定（④c）: メニュー -->
+<div id="screen-master" class="screen">
+  <div class="note" style="margin-bottom:10px">請求に使う台帳を登録します。すべてそろうと、現場を選ぶだけで請求書をつくれます。</div>
+  <div class="card tap" onclick="openPrimes()"><div class="m-row">
+    <div class="icn">🏢</div>
+    <div class="m-main"><div class="m-title">元請（請求先）</div><div class="m-sub">会社名・締め日・請求書式・対応現場</div></div>
+    <div class="chev">›</div>
+  </div></div>
+  <div class="card tap" onclick="openPrices()"><div class="m-row">
+    <div class="icn">👷</div>
+    <div class="m-main"><div class="m-title">工種と常用単価</div><div class="m-sub">工種ごとの人工単価（元請別）</div></div>
+    <div class="chev">›</div>
+  </div></div>
+  <div class="card tap" onclick="openContracts()"><div class="m-row">
+    <div class="icn">📄</div>
+    <div class="m-main"><div class="m-title">請負金額</div><div class="m-sub">現場×元請の請負金額（出来高請求のもと）</div></div>
+    <div class="chev">›</div>
+  </div></div>
+  <div class="card tap" onclick="openProfile()"><div class="m-row">
+    <div class="icn">🧾</div>
+    <div class="m-main"><div class="m-title">自社情報</div><div class="m-sub">請求書に載る会社名・インボイス番号・振込口座</div></div>
+    <div class="chev">›</div>
+  </div></div>
+</div>
+
+<!-- マスタ: 元請一覧 -->
+<div id="screen-m-primes" class="screen">
+  <div id="mp-list"></div>
+  <button class="btn add-btn" style="margin-top:6px" onclick="openPrimeForm(null)">＋ 元請を追加</button>
+</div>
+
+<!-- マスタ: 元請フォーム -->
+<div id="screen-m-prime-form" class="screen">
+  <div class="card">
+    <label class="fl2 m0">会社名<input id="pf-name" type="text" /></label>
+    <label class="fl2 mt">締め日
+      <select id="pf-close"><option value="31">末日</option><option value="25">25日</option><option value="20">20日</option><option value="15">15日</option><option value="10">10日</option><option value="5">5日</option></select>
+    </label>
+    <label class="fl2 mt">インボイス登録番号（任意）<input id="pf-reg" type="text" placeholder="T0000000000000" /></label>
+  </div>
+  <div class="sec-label">この元請の現場</div>
+  <div class="card">
+    <div class="muted">請求書を出す現場に印を付けます（あとから変更できます）</div>
+    <div id="pf-sites"></div>
+  </div>
+  <div class="sec-label">請求書式</div>
+  <div class="card">
+    <label class="fl2 m0">この元請に出す請求書の書式
+      <select id="pf-fmt"><option value="standard">標準書式（FLA共通）</option><option value="custom">元請の指定書式を使う</option></select>
+    </label>
+    <div class="muted" style="margin-top:12px">請求書に必ず書く欄（元請ごとに違う項目）</div>
+    <label class="chkline"><input type="checkbox" id="pf-req0" />工事番号</label>
+    <label class="chkline"><input type="checkbox" id="pf-req1" />注文番号</label>
+    <label class="chkline"><input type="checkbox" id="pf-req2" />査定額欄（元請が記入）</label>
+    <div class="muted" style="margin-top:10px">※指定書式ファイルの取り込みとPDF出力は、次の段階（④d）で使えるようになります。</div>
+  </div>
+  <button class="btn btn-primary" onclick="savePrime()">保存する</button>
+</div>
+
+<!-- マスタ: 工種・単価一覧 -->
+<div id="screen-m-prices" class="screen">
+  <div class="note">常用（人工）請求の単価です。元請ごとに違う単価を持てます。行をタップすると直せます。</div>
+  <div id="pr-list"></div>
+  <button class="btn add-btn" style="margin-top:12px" onclick="openPriceForm(null)">＋ 工種・単価を追加</button>
+</div>
+
+<!-- マスタ: 単価フォーム -->
+<div id="screen-m-price-form" class="screen">
+  <div class="card">
+    <label class="fl2 m0">工種<select id="prf-wt" onchange="onPrfWt()"></select></label>
+    <label class="fl2 mt" id="prf-wtname-wrap" style="display:none">工種名（新規）<input id="prf-wtname" type="text" placeholder="例：防水" /></label>
+    <label class="fl2 mt">元請<select id="prf-prime"></select></label>
+    <div class="half" style="margin-top:12px">
+      <label class="fl2 m0">終日単価（円）<input id="prf-up" type="text" inputmode="numeric" oninput="onPrfUp()" /></label>
+      <label class="fl2 m0">半日単価（空欄=半額）<input id="prf-hp" type="text" inputmode="numeric" oninput="onPrfHp()" /></label>
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="savePrice()">保存する</button>
+</div>
+
+<!-- マスタ: 請負金額一覧 -->
+<div id="screen-m-contracts" class="screen">
+  <div class="note" style="margin-bottom:10px">請負（出来高）請求のもとになる金額です。登録すると、その現場で出来高請求ができます。タップすると直せます。</div>
+  <div id="ct-list"></div>
+  <button class="btn add-btn" style="margin-top:6px" onclick="openContractForm(null)">＋ 請負金額を追加</button>
+</div>
+
+<!-- マスタ: 請負金額フォーム -->
+<div id="screen-m-contract-form" class="screen">
+  <div class="card">
+    <label class="fl2 m0">現場<select id="cf2-site" onchange="onCf2Site()"></select></label>
+    <div class="muted" id="cf2-prime" style="margin-top:8px"></div>
+    <label class="fl2 mt">請負金額（税抜・円）<input id="cf2-amt" type="text" inputmode="numeric" oninput="fmtNumInput('cf2-amt')" /></label>
+    <label class="fl2 mt" id="cf2-title-wrap">工事名（請求書の件名・任意）<input id="cf2-title" type="text" placeholder="例：△△ビル 外壁塗装工事" /></label>
+  </div>
+  <button class="btn btn-primary" onclick="saveContract()">保存する</button>
+</div>
+
+<!-- マスタ: 自社情報 -->
+<div id="screen-m-profile" class="screen">
+  <div class="note" style="margin-bottom:10px">請求書の発行元として印字される情報です。</div>
+  <div class="card">
+    <label class="fl2 m0">会社名<input id="mp-name" type="text" /></label>
+    <label class="fl2 mt">代表者<input id="mp-rep" type="text" /></label>
+    <label class="fl2 mt">インボイス登録番号<input id="mp-reg" type="text" placeholder="T0000000000000" /></label>
+    <label class="fl2 mt">住所（任意）<input id="mp-addr" type="text" /></label>
+    <label class="fl2 mt">電話（任意）<input id="mp-tel" type="text" inputmode="tel" /></label>
+  </div>
+  <div class="sec-label">振込口座</div>
+  <div class="card">
+    <div class="half">
+      <label class="fl2 m0">銀行<input id="mp-bank" type="text" /></label>
+      <label class="fl2 m0">支店<input id="mp-branch" type="text" /></label>
+    </div>
+    <div class="half" style="margin-top:12px">
+      <label class="fl2 m0">種別<select id="mp-atype"><option value="futsu">普通</option><option value="touza">当座</option></select></label>
+      <label class="fl2 m0">口座番号<input id="mp-ano" type="text" inputmode="numeric" /></label>
+    </div>
+    <label class="fl2 mt">口座名義（カナ）<input id="mp-aname" type="text" /></label>
+  </div>
+  <button class="btn btn-primary" onclick="saveProfile()">保存する</button>
 </div>
 
 <!-- 発行確認モーダル -->
@@ -841,15 +987,303 @@ async function doIssue() {
   }
 }
 
+// ── ⑦ マスタ設定（④c）──────────────────────────────────────────────────
+const rPatch = (p, b) => FLA.rest(p, { method:"PATCH", headers:{ "Content-Type":"application/json", "Prefer":"return=minimal" }, body: JSON.stringify(b) });
+
+const REQ_FIELDS = ["工事番号", "注文番号", "査定額欄"];
+let md = { primes: [], msites: [], mworkTypes: [], prices: [], contracts: [], editPrime: null, editContract: null };
+let prfHpManual = false;
+let ctHasTitle = true;   // construction_contracts.title 未適用（SQL前）でも一覧/登録が動くように
+
+function openMaster() { showScreen("master"); }
+
+// ── 元請（請求先） ──
+async function openPrimes() {
+  const [pr, sr] = await Promise.all([
+    rGet(`/prime_contractors?company_id=eq.${cu.companyId}&select=id,name,closing_day,registration_number,invoice_template_ref,required_fields&order=name`),
+    rGet(`/sites?company_id=eq.${cu.companyId}&status=eq.active&select=id,name,prime_contractor_id&order=name`),
+  ]);
+  if (!pr.ok || !sr.ok) { toast("取得に失敗しました", true); return; }
+  md.primes = await pr.json(); md.msites = await sr.json();
+  const el = document.getElementById("mp-list");
+  el.innerHTML = md.primes.length ? md.primes.map(p => {
+    const sites = md.msites.filter(s => String(s.prime_contractor_id) === String(p.id)).map(s => s.name).join("、") || "なし";
+    const req = (p.required_fields?.fields || []).join("・") || "なし";
+    return `<div class="card tap" onclick="openPrimeForm('${p.id}')"><div class="m-row">
+      <div class="m-main"><div class="m-title">${esc(p.name)}</div>
+        <div class="m-sub">締め日: ${closingLabel(p.closing_day)} ／ 書式: ${p.invoice_template_ref ? "指定書式" : "標準"} ／ 必須: ${esc(req)}<br>対応現場: ${esc(sites)}</div></div>
+      <div class="chev">›</div>
+    </div></div>`;
+  }).join("") : '<div class="empty">元請はまだ登録されていません。<br>「＋ 元請を追加」から始めてください。</div>';
+  showScreen("m-primes");
+}
+
+function openPrimeForm(id) {
+  md.editPrime = id ? md.primes.find(p => String(p.id) === String(id)) : null;
+  const p = md.editPrime || {};
+  setv("pf-name", p.name ?? "");
+  document.getElementById("pf-close").value = p.closing_day != null ? String(p.closing_day) : "31";
+  setv("pf-reg", p.registration_number ?? "");
+  document.getElementById("pf-fmt").value = p.invoice_template_ref ? "custom" : "standard";
+  const req = p.required_fields?.fields || [];
+  REQ_FIELDS.forEach((f, i) => { document.getElementById("pf-req" + i).checked = req.includes(f); });
+  document.getElementById("pf-sites").innerHTML = md.msites.length ? md.msites.map(s => {
+    const mine = md.editPrime && String(s.prime_contractor_id) === String(p.id);
+    const other = s.prime_contractor_id && !mine;
+    const otherName = other ? (md.primes.find(x => String(x.id) === String(s.prime_contractor_id))?.name ?? "別の元請") : "";
+    return `<label class="chkline${other ? " dis" : ""}"><input type="checkbox" data-site="${s.id}" ${mine ? "checked" : ""} ${other ? "disabled" : ""}/>${esc(s.name)}${other ? `<span class="muted" style="margin-left:auto">${esc(otherName)}</span>` : ""}</label>`;
+  }).join("") : '<div class="muted" style="margin-top:8px">稼働中の現場がありません（現場は日報側で登録されます）。</div>';
+  showScreen("m-prime-form");
+}
+
+async function savePrime() {
+  const name = getv("pf-name").trim();
+  if (!name) { toast("会社名を入れてください", true); return; }
+  const body = {
+    company_id: cu.companyId, name,
+    closing_day: parseInt(document.getElementById("pf-close").value, 10),
+    registration_number: getv("pf-reg").trim() || null,
+    invoice_template_ref: document.getElementById("pf-fmt").value === "custom" ? (md.editPrime?.invoice_template_ref || "custom") : null,
+    required_fields: { fields: REQ_FIELDS.filter((f, i) => document.getElementById("pf-req" + i).checked) },
+  };
+  let primeId;
+  if (md.editPrime) {
+    const r = await rPatch(`/prime_contractors?id=eq.${md.editPrime.id}`, body);
+    if (!r.ok) { toast(r.status === 409 ? "同じ名前の元請が登録済みです" : "保存に失敗しました", true); return; }
+    primeId = md.editPrime.id;
+  } else {
+    const r = await rPost(`/prime_contractors`, body);
+    if (!r.ok) { toast(r.status === 409 ? "同じ名前の元請が登録済みです" : "登録に失敗しました", true); return; }
+    primeId = (await r.json())[0].id;
+  }
+  for (const b of document.querySelectorAll("#pf-sites input[data-site]")) {
+    if (b.disabled) continue;
+    const s = md.msites.find(x => String(x.id) === String(b.dataset.site));
+    const was = String(s.prime_contractor_id) === String(primeId);
+    if (b.checked && !was) await rPatch(`/sites?id=eq.${s.id}`, { prime_contractor_id: primeId });
+    else if (!b.checked && was) await rPatch(`/sites?id=eq.${s.id}`, { prime_contractor_id: null });
+  }
+  toast(md.editPrime ? "保存しました" : "元請を登録しました");
+  await openPrimes();
+}
+
+// ── 工種と常用単価 ──
+async function openPrices() {
+  const [wr, br, pr] = await Promise.all([
+    rGet(`/work_types?company_id=eq.${cu.companyId}&select=id,name&order=name`),
+    rGet(`/billing_prices?company_id=eq.${cu.companyId}&mode=eq.A1_unit&select=id,prime_contractor_id,work_type_id,site_id,unit_price,half_price,prime_contractors(name),sites(name)&order=created_at`),
+    rGet(`/prime_contractors?company_id=eq.${cu.companyId}&select=id,name&order=name`),
+  ]);
+  if (!wr.ok || !br.ok || !pr.ok) { toast("取得に失敗しました", true); return; }
+  md.mworkTypes = await wr.json(); md.prices = await br.json(); md.primes = await pr.json();
+  const el = document.getElementById("pr-list");
+  el.innerHTML = md.mworkTypes.length ? md.mworkTypes.map(w => {
+    const rows = md.prices.filter(x => String(x.work_type_id) === String(w.id));
+    return `<div class="sec-label">${esc(w.name)}</div><div class="card">${
+      rows.length ? rows.map(x => `<div class="price-line" onclick="openPriceForm('${x.id}')">
+        <span class="who">${esc(x.prime_contractors?.name ?? "")}${x.site_id ? ` <span class="muted">(${esc(x.sites?.name ?? "")})</span>` : ""}</span>
+        <span class="p">終日 <b>¥${fmt(x.unit_price)}</b> ／ 半日 <b>¥${fmt(x.half_price ?? Math.round((x.unit_price || 0) / 2))}</b></span>
+      </div>`).join("") : '<div class="muted">単価が未登録です</div>'}</div>`;
+  }).join("") : '<div class="empty">工種はまだ登録されていません。<br>「＋ 工種・単価を追加」から始めてください。</div>';
+  showScreen("m-prices");
+}
+
+function openPriceForm(id) {
+  if (!md.primes.length) { toast("先に元請を登録してください", true); return; }
+  const p = id ? md.prices.find(x => String(x.id) === String(id)) : null;
+  const wtSel = document.getElementById("prf-wt");
+  wtSel.innerHTML = md.mworkTypes.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join("") + `<option value="__new">＋ 新しい工種を登録</option>`;
+  document.getElementById("prf-prime").innerHTML = md.primes.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join("");
+  if (p) {
+    wtSel.value = String(p.work_type_id);
+    document.getElementById("prf-prime").value = String(p.prime_contractor_id);
+    document.getElementById("prf-up").value = p.unit_price ?? "";
+    document.getElementById("prf-hp").value = p.half_price ?? "";
+    prfHpManual = p.half_price != null;
+  } else {
+    if (!md.mworkTypes.length) wtSel.value = "__new";
+    document.getElementById("prf-up").value = ""; document.getElementById("prf-hp").value = "";
+    prfHpManual = false;
+  }
+  setv("prf-wtname", "");
+  onPrfWt();
+  showScreen("m-price-form");
+}
+function onPrfWt() { document.getElementById("prf-wtname-wrap").style.display = document.getElementById("prf-wt").value === "__new" ? "block" : "none"; }
+function onPrfUp() {
+  const el = document.getElementById("prf-up");
+  el.value = (el.value || "").replace(/[^0-9]/g, "");
+  if (!prfHpManual) { const up = numv("prf-up"); document.getElementById("prf-hp").value = up ? String(Math.round(up / 2)) : ""; }
+}
+function onPrfHp() {
+  const el = document.getElementById("prf-hp");
+  el.value = (el.value || "").replace(/[^0-9]/g, "");
+  prfHpManual = el.value !== "";
+}
+
+async function savePrice() {
+  let wtId = document.getElementById("prf-wt").value;
+  if (wtId === "__new") {
+    const nm = getv("prf-wtname").trim();
+    if (!nm) { toast("工種名を入れてください", true); return; }
+    const r = await rPost(`/work_types?on_conflict=company_id,name`, { company_id: cu.companyId, name: nm }, "resolution=merge-duplicates,return=representation");
+    if (!r.ok) { toast("工種の登録に失敗しました", true); return; }
+    wtId = (await r.json())[0].id;
+  }
+  const up = numv("prf-up");
+  if (!up) { toast("終日単価を入れてください", true); return; }
+  const hp = numv("prf-hp") || Math.round(up / 2);
+  const body = { company_id: cu.companyId, prime_contractor_id: document.getElementById("prf-prime").value, site_id: null, work_type_id: wtId, mode: "A1_unit", unit_price: up, half_price: hp };
+  const r = await rPost(`/billing_prices?on_conflict=company_id,prime_contractor_id,site_id,work_type_id`, body, "resolution=merge-duplicates,return=minimal");
+  if (!r.ok) { toast("単価の保存に失敗しました", true); return; }
+  toast("単価を保存しました");
+  await openPrices();
+}
+
+// ── 請負金額 ──
+async function openContracts() {
+  const ctSelect = (withTitle) => `/construction_contracts?company_id=eq.${cu.companyId}&select=id,${withTitle ? "title," : ""}original_amount,adjustment_amount,contract_amount,status,site_id,prime_contractor_id,sites(name),prime_contractors(name)&order=created_at.desc`;
+  let cr = await rGet(ctSelect(true));
+  if (!cr.ok) { ctHasTitle = false; cr = await rGet(ctSelect(false)); }   // title列が未適用（SQL前）でも動かす
+  const [br, sr] = await Promise.all([
+    rGet(`/billing_invoice_lines?company_id=eq.${cu.companyId}&mode=eq.A2_rate&select=contract_id,amount,billing_invoices!inner(status)&billing_invoices.status=eq.issued`),
+    rGet(`/sites?company_id=eq.${cu.companyId}&status=eq.active&select=id,name,prime_contractor_id,prime_contractors(name)&order=name`),
+  ]);
+  if (!cr.ok || !sr.ok) { toast("取得に失敗しました", true); return; }
+  md.contracts = await cr.json(); md.msites = await sr.json();
+  const billed = {};
+  if (br.ok) (await br.json()).forEach(r => { billed[r.contract_id] = (billed[r.contract_id] || 0) + (r.amount || 0); });
+  const el = document.getElementById("ct-list");
+  el.innerHTML = md.contracts.length ? md.contracts.map(c => {
+    const b = billed[c.id] || 0;
+    const pct = c.contract_amount ? b / c.contract_amount * 100 : 0;
+    const badge = c.status !== "active" ? ["b-draft", "完了"] : b > 0 ? ["b-issued", "請求中"] : ["b-draft", "未請求"];
+    return `<div class="card tap" onclick="openContractForm('${c.id}')">
+      <div class="m-row"><div class="m-main">
+        <div class="m-title">${esc(c.sites?.name ?? "")}</div>
+        <div class="m-sub">元請: ${esc(c.prime_contractors?.name ?? "")} ／ 請負金額 ¥${fmt(c.contract_amount)}${c.title ? `<br>${esc(c.title)}` : ""}</div>
+      </div><span class="badge ${badge[0]}">${badge[1]}</span></div>
+      <div class="prog-bar" style="margin-top:8px"><div class="prog-fill" style="width:${Math.max(0, Math.min(100, pct))}%"></div></div>
+      <div class="prog-foot"><span>既請求 ¥${fmt(b)}（${pct.toFixed(1)}%）</span><span>残り ¥${fmt(c.contract_amount - b)}</span></div>
+    </div>`;
+  }).join("") : '<div class="empty">請負金額はまだ登録されていません。<br>「＋ 請負金額を追加」から始めてください。</div>';
+  showScreen("m-contracts");
+}
+
+function openContractForm(id) {
+  md.editContract = id ? md.contracts.find(x => String(x.id) === String(id)) : null;
+  const selEl = document.getElementById("cf2-site");
+  if (md.editContract) {
+    selEl.innerHTML = `<option>${esc(md.editContract.sites?.name ?? "")}</option>`;
+    selEl.disabled = true;
+    document.getElementById("cf2-prime").textContent = "元請: " + (md.editContract.prime_contractors?.name ?? "");
+    document.getElementById("cf2-amt").value = fmt(md.editContract.original_amount);
+    setv("cf2-title", md.editContract.title ?? "");
+  } else {
+    const sites = md.msites.filter(s => s.prime_contractor_id);
+    if (!sites.length) { toast("元請が紐づいた現場がありません（先に元請マスタで現場を紐付けてください）", true); return; }
+    selEl.disabled = false;
+    selEl.innerHTML = sites.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join("");
+    document.getElementById("cf2-amt").value = ""; setv("cf2-title", "");
+    onCf2Site();
+  }
+  document.getElementById("cf2-title-wrap").style.display = ctHasTitle ? "block" : "none";
+  showScreen("m-contract-form");
+}
+function onCf2Site() {
+  const s = md.msites.find(x => String(x.id) === document.getElementById("cf2-site").value);
+  document.getElementById("cf2-prime").textContent = s ? "元請: " + (s.prime_contractors?.name ?? "未設定") : "";
+}
+
+async function saveContract() {
+  const amt = numv("cf2-amt");
+  if (!amt) { toast("請負金額を入れてください", true); return; }
+  const title = getv("cf2-title").trim() || null;
+  if (md.editContract) {
+    const body = { original_amount: amt };
+    if (ctHasTitle) body.title = title;
+    const r = await rPatch(`/construction_contracts?id=eq.${md.editContract.id}`, body);
+    if (!r.ok) { toast("保存に失敗しました", true); return; }
+  } else {
+    const s = md.msites.find(x => String(x.id) === document.getElementById("cf2-site").value);
+    if (!s || !s.prime_contractor_id) { toast("現場を選んでください", true); return; }
+    const body = { company_id: cu.companyId, prime_contractor_id: s.prime_contractor_id, site_id: s.id, original_amount: amt };
+    if (ctHasTitle && title) body.title = title;
+    const r = await rPost(`/construction_contracts`, body, "return=minimal");
+    if (!r.ok) { toast(r.status === 409 ? "この現場×元請の請負金額は登録済みです（一覧をタップして修正できます）" : "登録に失敗しました", true); return; }
+  }
+  toast("請負金額を保存しました");
+  await openContracts();
+}
+
+// ── 自社情報 ──
+async function openProfile() {
+  const [cr2, sr2] = await Promise.all([
+    rGet(`/companies?id=eq.${cu.companyId}&select=name`),
+    rGet(`/company_settings?company_id=eq.${cu.companyId}&select=representative_name,registration_number,address,phone,bank_name,bank_branch,bank_account_type,bank_account_no,bank_account_name`),
+  ]);
+  if (!cr2.ok) { toast("取得に失敗しました", true); return; }
+  const comp = (await cr2.json())[0] || {};
+  const st = sr2.ok ? ((await sr2.json())[0] || {}) : {};
+  setv("mp-name", comp.name ?? ""); setv("mp-rep", st.representative_name ?? ""); setv("mp-reg", st.registration_number ?? "");
+  setv("mp-addr", st.address ?? ""); setv("mp-tel", st.phone ?? "");
+  setv("mp-bank", st.bank_name ?? ""); setv("mp-branch", st.bank_branch ?? "");
+  document.getElementById("mp-atype").value = st.bank_account_type ?? "futsu";
+  setv("mp-ano", st.bank_account_no ?? ""); setv("mp-aname", st.bank_account_name ?? "");
+  showScreen("m-profile");
+}
+
+async function saveProfile() {
+  const nm = getv("mp-name").trim();
+  if (!nm) { toast("会社名を入れてください", true); return; }
+  if (nm !== cu.companyName) {
+    const r = await rPatch(`/companies?id=eq.${cu.companyId}`, { name: nm });
+    if (!r.ok) { toast("会社名の保存に失敗しました", true); return; }
+  }
+  const body = {
+    company_id: cu.companyId,
+    representative_name: getv("mp-rep").trim() || null,
+    registration_number: getv("mp-reg").trim() || null,
+    address: getv("mp-addr").trim() || null,
+    phone: getv("mp-tel").trim() || null,
+    bank_name: getv("mp-bank").trim() || null,
+    bank_branch: getv("mp-branch").trim() || null,
+    bank_account_type: document.getElementById("mp-atype").value,
+    bank_account_no: getv("mp-ano").trim() || null,
+    bank_account_name: getv("mp-aname").trim() || null,
+  };
+  const r = await rPost(`/company_settings?on_conflict=company_id`, body, "resolution=merge-duplicates,return=minimal");
+  if (!r.ok) { toast("保存に失敗しました", true); return; }
+  cu.companyName = nm; renderProfile();
+  toast("自社情報を保存しました");
+  showScreen("master");
+}
+
+// ── マスタ用小物 ──
+function getv(id) { return document.getElementById(id).value || ""; }
+function setv(id, v) { document.getElementById(id).value = v; }
+function closingLabel(d) { return d == null ? "未設定" : d >= 28 ? "末日" : d + "日"; }
+function fmtNumInput(id) {
+  const el = document.getElementById(id);
+  const digits = (el.value || "").replace(/[^0-9]/g, "");
+  el.value = digits ? Number(digits).toLocaleString("ja-JP") : "";
+}
+
 // ── ナビゲーション ──────────────────────────────────────────────────────
+const SCREEN_TITLES = {
+  list: "請求", site: "現場を選ぶ", done: "請求", detail: "請求の詳細",
+  master: "マスタ設定", "m-primes": "元請（請求先）", "m-prime-form": "元請の登録",
+  "m-prices": "工種と常用単価", "m-price-form": "単価の登録",
+  "m-contracts": "請負金額", "m-contract-form": "請負金額の登録", "m-profile": "自社情報",
+};
 function showScreen(name) {
   document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
   document.getElementById("screen-" + name).classList.add("active");
   const rev = !!(sel && sel.reviseInvoiceId);
   document.getElementById("hdr-title").textContent =
-    (name === "list") ? "請求" : (name === "site") ? "現場を選ぶ" : (name === "done") ? "請求" :
-    (name === "detail") ? "請求の詳細" : rev ? "請求を修正する" : "今月の請求をつくる";
+    SCREEN_TITLES[name] ?? (rev ? "請求を修正する" : "今月の請求をつくる");
   document.getElementById("back-btn").style.display = (name === "list" || name === "done") ? "none" : "block";
+  document.getElementById("master-btn").style.display = (name === "list" && cu && cu.canBill) ? "block" : "none";
   window.scrollTo(0, 0);
 }
 function goBack() {
@@ -862,6 +1296,11 @@ function goBack() {
   else if (cur === "screen-type") showScreen("site");
   else if (cur === "screen-detail") showScreen("list");
   else if (cur === "screen-site") showScreen("list");
+  else if (cur === "screen-master") backToList();
+  else if (cur === "screen-m-primes" || cur === "screen-m-prices" || cur === "screen-m-contracts" || cur === "screen-m-profile") showScreen("master");
+  else if (cur === "screen-m-prime-form") openPrimes();
+  else if (cur === "screen-m-price-form") openPrices();
+  else if (cur === "screen-m-contract-form") openContracts();
 }
 async function toList() { await backToList(); }
 async function backToList() { await loadInvoices(); showScreen("list"); }
