@@ -80,12 +80,31 @@
     }
     .memo-card .meta {
       display: flex;
-      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
       font-size: 12px;
       color: var(--sub);
       margin-bottom: 8px;
     }
     .memo-card .meta .author { font-weight: bold; color: #555; }
+    .memo-card .meta .date { margin-left: auto; }
+
+    /* ── 状態区分バッジ（タップで メモ→未対応→対応中→完了 を順送り） ── */
+    .st-badge {
+      font-size: 11px;
+      font-weight: bold;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      flex-shrink: 0;
+    }
+    .st-none { background: #f0eee6; color: #8a887f; }
+    .st-open { background: #fdecea; color: var(--warn); }
+    .st-in_progress { background: #fff8e1; color: #b7791f; }
+    .st-done { background: var(--ok-bg, #e7f4ee); color: #1f9a63; }
+    .pin-note { font-size: 11px; color: var(--sub); margin: 0 2px 8px; }
     .memo-card .content { font-size: 15px; white-space: pre-wrap; word-break: break-all; }
     .memo-card .photos {
       display: flex;
@@ -450,7 +469,7 @@ async function loadMemos() {
   showLoading();
   try {
     const res = await sbFetch(
-      `/site_memos?site_id=eq.${currentSite.id}&select=id,content,photo_urls,created_at,user_id,workers!user_id(name),memo_confirmations(worker_id,workers!worker_id(name))&order=created_at.desc&limit=50`
+      `/site_memos?site_id=eq.${currentSite.id}&select=id,content,photo_urls,created_at,user_id,status,workers!user_id(name),memo_confirmations(worker_id,workers!worker_id(name))&order=created_at.desc&limit=50`
     );
     const memos = await res.json();
 
@@ -458,7 +477,13 @@ async function loadMemos() {
     if (!memos || !memos.length) {
       list.innerHTML = '<p class="empty">まだメモがありません</p>';
     } else {
-      list.innerHTML = memos.map(m => renderMemo(m)).join("");
+      // 未対応・対応中を上に固定（グループ内は新しい順のまま）
+      const pinned = (m) => (m.status === "open" || m.status === "in_progress" ? 0 : 1);
+      memos.sort((a, b) => pinned(a) - pinned(b));
+      const hasPinned = memos.some((m) => pinned(m) === 0);
+      list.innerHTML =
+        (hasPinned ? '<p class="pin-note">未対応・対応中のメモを上に表示しています</p>' : "") +
+        memos.map(m => renderMemo(m)).join("");
     }
     showScreen("memos");
     document.getElementById("fab").classList.add("visible");
@@ -493,17 +518,22 @@ function renderMemo(m) {
     : `<div class="confirmed-names"></div>`;
   const confirmBtnHtml = alreadyConfirmed
     ? `<button class="confirm-btn confirmed" disabled>確認済み ✓</button>`
-    : `<button class="confirm-btn" onclick="confirmMemo(${m.id})">確認</button>`;
+    : `<button class="confirm-btn" onclick="confirmMemo('${m.id}')">確認</button>`;
 
   const deleteBtnHtml = isOwn
-    ? `<button class="delete-btn" onclick="deleteMemo(${m.id})">削除</button>`
+    ? `<button class="delete-btn" onclick="deleteMemo('${m.id}')">削除</button>`
     : "";
+
+  const ST_LABEL = { none: "メモ", open: "未対応", in_progress: "対応中", done: "完了" };
+  const st = ST_LABEL[m.status] ? m.status : "none";
+  const badgeHtml = `<button class="st-badge st-${st}" onclick="cycleStatus('${m.id}', '${st}')">${ST_LABEL[st]}</button>`;
 
   return `
     <div class="memo-card">
       <div class="meta">
         <span class="author">${escHtml(author)}</span>
-        <span>${dt}</span>
+        <span class="date">${dt}</span>
+        ${badgeHtml}
       </div>
       ${content}
       ${photosHtml}
@@ -514,6 +544,23 @@ function renderMemo(m) {
       </div>
     </div>
   `;
+}
+
+// ── 状態区分の切替（メモ→未対応→対応中→完了→メモ） ─────────────────────
+async function cycleStatus(memoId, current) {
+  const NEXT = { none: "open", open: "in_progress", in_progress: "done", done: "none" };
+  const next = NEXT[current] ?? "open";
+  try {
+    const res = await sbFetch(`/site_memos?id=eq.${memoId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "Prefer": "return=minimal" },
+      body: JSON.stringify({ status: next }),
+    });
+    if (!res.ok) { showToast("区分の変更に失敗しました"); return; }
+    await loadMemos();
+  } catch (e) {
+    showToast("区分の変更に失敗しました");
+  }
 }
 
 // ── 投稿画面 ─────────────────────────────────────────────────────────
