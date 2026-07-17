@@ -45,18 +45,28 @@
     .tab {
       flex: 1;
       min-width: 70px;
-      padding: 11px 6px;
+      padding: 12px 6px;
       border: none;
       background: none;
       font-size: 13px;
       color: var(--sub);
       cursor: pointer;
       white-space: nowrap;
-      border-bottom: 3px solid transparent;
+      position: relative;
       transition: color .15s;
       font-family: inherit;
     }
-    .tab.active { color: var(--acc); border-bottom-color: var(--acc); font-weight: bold; }
+    .tab.active { color: var(--acc); font-weight: bold; }
+    .tab.active::after {
+      content: "";
+      position: absolute;
+      left: 20%;
+      right: 20%;
+      bottom: 0;
+      height: 4px;
+      border-radius: 99px 99px 0 0;
+      background: var(--acc);
+    }
 
     /* ── ローディング ── */
     #loading {
@@ -110,8 +120,8 @@
     .history-site { flex: 1; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .badge {
       font-size: 11px;
-      padding: 2px 8px;
-      border-radius: var(--r);
+      padding: 2px 9px;
+      border-radius: 999px;
       background: var(--ok-bg);
       color: var(--ok-ink);
       white-space: nowrap;
@@ -136,14 +146,15 @@
       cursor: pointer;
       margin-top: 4px;
       font-family: inherit;
+      box-shadow: 0 3px 10px rgba(0,185,0,.22);
     }
     .add-btn:active { background: var(--acc-dark); }
 
     /* ── ロールバッジ ── */
     .role-badge {
       font-size: 11px;
-      padding: 2px 8px;
-      border-radius: var(--r);
+      padding: 2px 9px;
+      border-radius: 999px;
       background: #e3f2fd;
       color: #1976d2;
       flex-shrink: 0;
