@@ -247,6 +247,19 @@
 
     <div class="total-box" style="margin-top:14px">
       <div class="total-row"><span class="lab">この工種　<span id="jw-ninku">0.0</span>人工</span><span>税抜 ¥<span id="jw-sub">0</span></span></div>
+    </div>
+    <button class="btn btn-ghost" style="margin-top:10px;border-color:var(--acc);color:var(--acc)" onclick="addJoyoLine()">＋ この工種を明細に追加</button>
+    <div class="muted" style="margin-top:6px">別の工種も請求するときは、追加してから次の工種を入れてください（1つだけならそのまま確認へ）。</div>
+  </div>
+
+  <div class="card" id="jw-lines-card" style="display:none">
+    <div class="sec-label" style="margin:0 0 8px">追加した明細（タップで直せます）</div>
+    <div id="jw-lines"></div>
+  </div>
+
+  <div class="card">
+    <div class="total-box">
+      <div class="total-row"><span class="lab">税抜 合計（全工種）</span><span>¥<span id="jw-all-sub">0</span></span></div>
       <div class="total-row" style="margin-top:4px"><span class="lab">消費税（10%）</span><span>¥<span id="jw-tax">0</span></span></div>
       <div class="total-row" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)"><span class="lab">税込</span><span class="big">¥<span id="jw-total">0</span></span></div>
     </div>
@@ -268,8 +281,7 @@
   </div>
   <div class="card">
     <div id="cj-extra" style="display:none;margin-bottom:12px"></div>
-    <div class="line-item"><span id="cj-line-label">工種</span><span style="margin-left:auto;font-weight:600">¥<span id="cj-line">0</span></span></div>
-    <div class="muted" id="cj-detail" style="margin-top:8px"></div>
+    <div id="cj-lines"></div>
     <div class="sum" style="margin-top:12px">
       <div class="r"><span>税抜 合計</span><span>¥<span id="cj-sub">0</span></span></div>
       <div class="r"><span>消費税（10%）</span><span>¥<span id="cj-tax">0</span></span></div>
@@ -385,7 +397,7 @@
     </div>
   </div>
   <div class="card">
-    <div class="line-item" id="dt-line" style="margin-bottom:10px"></div>
+    <div id="dt-lines" style="margin-bottom:10px"></div>
     <div class="sum">
       <div class="r"><span>税抜 合計</span><span>¥<span id="dt-sub">0</span></span></div>
       <div class="r"><span>消費税（10%）</span><span>¥<span id="dt-tax">0</span></span></div>
@@ -761,11 +773,13 @@ async function chooseJoyo() {
   workTypeList = wr.ok ? await wr.json() : [];
   if (!workTypeList.length) { toast("工種が未登録です（マスタ登録が必要）", true); return; }
   sel.type = "joyo";
+  sel.lines = [];
   document.getElementById("jw-type").innerHTML = workTypeList.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join("");
   document.getElementById("jo-prime").textContent = "元請　" + sel.primeName;
   document.getElementById("jo-site").textContent = sel.site.name;
   ["jw-ff","jw-fh"].forEach(id => document.getElementById(id).value = "0");
   ["jw-mat","jw-ppl","jw-days"].forEach(id => document.getElementById(id).value = "");
+  renderJoyoLines();
   await onWorkTypeChange();
   showScreen("joyo");
 }
@@ -787,18 +801,71 @@ async function onWorkTypeChange() {
 }
 
 function recomputeJoyo() {
-  const ff = numv("jw-ff"), fh = numv("jw-fh"), up = numv("jw-up"), hp = numv("jw-hp"), mat = numv("jw-mat");
-  const ninku = ff * 1 + fh * 0.5;
-  const halfEff = hp || Math.round(up / 2);   // 半日単価 空欄なら終日の半額（サーバと同じ）
-  const line = ff * up + fh * halfEff + mat;
-  const tax = Math.floor(line * TAX_RATE);
-  const total = line + tax;
-  sel.ff = ff; sel.fh = fh; sel.unitPrice = up; sel.halfPrice = (hp || null); sel.material = mat;
-  sel.line = line; sel.tax = tax; sel.total = total; sel.ninku = ninku;
-  document.getElementById("jw-ninku").textContent = ninku.toFixed(1);
-  document.getElementById("jw-sub").textContent = fmt(line);
+  const f = readJoyoForm();
+  const committed = (sel.lines || []).reduce((s, l) => s + lineAmount(l), 0);
+  const subtotal = committed + f.amount;   // 追加済み明細＋入力中の工種
+  const tax = Math.floor(subtotal * TAX_RATE);   // 税は合計に1回（サーバと同じ）
+  document.getElementById("jw-ninku").textContent = f.ninku.toFixed(1);
+  document.getElementById("jw-sub").textContent = fmt(f.amount);
+  document.getElementById("jw-all-sub").textContent = fmt(subtotal);
   document.getElementById("jw-tax").textContent = fmt(tax);
-  document.getElementById("jw-total").textContent = fmt(total);
+  document.getElementById("jw-total").textContent = fmt(subtotal + tax);
+}
+
+// ── 常用 明細（複数工種対応） ───────────────────────────────────────────
+function readJoyoForm() {
+  const ff = numv("jw-ff"), fh = numv("jw-fh"), up = numv("jw-up"), hp = numv("jw-hp"), mat = numv("jw-mat");
+  const halfEff = hp || Math.round(up / 2);   // 半日単価 空欄なら終日の半額（サーバと同じ）
+  return { ff, fh, unitPrice: up, halfPrice: hp || null, material: mat,
+           amount: ff * up + fh * halfEff + mat, ninku: ff + fh * 0.5 };
+}
+function lineAmount(l) { const he = l.halfPrice || Math.round(l.unitPrice / 2); return l.ff * l.unitPrice + l.fh * he + l.material; }
+function joyoDetail(l) {
+  return `終日 ${l.ff}人工 × ¥${fmt(l.unitPrice)}／半日 ${l.fh}人工` + (l.material ? `／材料 ¥${fmt(l.material)}` : "");
+}
+function formHasJoyoInput() { return readJoyoForm().amount > 0; }
+
+function addJoyoLine() {
+  const f = readJoyoForm();
+  if (!f.unitPrice) { toast("終日の単価を入れてください", true); return false; }
+  if (f.amount <= 0) { toast("人工または材料費を入れてください", true); return false; }
+  const wtId = document.getElementById("jw-type").value;
+  if (sel.lines.some(l => String(l.workTypeId) === String(wtId))) {
+    toast("この工種は明細に追加済みです（明細をタップすると直せます）", true); return false;
+  }
+  const wt = workTypeList.find(w => String(w.id) === String(wtId));
+  sel.lines.push({ workTypeId: wtId, workTypeName: wt ? wt.name : "常用", ...f });
+  ["jw-ff","jw-fh"].forEach(id => document.getElementById(id).value = "0");
+  ["jw-mat","jw-ppl","jw-days"].forEach(id => document.getElementById(id).value = "");
+  renderJoyoLines();
+  onWorkTypeChange();   // 選択中工種の単価プレフィルを引き直し（中で再計算）
+  return true;
+}
+function editJoyoLine(i) {
+  if (formHasJoyoInput() && !addJoyoLine()) return;   // 入力中の工種を先に明細へ退避
+  const l = sel.lines.splice(i, 1)[0];
+  document.getElementById("jw-type").value = l.workTypeId;
+  document.getElementById("jw-ff").value = String(l.ff);
+  document.getElementById("jw-fh").value = String(l.fh);
+  document.getElementById("jw-up").value = l.unitPrice || "";
+  document.getElementById("jw-hp").value = l.halfPrice ?? "";
+  document.getElementById("jw-mat").value = l.material || "";
+  renderJoyoLines(); recomputeJoyo();
+}
+function delJoyoLine(i) { sel.lines.splice(i, 1); renderJoyoLines(); recomputeJoyo(); }
+function renderJoyoLines() {
+  const card = document.getElementById("jw-lines-card");
+  const el = document.getElementById("jw-lines");
+  if (!sel.lines.length) { card.style.display = "none"; el.innerHTML = ""; recomputeJoyo(); return; }
+  card.style.display = "block";
+  el.innerHTML = sel.lines.map((l, i) => `
+    <div class="line-item tap" onclick="editJoyoLine(${i})" style="margin-bottom:8px">
+      <div style="flex:1;min-width:0"><div style="font-weight:600">${esc(l.workTypeName)}</div>
+        <div class="muted" style="margin-top:2px">${joyoDetail(l)}</div></div>
+      <span style="font-weight:600;white-space:nowrap">¥${fmt(lineAmount(l))}</span>
+      <button class="stbtn" style="width:36px;height:36px;font-size:14px" onclick="event.stopPropagation();delJoyoLine(${i})">✕</button>
+    </div>`).join("");
+  recomputeJoyo();
 }
 
 function numv(id) { return parseInt((document.getElementById(id).value || "").replace(/[^0-9]/g, ""), 10) || 0; }
@@ -812,18 +879,23 @@ function applyJoyoHelper() {
 }
 
 function goConfirmJoyo() {
-  if (!sel || sel.line === undefined) return;
-  if (!sel.unitPrice) { toast("終日の単価を入れてください", true); return; }
-  if (sel.line <= 0) { toast("人工または材料費を入れてください", true); return; }
-  sel.workType = workTypeList.find(w => String(w.id) === document.getElementById("jw-type").value);
+  if (!sel || sel.type !== "joyo") return;
+  if (formHasJoyoInput() && !addJoyoLine()) return;   // 入力中の工種も明細に含める
+  if (!sel.lines.length) { toast("人工または材料費を入れてください", true); return; }
+  const subtotal = sel.lines.reduce((s, l) => s + lineAmount(l), 0);
+  sel.subtotal = subtotal;
+  sel.tax = Math.floor(subtotal * TAX_RATE);
+  sel.total = subtotal + sel.tax;
   document.getElementById("cj-prime").textContent = sel.primeName + "　御中";
   document.getElementById("cj-site").textContent = sel.site.name;
   document.getElementById("cj-period").textContent = "締め " + fmtDate(sel.periodEnd);
-  document.getElementById("cj-line-label").textContent = sel.workType ? sel.workType.name : "常用";
-  document.getElementById("cj-line").textContent = fmt(sel.line);
-  document.getElementById("cj-detail").textContent =
-    `終日 ${sel.ff}人工 × ¥${fmt(sel.unitPrice)}／半日 ${sel.fh}人工` + (sel.material ? `／材料 ¥${fmt(sel.material)}` : "");
-  document.getElementById("cj-sub").textContent = fmt(sel.line);
+  document.getElementById("cj-lines").innerHTML = sel.lines.map(l => `
+    <div class="line-item" style="margin-bottom:8px">
+      <div style="flex:1;min-width:0"><div style="font-weight:600">${esc(l.workTypeName)}</div>
+        <div class="muted" style="margin-top:2px">${joyoDetail(l)}</div></div>
+      <span style="font-weight:600;white-space:nowrap">¥${fmt(lineAmount(l))}</span>
+    </div>`).join("");
+  document.getElementById("cj-sub").textContent = fmt(subtotal);
   document.getElementById("cj-tax").textContent = fmt(sel.tax);
   document.getElementById("cj-total").textContent = fmt(sel.total);
   renderExtraInputs("cj-extra");
@@ -838,7 +910,7 @@ async function openDetail(id) {
   if (!rows.length) return;
   const inv = rows[0];
   detailInv = inv;
-  const line = (inv.billing_invoice_lines || [])[0] || {};
+  const dlines = (inv.billing_invoice_lines || []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const revs = (inv.billing_invoice_revisions || []).map(x => x.revision_no);
   const maxRev = revs.length ? Math.max(...revs) : 1;
 
@@ -849,8 +921,9 @@ async function openDetail(id) {
   else { stEl.className = "badge b-issued"; stEl.textContent = maxRev >= 2 ? `発行済み・第${maxRev}版` : "発行済み"; }
   document.getElementById("dt-no").textContent = inv.invoice_number ? "No." + inv.invoice_number : "番号なし";
   document.getElementById("dt-period").textContent = "締め " + fmtDate(inv.period_end);
-  document.getElementById("dt-line").innerHTML =
-    `<span>${esc(line.description ?? (inv.invoice_type === "joyo_other" ? "常用" : "一式"))}</span><span style="margin-left:auto;font-weight:600">¥${fmt(line.amount ?? 0)}</span>`;
+  document.getElementById("dt-lines").innerHTML = dlines.length
+    ? dlines.map(l => `<div class="line-item" style="margin-bottom:8px"><span>${esc(l.description ?? (inv.invoice_type === "joyo_other" ? "常用" : "一式"))}</span><span style="margin-left:auto;font-weight:600">¥${fmt(l.amount ?? 0)}</span></div>`).join("")
+    : '<div class="muted">明細なし</div>';
   document.getElementById("dt-sub").textContent = fmt(inv.subtotal_amount ?? 0);
   document.getElementById("dt-tax").textContent = fmt(inv.tax_amount ?? 0);
   document.getElementById("dt-total").textContent = fmt(inv.total_amount ?? 0);
@@ -899,16 +972,22 @@ async function reviseInvoice() {
     const wr = await rGet(`/work_types?company_id=eq.${cu.companyId}&select=id,name&order=name`);
     workTypeList = wr.ok ? await wr.json() : [];
     sel.type = "joyo";
-    document.getElementById("jw-type").innerHTML = workTypeList.map(w => `<option value="${w.id}"${String(w.id) === String(line.work_type_id) ? " selected" : ""}>${esc(w.name)}</option>`).join("");
+    // 既存の全A1明細を「追加した明細」に載せる（タップで個別に直す）
+    const a1 = (inv.billing_invoice_lines || []).filter(l => l.mode === "A1_unit")
+      .slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    sel.lines = a1.map(l => ({
+      workTypeId: l.work_type_id,
+      workTypeName: l.description ?? (workTypeList.find(w => String(w.id) === String(l.work_type_id))?.name ?? "常用"),
+      ff: Number(l.jinku_full ?? 0), fh: Number(l.jinku_half ?? 0),
+      unitPrice: l.unit_price ?? 0, halfPrice: l.half_price ?? null,
+      material: l.material_amount ?? 0 }));
+    document.getElementById("jw-type").innerHTML = workTypeList.map(w => `<option value="${w.id}">${esc(w.name)}</option>`).join("");
     document.getElementById("jo-prime").textContent = "元請　" + sel.primeName;
     document.getElementById("jo-site").textContent = site.name;
-    document.getElementById("jw-ff").value = String(line.jinku_full ?? 0);
-    document.getElementById("jw-fh").value = String(line.jinku_half ?? 0);
-    document.getElementById("jw-up").value = line.unit_price ?? "";
-    document.getElementById("jw-hp").value = line.half_price ?? "";
-    document.getElementById("jw-mat").value = line.material_amount ?? "";
-    document.getElementById("jw-ppl").value = ""; document.getElementById("jw-days").value = "";
-    recomputeJoyo();
+    ["jw-ff","jw-fh"].forEach(id => document.getElementById(id).value = "0");
+    ["jw-mat","jw-ppl","jw-days"].forEach(id => document.getElementById(id).value = "");
+    renderJoyoLines();
+    await onWorkTypeChange();
     showScreen("joyo");
   }
 }
@@ -1025,16 +1104,17 @@ async function doIssue() {
     sel.extraFields = collectExtraFields();
     const xr = await rPatch(`/billing_invoices?id=eq.${invoiceId}`, { extra_fields: sel.extraFields });
     if (!xr.ok) console.error("[extra]", xr.status);
-    // 2. 明細（種類で分岐）。金額はサーバ(issue_invoice)が確定。
-    const line = sel.type === "joyo"
-      ? { company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
-          work_type_id: sel.workType.id, mode: "A1_unit", description: sel.workType.name,
-          jinku_full: sel.ff, jinku_half: sel.fh, unit_price: sel.unitPrice, half_price: sel.halfPrice,
-          material_amount: sel.material, sort_order: 0 }
-      : { company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
+    // 2. 明細（種類で分岐）。常用は複数工種＝複数行。金額はサーバ(issue_invoice)が確定。
+    const lines = sel.type === "joyo"
+      ? sel.lines.map((l, i) => ({
+          company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
+          work_type_id: l.workTypeId, mode: "A1_unit", description: l.workTypeName,
+          jinku_full: l.ff, jinku_half: l.fh, unit_price: l.unitPrice, half_price: l.halfPrice,
+          material_amount: l.material, sort_order: i }))
+      : [{ company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
           work_type_id: sel.contract.work_type_id, mode: "A2_rate", description: sel.workLabel,
-          contract_id: sel.contract.id, progress_pct: sel.pct, amount: sel.amount, sort_order: 0 };
-    const lr = await rPost(`/billing_invoice_lines`, line, "return=minimal");
+          contract_id: sel.contract.id, progress_pct: sel.pct, amount: sel.amount, sort_order: 0 }];
+    const lr = await rPost(`/billing_invoice_lines`, lines, "return=minimal");
     if (!lr.ok) { console.error("[line]", lr.status, await lr.text().catch(()=> "")); throw new Error("明細の作成に失敗しました"); }
 
     // 3. 発行（billing-issue EF・金額確定の正本）。apikey は付けない（CORS）。
@@ -1088,7 +1168,7 @@ function fmtDateJa(iso) { if (!iso) return ""; const d = new Date(iso); return `
 async function openPrint() {
   const inv = detailInv;
   if (!inv) return;
-  const line = (inv.billing_invoice_lines || [])[0] || {};
+  const plines = (inv.billing_invoice_lines || []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   const [cr2, sr2, pr2] = await Promise.all([
     rGet(`/companies?id=eq.${cu.companyId}&select=name`),
     rGet(`/company_settings?company_id=eq.${cu.companyId}&select=representative_name,registration_number,address,phone,bank_name,bank_branch,bank_account_type,bank_account_no,bank_account_name`),
@@ -1100,8 +1180,9 @@ async function openPrint() {
 
   // 件名（請負は請負金額マスタの工事名を優先）
   let subject = "";
-  if (line.mode === "A2_rate" && line.contract_id) {
-    const tr = await rGet(`/construction_contracts?id=eq.${line.contract_id}&select=title`);
+  const a2line = plines.find(l => l.mode === "A2_rate" && l.contract_id);
+  if (a2line) {
+    const tr = await rGet(`/construction_contracts?id=eq.${a2line.contract_id}&select=title`);
     if (tr.ok) subject = ((await tr.json())[0] || {}).title || "";
   }
 
@@ -1120,14 +1201,17 @@ async function openPrint() {
   document.getElementById("pv-creg").textContent = st.registration_number ? "登録番号　" + st.registration_number : "";
 
   const rows = [];
-  if (line.mode === "A1_unit") {
-    const up = line.unit_price ?? 0, hp = line.half_price ?? Math.round(up / 2);
-    const nm = line.description ?? "常用";
-    if ((line.jinku_full ?? 0) > 0) rows.push([nm + "（終日）", line.jinku_full, "人工", up, line.jinku_full * up]);
-    if ((line.jinku_half ?? 0) > 0) rows.push([nm + "（半日）", line.jinku_half, "人工", hp, line.jinku_half * hp]);
-    if ((line.material_amount ?? 0) > 0) rows.push(["材料費", 1, "式", line.material_amount, line.material_amount]);
-  } else {
-    rows.push([line.description ?? "一式", 1, "式", line.amount ?? 0, line.amount ?? 0]);
+  const multiA1 = plines.filter(l => l.mode === "A1_unit").length > 1;
+  for (const line of plines) {
+    if (line.mode === "A1_unit") {
+      const up = line.unit_price ?? 0, hp = line.half_price ?? Math.round(up / 2);
+      const nm = line.description ?? "常用";
+      if ((line.jinku_full ?? 0) > 0) rows.push([nm + "（終日）", line.jinku_full, "人工", up, line.jinku_full * up]);
+      if ((line.jinku_half ?? 0) > 0) rows.push([nm + "（半日）", line.jinku_half, "人工", hp, line.jinku_half * hp]);
+      if ((line.material_amount ?? 0) > 0) rows.push([multiA1 ? nm + "　材料費" : "材料費", 1, "式", line.material_amount, line.material_amount]);
+    } else {
+      rows.push([line.description ?? "一式", 1, "式", line.amount ?? 0, line.amount ?? 0]);
+    }
   }
   document.getElementById("pv-rows").innerHTML = rows.map(r =>
     `<tr><td>${esc(r[0])}</td><td class="c">${r[1]}</td><td class="c">${esc(r[2])}</td><td class="r">¥${fmt(r[3])}</td><td class="r">¥${fmt(r[4])}</td></tr>`).join("");
