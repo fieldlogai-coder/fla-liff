@@ -5,18 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>設定・確認</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-17" />
   <style>
+    /* デザイントークンは fla-tokens.css（正本）。日報面アクセントに上書き（⑥v2） */
+    :root { --acc: var(--acc-daily); --acc-dark: var(--acc-daily-dark); }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
-      background: #f5f5f5;
-      color: #333;
+      background: var(--bg);
+      color: var(--ink);
       min-height: 100vh;
     }
 
     /* ── ヘッダー ── */
     header {
-      background: #00b900;
+      background: var(--acc);
       color: #fff;
       padding: 14px 16px;
       position: sticky;
@@ -32,7 +35,7 @@
     #tab-bar {
       display: flex;
       background: #fff;
-      border-bottom: 2px solid #e0e0e0;
+      border-bottom: 2px solid var(--line);
       position: sticky;
       top: 48px;
       z-index: 99;
@@ -46,14 +49,14 @@
       border: none;
       background: none;
       font-size: 13px;
-      color: #888;
+      color: var(--sub);
       cursor: pointer;
       white-space: nowrap;
       border-bottom: 3px solid transparent;
       transition: color .15s;
       font-family: inherit;
     }
-    .tab.active { color: #00b900; border-bottom-color: #00b900; font-weight: bold; }
+    .tab.active { color: var(--acc); border-bottom-color: var(--acc); font-weight: bold; }
 
     /* ── ローディング ── */
     #loading {
@@ -62,7 +65,7 @@
       align-items: center;
       height: 60vh;
       font-size: 15px;
-      color: #888;
+      color: var(--sub);
     }
     #loading.hidden { display: none; }
 
@@ -73,17 +76,17 @@
     /* ── カード共通 ── */
     .card {
       background: #fff;
-      border-radius: 10px;
+      border-radius: var(--r);
       padding: 14px 16px;
       box-shadow: 0 1px 4px rgba(0,0,0,.08);
       margin-bottom: 10px;
     }
     .card-title { font-size: 15px; font-weight: bold; }
-    .card-sub { font-size: 12px; color: #888; margin-top: 4px; }
+    .card-sub { font-size: 12px; color: var(--sub); margin-top: 4px; }
     .card-actions { display: flex; gap: 8px; margin-top: 10px; justify-content: flex-end; }
 
     /* ── プロフィール ── */
-    .info-label { font-size: 12px; color: #888; margin-top: 10px; }
+    .info-label { font-size: 12px; color: var(--sub); margin-top: 10px; }
     .info-label:first-child { margin-top: 0; }
     .info-value { font-size: 15px; font-weight: bold; margin-top: 2px; }
 
@@ -99,18 +102,18 @@
       justify-content: space-between;
       align-items: center;
       padding: 10px 0;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--line);
       font-size: 14px;
     }
     .history-row:last-child { border-bottom: none; }
-    .history-date { color: #888; font-size: 12px; width: 48px; flex-shrink: 0; }
+    .history-date { color: var(--sub); font-size: 12px; width: 48px; flex-shrink: 0; }
     .history-site { flex: 1; padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .badge {
       font-size: 11px;
       padding: 2px 8px;
-      border-radius: 10px;
-      background: #e8f5e9;
-      color: #27ae60;
+      border-radius: var(--r);
+      background: var(--ok-bg);
+      color: var(--ok-ink);
       white-space: nowrap;
       flex-shrink: 0;
     }
@@ -124,23 +127,23 @@
       gap: 6px;
       width: 100%;
       padding: 14px;
-      background: #00b900;
+      background: var(--acc);
       color: #fff;
       border: none;
-      border-radius: 10px;
+      border-radius: var(--r);
       font-size: 15px;
       font-weight: bold;
       cursor: pointer;
       margin-top: 4px;
       font-family: inherit;
     }
-    .add-btn:active { background: #009900; }
+    .add-btn:active { background: var(--acc-dark); }
 
     /* ── ロールバッジ ── */
     .role-badge {
       font-size: 11px;
       padding: 2px 8px;
-      border-radius: 10px;
+      border-radius: var(--r);
       background: #e3f2fd;
       color: #1976d2;
       flex-shrink: 0;
@@ -152,16 +155,16 @@
     .btn-sm {
       font-size: 12px;
       padding: 5px 12px;
-      border-radius: 6px;
-      border: 1px solid #ddd;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--line);
       background: #fff;
       cursor: pointer;
       color: #555;
       font-family: inherit;
     }
-    .btn-sm:active { background: #f5f5f5; }
-    .btn-sm.danger { border-color: #e74c3c; color: #e74c3c; }
-    .btn-sm.primary { border-color: #00b900; color: #00b900; }
+    .btn-sm:active { background: var(--bg); }
+    .btn-sm.danger { border-color: var(--warn); color: var(--warn); }
+    .btn-sm.primary { border-color: var(--acc); color: var(--acc); }
 
     /* ── 単価 ── */
     .price-row {
@@ -169,7 +172,7 @@
       align-items: center;
       gap: 12px;
       padding: 10px 0;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid var(--line);
     }
     .price-row:last-child { border-bottom: none; }
     .price-label { flex: 1; font-size: 14px; }
@@ -180,11 +183,11 @@
       text-align: center;
       padding: 20px;
       background: #fff;
-      border-radius: 10px;
+      border-radius: var(--r);
       color: #bbb;
       font-size: 13px;
       margin-top: 8px;
-      border: 2px dashed #e0e0e0;
+      border: 2px dashed var(--line);
     }
 
     /* ── モーダル（ボトムシート） ── */
@@ -211,31 +214,31 @@
     .form-group label { font-size: 13px; color: #555; display: block; margin-bottom: 6px; }
     .form-group input, .form-group select {
       width: 100%;
-      border: 1px solid #ddd;
-      border-radius: 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-sm);
       padding: 10px 12px;
       font-size: 15px;
       font-family: inherit;
     }
-    .form-group input:focus, .form-group select:focus { outline: none; border-color: #00b900; }
+    .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--acc); }
     .modal-actions { display: flex; gap: 10px; margin-top: 16px; }
     .modal-actions button {
       flex: 1;
       padding: 13px;
-      border-radius: 10px;
+      border-radius: var(--r);
       font-size: 15px;
       font-weight: bold;
       cursor: pointer;
       border: none;
       font-family: inherit;
     }
-    .btn-cancel { background: #f0f0f0; color: #555; }
-    .btn-submit { background: #00b900; color: #fff; }
+    .btn-cancel { background: #f0eee6; color: #555; }
+    .btn-submit { background: var(--acc); color: #fff; }
     .btn-submit:disabled { background: #b2dfb2; cursor: not-allowed; }
-    .btn-warning { background: #e74c3c; color: #fff; }
+    .btn-warning { background: var(--warn); color: #fff; }
     .modal-msg { font-size: 14px; line-height: 1.6; }
-    .modal-msg strong { color: #333; }
-    .modal-note { font-size: 12px; color: #888; margin-top: 6px; }
+    .modal-msg strong { color: var(--ink); }
+    .modal-note { font-size: 12px; color: var(--sub); margin-top: 6px; }
 
     /* ── トースト ── */
     #toast {
@@ -255,7 +258,7 @@
       z-index: 300;
     }
     #toast.show { opacity: 1; }
-    #toast.err { background: #e74c3c; }
+    #toast.err { background: var(--warn); }
 
     .empty { text-align: center; color: #aaa; padding: 30px 0; font-size: 14px; }
   </style>

@@ -5,19 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>現場共有メモ</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-17" />
   <style>
+    /* デザイントークンは fla-tokens.css（正本）。日報面アクセントに上書き（⑥v2） */
+    :root { --acc: var(--acc-daily); --acc-dark: var(--acc-daily-dark); }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif;
-      background: #f5f5f5;
-      color: #333;
+      background: var(--bg);
+      color: var(--ink);
       min-height: 100vh;
     }
 
     /* ── ヘッダー ── */
     header {
-      background: #00b900;
+      background: var(--acc);
       color: #fff;
       padding: 14px 16px;
       display: flex;
@@ -33,7 +36,7 @@
       border: none;
       color: #fff;
       padding: 6px 12px;
-      border-radius: 6px;
+      border-radius: var(--r-sm);
       font-size: 13px;
       cursor: pointer;
     }
@@ -49,7 +52,7 @@
       align-items: center;
       height: 60vh;
       font-size: 15px;
-      color: #888;
+      color: var(--sub);
     }
     #loading.hidden { display: none; }
 
@@ -57,7 +60,7 @@
     .site-list { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
     .site-card {
       background: #fff;
-      border-radius: 10px;
+      border-radius: var(--r);
       padding: 16px;
       cursor: pointer;
       box-shadow: 0 1px 4px rgba(0,0,0,.08);
@@ -65,13 +68,13 @@
     }
     .site-card:active { transform: scale(.98); }
     .site-card h3 { font-size: 16px; }
-    .site-card p { font-size: 13px; color: #888; margin-top: 4px; }
+    .site-card p { font-size: 13px; color: var(--sub); margin-top: 4px; }
 
     /* ── メモ一覧 ── */
     .memo-list { display: flex; flex-direction: column; gap: 12px; margin-top: 4px; }
     .memo-card {
       background: #fff;
-      border-radius: 10px;
+      border-radius: var(--r);
       padding: 14px;
       box-shadow: 0 1px 4px rgba(0,0,0,.08);
     }
@@ -79,7 +82,7 @@
       display: flex;
       justify-content: space-between;
       font-size: 12px;
-      color: #999;
+      color: var(--sub);
       margin-bottom: 8px;
     }
     .memo-card .meta .author { font-weight: bold; color: #555; }
@@ -94,7 +97,7 @@
       width: 80px;
       height: 80px;
       object-fit: cover;
-      border-radius: 6px;
+      border-radius: var(--r-sm);
       cursor: pointer;
     }
     .empty { text-align: center; color: #aaa; padding: 40px 0; font-size: 14px; }
@@ -107,7 +110,7 @@
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: #00b900;
+      background: var(--acc);
       color: #fff;
       font-size: 28px;
       border: none;
@@ -125,15 +128,15 @@
     .form-section label { font-size: 13px; color: #555; display: block; margin-bottom: 6px; }
     textarea {
       width: 100%;
-      border: 1px solid #ddd;
-      border-radius: 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--r-sm);
       padding: 10px;
       font-size: 15px;
       min-height: 120px;
       resize: vertical;
       font-family: inherit;
     }
-    textarea:focus { outline: none; border-color: #00b900; }
+    textarea:focus { outline: none; border-color: var(--acc); }
 
     .photo-preview {
       display: flex;
@@ -150,7 +153,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      border-radius: 6px;
+      border-radius: var(--r-sm);
     }
     .photo-preview .thumb .remove {
       position: absolute;
@@ -159,7 +162,7 @@
       width: 20px;
       height: 20px;
       border-radius: 50%;
-      background: #e74c3c;
+      background: var(--warn);
       color: #fff;
       border: none;
       font-size: 12px;
@@ -172,8 +175,8 @@
     .add-photo-btn {
       width: 80px;
       height: 80px;
-      border: 2px dashed #ccc;
-      border-radius: 6px;
+      border: 2px dashed var(--line);
+      border-radius: var(--r-sm);
       background: #fafafa;
       cursor: pointer;
       display: flex;
@@ -188,11 +191,11 @@
 
     .submit-btn {
       width: 100%;
-      background: #00b900;
+      background: var(--acc);
       color: #fff;
       border: none;
       padding: 14px;
-      border-radius: 10px;
+      border-radius: var(--r);
       font-size: 16px;
       font-weight: bold;
       cursor: pointer;
@@ -211,7 +214,7 @@
       justify-content: center;
     }
     #lightbox.open { display: flex; }
-    #lightbox img { max-width: 90vw; max-height: 85vh; border-radius: 6px; }
+    #lightbox img { max-width: 90vw; max-height: 85vh; border-radius: var(--r-sm); }
     #lightbox-close {
       position: absolute;
       top: 16px;
@@ -229,7 +232,7 @@
       border: none;
       cursor: pointer;
       font-size: 12px;
-      color: #e74c3c;
+      color: var(--warn);
       opacity: 0.6;
       padding: 5px 10px;
       border-radius: 20px;
@@ -278,7 +281,7 @@
       bottom: 90px;
       left: 50%;
       transform: translateX(-50%);
-      background: #e74c3c;
+      background: var(--warn);
       color: #fff;
       padding: 10px 20px;
       border-radius: 20px;
