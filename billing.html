@@ -282,6 +282,7 @@
   <div class="card">
     <div id="cj-extra" style="display:none;margin-bottom:12px"></div>
     <div id="cj-lines"></div>
+    <div id="cj-adjust" style="margin-top:10px"></div>
     <div class="sum" style="margin-top:12px">
       <div class="r"><span>税抜 合計</span><span>¥<span id="cj-sub">0</span></span></div>
       <div class="r"><span>消費税（10%）</span><span>¥<span id="cj-tax">0</span></span></div>
@@ -355,6 +356,7 @@
     </div>
     <div id="cf-extra" style="display:none;margin-top:12px"></div>
     <div class="line-item" style="margin-top:12px"><span id="cf-line-label">一式</span><span style="margin-left:auto;font-weight:600">¥<span id="cf-line">0</span></span></div>
+    <div id="cf-adjust" style="margin-top:10px"></div>
     <div class="sum" style="margin-top:12px">
       <div class="r"><span>税抜 合計</span><span>¥<span id="cf-sub">0</span></span></div>
       <div class="r"><span>消費税（10%）</span><span>¥<span id="cf-tax">0</span></span></div>
@@ -717,23 +719,28 @@ async function selectSite(siteId) {
   const site = siteList.find(s => String(s.id) === String(siteId));
   if (!site) return;
 
-  // 当月の期間
-  const { periodStart, periodEnd } = currentPeriod();
+  // 元請の締め日・必須欄を先に取得し、締め期間を確定（M3.5-a: 締め日連動）
+  let primeReq = [], closingDay = null;
+  const rr = await rGet(`/prime_contractors?id=eq.${site.prime_contractor_id}&select=required_fields,closing_day`);
+  if (rr.ok) {
+    const p = (await rr.json())[0] || {};
+    primeReq = (p.required_fields || {}).fields || [];
+    closingDay = p.closing_day ?? null;
+  }
+  const { periodStart, periodEnd } = billingPeriod(closingDay);
 
-  // 二重発行ガード（同現場・同締め期間の非取消。種類に関わらず1現場1枚/月）
+  // 二重発行ガード（同現場・同締め期間の非取消。種類に関わらず1現場1枚/締め期間）
   const ex = await rGet(`/billing_invoices?site_id=eq.${siteId}&period_end=eq.${periodEnd}&status=neq.void&select=id,status,invoice_number`);
   let existingDraftId = null;
   if (ex.ok) {
     const exRows = await ex.json();
     const issued = exRows.find(r => r.status === "issued");
-    if (issued) { toast(`この現場の今月分は発行済みです（No.${issued.invoice_number ?? "-"}）`, true); await backToList(); return; }
+    if (issued) { toast(`この現場の${fmtDate(periodEnd)}締め分は発行済みです（No.${issued.invoice_number ?? "-"}）`, true); await backToList(); return; }
     const draft = exRows.find(r => r.status === "draft");
     if (draft) existingDraftId = draft.id;
   }
 
-  sel = { site, primeName: site.prime_contractors?.name ?? "未設定", periodStart, periodEnd, existingDraftId, extraFields: {}, primeReq: [] };
-  const rr = await rGet(`/prime_contractors?id=eq.${site.prime_contractor_id}&select=required_fields`);
-  if (rr.ok) sel.primeReq = (((await rr.json())[0] || {}).required_fields || {}).fields || [];
+  sel = { site, primeName: site.prime_contractors?.name ?? "未設定", periodStart, periodEnd, existingDraftId, extraFields: {}, primeReq, adjustments: [] };
   document.getElementById("type-prime").textContent = "元請　" + sel.primeName;
   document.getElementById("type-site").textContent = site.name;
   showScreen("type");
@@ -878,14 +885,86 @@ function applyJoyoHelper() {
   recomputeJoyo();
 }
 
+// ── 調整行（端数調整の値引き・その他の増減）M3.5-b ──────────────────────
+// sel.adjustments = [{label, amount(±)}] → 発行時に mode='direct' 明細として保存（サーバ対応済み）
+function adjBase() { return sel.type === "joyo" ? sel.lines.reduce((s, l) => s + lineAmount(l), 0) : (sel.amount ?? 0); }
+function adjSum() { return (sel.adjustments ?? []).reduce((s, a) => s + a.amount, 0); }
+function refreshConfirmTotals() {
+  const subtotal = adjBase() + adjSum();
+  sel.subtotal = subtotal;
+  sel.tax = Math.floor(subtotal * TAX_RATE);   // 税は調整後の合計に1回（サーバと同順）
+  sel.total = subtotal + sel.tax;
+  const p = sel.type === "joyo" ? "cj" : "cf";
+  document.getElementById(p + "-sub").textContent = fmt(subtotal);
+  document.getElementById(p + "-tax").textContent = fmt(sel.tax);
+  document.getElementById(p + "-total").textContent = fmt(sel.total);
+}
+function renderAdjust() {
+  if (!sel.adjustments) sel.adjustments = [];
+  const el = document.getElementById(sel.type === "joyo" ? "cj-adjust" : "cf-adjust");
+  const rows = sel.adjustments.map((a, i) => `
+    <div class="line-item" style="margin-bottom:8px">
+      <span>${esc(a.label)}</span>
+      <span style="margin-left:auto;font-weight:600${a.amount < 0 ? ";color:var(--warn)" : ""}">${a.amount < 0 ? "−¥" + fmt(-a.amount) : "¥" + fmt(a.amount)}</span>
+      <button class="stbtn" style="width:36px;height:36px;font-size:14px" onclick="delAdjust(${i})">✕</button>
+    </div>`).join("");
+  el.innerHTML = `${rows}
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="height:42px;font-size:13px" onclick="openRoundAdjust()">端数調整（値引き）</button>
+      <button class="btn btn-ghost" style="height:42px;font-size:13px" onclick="openManualAdjust()">＋その他の調整</button>
+    </div>
+    <div id="adj-form" style="display:none;margin-top:10px;padding:10px 12px;background:var(--bg);border-radius:var(--r-sm)"></div>`;
+  refreshConfirmTotals();
+}
+function delAdjust(i) { sel.adjustments.splice(i, 1); renderAdjust(); }
+function openRoundAdjust() {
+  const cur = adjBase() + adjSum();
+  const sug = Math.max(0, Math.floor(cur / 10000) * 10000);   // 万円未満切捨てを提案
+  const f = document.getElementById("adj-form");
+  f.style.display = "block";
+  f.innerHTML = `<div class="muted">今の税抜合計 ¥${fmt(cur)} を丸い金額にします（差額が「値引き」行になります）</div>
+    <label class="fl2 m0" style="display:block;margin-top:8px">請求額（税抜・円）<input id="adj-target" type="text" inputmode="numeric" value="${sug}" oninput="fmtNumInput('adj-target')" /></label>
+    <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:10px">
+      <button class="btn btn-ghost" style="height:42px" onclick="closeAdjustForm()">やめる</button>
+      <button class="btn btn-primary" style="height:42px" onclick="applyRoundAdjust()">値引き行を追加する</button>
+    </div>`;
+  fmtNumInput("adj-target");
+}
+function applyRoundAdjust() {
+  const target = numv("adj-target");
+  const cur = adjBase() + adjSum();
+  const diff = target - cur;
+  if (diff === 0) { toast("金額が変わっていません", true); return; }
+  if (target < 0) { toast("0円以上にしてください", true); return; }
+  sel.adjustments.push({ label: "値引き", amount: diff });
+  renderAdjust();
+}
+function openManualAdjust() {
+  const f = document.getElementById("adj-form");
+  f.style.display = "block";
+  f.innerHTML = `<label class="fl2 m0" style="display:block">名目（例：駐車場代、出精値引き）<input id="adj-label" type="text" /></label>
+    <label class="fl2" style="display:block;margin-top:8px">金額（円）<input id="adj-amount" type="text" inputmode="numeric" oninput="fmtNumInput('adj-amount')" /></label>
+    <label class="chkline" style="margin-top:8px"><input type="checkbox" id="adj-minus" />値引き（マイナス）にする</label>
+    <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:10px">
+      <button class="btn btn-ghost" style="height:42px" onclick="closeAdjustForm()">やめる</button>
+      <button class="btn btn-primary" style="height:42px" onclick="applyManualAdjust()">調整行を追加する</button>
+    </div>`;
+}
+function applyManualAdjust() {
+  const label = (document.getElementById("adj-label").value || "").trim() || "調整";
+  let amount = numv("adj-amount");
+  if (!amount) { toast("金額を入れてください", true); return; }
+  if (document.getElementById("adj-minus").checked) amount = -amount;
+  if (adjBase() + adjSum() + amount < 0) { toast("値引きが大きすぎます（税抜合計がマイナスになります）", true); return; }
+  sel.adjustments.push({ label, amount });
+  renderAdjust();
+}
+function closeAdjustForm() { const f = document.getElementById("adj-form"); f.style.display = "none"; f.innerHTML = ""; }
+
 function goConfirmJoyo() {
   if (!sel || sel.type !== "joyo") return;
   if (formHasJoyoInput() && !addJoyoLine()) return;   // 入力中の工種も明細に含める
   if (!sel.lines.length) { toast("人工または材料費を入れてください", true); return; }
-  const subtotal = sel.lines.reduce((s, l) => s + lineAmount(l), 0);
-  sel.subtotal = subtotal;
-  sel.tax = Math.floor(subtotal * TAX_RATE);
-  sel.total = subtotal + sel.tax;
   document.getElementById("cj-prime").textContent = sel.primeName + "　御中";
   document.getElementById("cj-site").textContent = sel.site.name;
   document.getElementById("cj-period").textContent = "締め " + fmtDate(sel.periodEnd);
@@ -895,9 +974,7 @@ function goConfirmJoyo() {
         <div class="muted" style="margin-top:2px">${joyoDetail(l)}</div></div>
       <span style="font-weight:600;white-space:nowrap">¥${fmt(lineAmount(l))}</span>
     </div>`).join("");
-  document.getElementById("cj-sub").textContent = fmt(subtotal);
-  document.getElementById("cj-tax").textContent = fmt(sel.tax);
-  document.getElementById("cj-total").textContent = fmt(sel.total);
+  renderAdjust();   // 調整行の表示＋税抜/税/税込の確定（調整込み）
   renderExtraInputs("cj-extra");
   showScreen("confirm-joyo");
 }
@@ -944,10 +1021,14 @@ async function openDetail(id) {
 async function reviseInvoice() {
   const inv = detailInv;
   if (!inv || inv.status !== "issued") return;
-  const line = (inv.billing_invoice_lines || [])[0];
-  if (!line) { toast("明細がありません", true); return; }
+  const rlines = (inv.billing_invoice_lines || []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  if (!rlines.length) { toast("明細がありません", true); return; }
+  const line = rlines.find(l => l.mode === "A2_rate") ?? rlines[0];   // A2があれば請負・なければ常用
   const site = { id: inv.site_id, name: inv.sites?.name ?? "", prime_contractor_id: inv.prime_contractor_id, prime_contractors: { name: inv.prime_contractors?.name } };
   sel = { site, primeName: inv.prime_contractors?.name ?? "未設定", periodStart: inv.period_start, periodEnd: inv.period_end, existingDraftId: null, reviseInvoiceId: inv.id, extraFields: inv.extra_fields || {}, primeReq: [] };
+  // 既存の調整行（direct）は確認画面の調整リストへロード
+  sel.adjustments = rlines.filter(l => l.mode === "direct")
+    .map(l => ({ label: l.description ?? "調整", amount: l.amount ?? 0 }));
   const rr = await rGet(`/prime_contractors?id=eq.${inv.prime_contractor_id}&select=required_fields`);
   if (rr.ok) sel.primeReq = (((await rr.json())[0] || {}).required_fields || {}).fields || [];
 
@@ -1055,15 +1136,14 @@ function goConfirm() {
   document.getElementById("cf-rem-wrap").classList.toggle("neg", sel.rem < 0);
   document.getElementById("cf-line-label").textContent = sel.workLabel;
   document.getElementById("cf-line").textContent = fmt(sel.amount);
-  document.getElementById("cf-sub").textContent = fmt(sel.amount);
-  document.getElementById("cf-tax").textContent = fmt(sel.tax);
-  document.getElementById("cf-total").textContent = fmt(sel.total);
+  renderAdjust();   // 調整行の表示＋税抜/税/税込の確定（調整込み）
   renderExtraInputs("cf-extra");
   showScreen("confirm");
 }
 
 // ── ⑥ 発行 / 改訂 ───────────────────────────────────────────────────────
 function openIssue() {
+  if ((sel.subtotal ?? 0) < 0) { toast("値引きが大きすぎます（税抜合計がマイナスです）。調整行を直してください", true); return; }
   const rev = !!(sel && sel.reviseInvoiceId);
   document.getElementById("modal-title").textContent = rev ? "この内容で改訂しますか？" : "この請求書を発行しますか？";
   document.getElementById("modal-desc").textContent = rev
@@ -1104,8 +1184,8 @@ async function doIssue() {
     sel.extraFields = collectExtraFields();
     const xr = await rPatch(`/billing_invoices?id=eq.${invoiceId}`, { extra_fields: sel.extraFields });
     if (!xr.ok) console.error("[extra]", xr.status);
-    // 2. 明細（種類で分岐）。常用は複数工種＝複数行。金額はサーバ(issue_invoice)が確定。
-    const lines = sel.type === "joyo"
+    // 2. 明細（種類で分岐）。常用は複数工種＝複数行。調整行は mode='direct' で末尾に。金額はサーバ(issue_invoice)が確定。
+    const baseLines = sel.type === "joyo"
       ? sel.lines.map((l, i) => ({
           company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
           work_type_id: l.workTypeId, mode: "A1_unit", description: l.workTypeName,
@@ -1114,6 +1194,10 @@ async function doIssue() {
       : [{ company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
           work_type_id: sel.contract.work_type_id, mode: "A2_rate", description: sel.workLabel,
           contract_id: sel.contract.id, progress_pct: sel.pct, amount: sel.amount, sort_order: 0 }];
+    const adjLines = (sel.adjustments ?? []).map((a, i) => ({
+      company_id: cu.companyId, invoice_id: invoiceId, site_id: sel.site.id,
+      mode: "direct", description: a.label, amount: a.amount, sort_order: baseLines.length + i }));
+    const lines = baseLines.concat(adjLines);
     const lr = await rPost(`/billing_invoice_lines`, lines, "return=minimal");
     if (!lr.ok) { console.error("[line]", lr.status, await lr.text().catch(()=> "")); throw new Error("明細の作成に失敗しました"); }
 
@@ -1544,12 +1628,22 @@ async function toList() { await backToList(); }
 async function backToList() { await loadInvoices(); showScreen("list"); }
 
 // ── ユーティリティ ──────────────────────────────────────────────────────
-function currentPeriod() {
-  const d = new Date();
-  const y = d.getFullYear(), m = d.getMonth(); // 0-based
-  const mm = String(m + 1).padStart(2, "0");
-  const last = new Date(y, m + 1, 0).getDate();
-  return { periodStart: `${y}-${mm}-01`, periodEnd: `${y}-${mm}-${String(last).padStart(2, "0")}` };
+// M3.5-a: 締め日連動の請求期間（案A=直近に締めた期間を自動選択）
+// closingDay が null または 28以上 → 末日締め（前月1日〜前月末日）
+// closingDay=D(1〜27) → 作成日がD日以降なら当月D日締め・D日より前なら前月D日締め（期間=締め月の前月(D+1)日〜締め月D日）
+function billingPeriod(closingDay, now = new Date()) {
+  const y = now.getFullYear(), m = now.getMonth(), d = now.getDate(); // m は 0-based
+  const iso = (yy, mm, dd) => `${yy}-${String(mm + 1).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  const lastDay = (yy, mm) => new Date(yy, mm + 1, 0).getDate();
+  const cd = (closingDay == null || closingDay >= 28) ? null : closingDay;
+  if (cd === null) {
+    const py = m === 0 ? y - 1 : y, pm = m === 0 ? 11 : m - 1;
+    return { periodStart: iso(py, pm, 1), periodEnd: iso(py, pm, lastDay(py, pm)) };
+  }
+  let ey = y, em = m;
+  if (d < cd) { em = m - 1; if (em < 0) { em = 11; ey = y - 1; } }
+  let sy = ey, sm = em - 1; if (sm < 0) { sm = 11; sy = ey - 1; }
+  return { periodStart: iso(sy, sm, cd + 1), periodEnd: iso(ey, em, cd) };
 }
 function fmt(n) { return Number(n || 0).toLocaleString("ja-JP"); }
 function fmtDate(iso) { if (!iso) return ""; const [y, m, d] = iso.split("-"); return `${+m}/${+d}`; }
