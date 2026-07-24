@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>FIELDLOG かんたん操作ツアー</title>
+  <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-20" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;-webkit-text-size-adjust:100%;}
+    header{background:var(--acc);color:#fff;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:10px;}
+    header h1{font-size:16px;flex:1;}
+    header button{background:rgba(255,255,255,.25);border:none;color:#fff;padding:6px 12px;border-radius:var(--r-sm);font-size:13px;cursor:pointer;font-family:inherit;}
+    .wrap{padding:14px;max-width:480px;margin:0 auto;}
+
+    /* コース選択 */
+    .course{background:var(--card);border-radius:var(--r);padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:10px;cursor:pointer;display:flex;align-items:center;gap:12px;}
+    .course:active{transform:scale(.99);}
+    .course .icn{width:42px;height:42px;border-radius:12px;background:var(--info-bg);color:var(--info-ink);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+    .course .t{font-size:15px;font-weight:700;}
+    .course .d{font-size:12px;color:var(--sub);margin-top:2px;}
+    .course .n{margin-left:auto;font-size:11px;color:var(--sub);white-space:nowrap;}
+
+    /* スライド */
+    #player{display:none;}
+    .cap{background:var(--card);border-radius:var(--r);padding:12px 14px;margin-bottom:10px;min-height:76px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+    .cap .step{font-size:11px;color:var(--acc);font-weight:700;}
+    .cap .txt{font-size:14px;line-height:1.7;margin-top:2px;}
+    .phone{background:#8cabd9;border-radius:18px;border:6px solid #333;min-height:380px;padding:12px 10px;overflow:hidden;}
+    .phone.liff{background:var(--bg);}
+    .bub{max-width:84%;border-radius:14px;padding:8px 12px;font-size:13px;line-height:1.6;margin:7px 0;}
+    .bub.bot{background:#fff;color:#222;border-top-left-radius:4px;}
+    .bub.me{background:#8de055;color:#111;margin-left:auto;border-top-right-radius:4px;width:fit-content;}
+    .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px;}
+    .chip{background:rgba(30,30,30,.78);color:#fff;border-radius:999px;padding:6px 12px;font-size:12px;}
+    .chip.hl{outline:3px solid #ffd54d;}
+    .fcard{background:#fff;border-radius:12px;padding:12px;margin:7px 0;max-width:90%;}
+    .fcard .t{font-size:12px;color:#6b6a63;margin-bottom:8px;}
+    .fchips{display:flex;gap:6px;flex-wrap:wrap;}
+    .fchip{flex:1;background:#e9f7ec;color:#00b900;text-align:center;border-radius:10px;padding:9px 4px;font-size:13px;font-weight:700;white-space:nowrap;}
+    .fchip.gray{background:#f0eee6;color:#6b6a63;flex-basis:100%;}
+    .fchip.hl{outline:3px solid #ffd54d;}
+    /* LIFF画面のミニマムモック */
+    .lcard{background:var(--card);border-radius:12px;padding:12px;margin:8px 0;box-shadow:0 1px 3px rgba(0,0,0,.08);font-size:13px;}
+    .lbtn{background:var(--acc);color:#fff;text-align:center;border-radius:10px;padding:11px;font-size:14px;font-weight:700;margin-top:8px;}
+    .lbtn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line);}
+    .lbtn.hl{outline:3px solid #ffd54d;}
+    .lrow{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;}
+    .lrow b{font-weight:700;}
+    .minus{color:var(--warn);font-weight:700;}
+
+    .nav{display:grid;grid-template-columns:1fr 1.6fr;gap:10px;margin-top:12px;}
+    .nav button{height:48px;border:none;border-radius:var(--r);font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;}
+    .nav .prev{background:var(--card);color:var(--ink);border:1px solid var(--line);}
+    .nav .next{background:var(--acc);color:#fff;}
+    .dots{display:flex;justify-content:center;gap:6px;margin-top:12px;}
+    .dot{width:8px;height:8px;border-radius:50%;background:#d8d6cc;}
+    .dot.on{background:var(--acc);}
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>かんたん操作ツアー</h1>
+  <button id="back" style="display:none" onclick="toMenu()">◀ 一覧へ</button>
+</header>
+
+<div class="wrap">
+  <div id="menu">
+    <p style="font-size:13px;color:var(--sub);line-height:1.7;margin:2px 2px 12px">見たい操作を選ぶと、実際の画面の流れを1枚ずつ確認できます。<br>黄色い枠＝タップする場所です。</p>
+    <div class="course" onclick="start('nippo')"><div class="icn">📋</div><div><div class="t">日報を出す</div><div class="d">作業員向け・毎日の基本</div></div><div class="n">7枚</div></div>
+    <div class="course" onclick="start('yasumi')"><div class="icn">🗓️</div><div><div class="t">休みを報告する</div><div class="d">作業員向け・ワンタップ</div></div><div class="n">2枚</div></div>
+    <div class="course" onclick="start('seikyu')"><div class="icn">🧾</div><div><div class="t">請求書をつくる（常用）</div><div class="d">管理者向け・月次の基本</div></div><div class="n">7枚</div></div>
+    <div class="course" onclick="start('nebiki')"><div class="icn">💴</div><div><div class="t">端数調整（値引き）</div><div class="d">管理者向け・丸い金額にする</div></div><div class="n">4枚</div></div>
+  </div>
+
+  <div id="player">
+    <div class="cap"><div class="step" id="cap-step"></div><div class="txt" id="cap-txt"></div></div>
+    <div class="phone" id="screen"></div>
+    <div class="dots" id="dots"></div>
+    <div class="nav">
+      <button class="prev" onclick="move(-1)">◀ 前へ</button>
+      <button class="next" id="next-btn" onclick="move(1)">次へ ▶</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const menuMock = (hl) => `
+  <div class="fcard" style="max-width:100%"><div class="t">メニュー（日報タブ）</div>
+    <div class="fchips"><div class="fchip${hl==="report"?" hl":""}">日報報告</div><div class="fchip">日報確認</div><div class="fchip">日報修正</div></div>
+    <div class="fchips" style="margin-top:6px"><div class="fchip">現場メモ</div><div class="fchip">設定</div><div class="fchip${hl==="holiday"?" hl":""}">休み報告</div></div>
+  </div>`;
+
+const COURSES = {
+  nippo: { name: "日報を出す", slides: [
+    { c: "トーク画面の下のメニューから「日報報告」をタップします。", s: menuMock("report") },
+    { c: "報告の種類を選びます。前日と同じ内容なら「昨日と同じ」で一発登録できます。今回は「通常報告」。",
+      s: `<div class="bub me">日報報告</div><div class="fcard"><div class="t">報告の種類を選んでください</div><div class="fchips"><div class="fchip">昨日と同じ</div><div class="fchip hl">通常報告</div><div class="fchip">休み</div></div><div class="fchips" style="margin-top:6px"><div class="fchip gray">✖ キャンセル</div></div></div>` },
+    { c: "現場をタップで選びます。一覧にない現場は「＋新しい現場」から追加できます。",
+      s: `<div class="bub me">通常報告</div><div class="fcard"><div class="t">現場を選んでください</div><div class="fchips"><div class="fchip hl">〇〇現場</div><div class="fchip">△△ビル</div></div><div class="fchips" style="margin-top:6px"><div class="fchip gray">＋ 新しい現場</div></div></div>` },
+    { c: "勤務区分を選びます。半日のときは理由（天候・元請指示など）も選びます。",
+      s: `<div class="bub me">〇〇現場</div><div class="bub bot">勤務区分を選んでください</div><div class="chips"><span class="chip hl">終日</span><span class="chip">半日</span><span class="chip">✖ キャンセル</span></div>` },
+    { c: "異常があれば「異常あり」→内容を文字で送信。なければ「異常なし」をタップ。",
+      s: `<div class="bub me">終日</div><div class="bub bot">現場で異常はありましたか？</div><div class="chips"><span class="chip hl">異常なし</span><span class="chip">異常あり</span><span class="chip">✖ キャンセル</span></div>` },
+    { c: "引き継ぎも同じ要領で。最後に「完了」をタップ。別の現場でも働いた日は「別の現場を追加」で続けて登録できます。",
+      s: `<div class="bub me">なし</div><div class="bub bot">〇〇現場（終日）を登録しました。<br>続けますか？</div><div class="chips"><span class="chip hl">完了</span><span class="chip">別の現場を追加</span></div>` },
+    { c: "これで完了です！ 途中でやめたくなったら、いつでも「✖ キャンセル」で最初に戻れます。",
+      s: `<div class="bub bot">✅ 本日の報告を登録しました。<br>お疲れ様でした！</div><div class="fcard"><div class="t">続けての操作はこちらから</div><div class="fchips"><div class="fchip">日報確認</div><div class="fchip">現場メモ</div><div class="fchip">休み報告</div></div></div>` },
+  ]},
+  yasumi: { name: "休みを報告する", slides: [
+    { c: "メニューの「休み報告」をタップするだけです。", s: menuMock("holiday") },
+    { c: "この返事が来たら登録完了。2回押しても二重にはなりません。",
+      s: `<div class="bub me">（休み報告）</div><div class="bub bot">了解しました。お休みを登録しました。お大事に！</div>` },
+  ]},
+  seikyu: { name: "請求書をつくる（常用）", slides: [
+    { c: "メニュー右上の「請求」タブ →「請求を開く」で請求画面に入り、「＋ 今月の請求をつくる」をタップ。",
+      s: `<div class="phone-inner"><div class="lcard"><b>請求一覧</b><div class="lrow" style="margin-top:6px"><span>△△工業 / 〇〇現場</span><span>¥586,740</span></div></div><div class="lbtn hl">＋ 今月の請求をつくる</div></div>` },
+    { c: "現場を選びます。元請と締め期間（例：8/25締め）は自動で決まります。",
+      s: `<div class="lcard" style="outline:3px solid #ffd54d"><b>〇〇現場</b><div style="font-size:12px;color:var(--sub);margin-top:2px">元請：△△工業</div></div><div class="lcard"><b>□□マンション</b><div style="font-size:12px;color:var(--sub);margin-top:2px">元請：××建設</div></div>` },
+    { c: "請求の種類を選びます。人工で請求するなら「常用（人工）」。",
+      s: `<div class="lcard"><div style="font-size:12px;color:var(--sub)">元請　△△工業</div><b>〇〇現場</b></div><div class="lbtn">出来高（請負）</div><div class="lbtn ghost hl">常用（人工）</div>` },
+    { c: "工種を選ぶと単価が自動で入ります。終日・半日の人工数を「＋−」で入れるだけ。",
+      s: `<div class="lcard"><div class="lrow"><span>工種</span><b>塗装</b></div><div class="lrow"><span>終日（1人工）</span><b>21</b></div><div class="lrow"><span>終日の単価</span><b>¥25,400（自動）</b></div><div class="lrow" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px"><span>税抜</span><b>¥533,400</b></div></div><div class="lbtn ghost">＋ この工種を明細に追加（複数工種のとき）</div><div class="lbtn hl">この内容で確認する</div>` },
+    { c: "確認画面で明細と金額をチェック。工事番号などの必須欄もここで入力します。",
+      s: `<div class="lcard"><b>△△工業　御中</b><div style="font-size:12px;color:var(--sub)">〇〇現場 ／ 締め 8/25</div><div class="lrow" style="margin-top:8px"><span>塗装（終日21人工）</span><b>¥533,400</b></div><div class="lrow"><span>消費税（10%）</span><span>¥53,340</span></div><div class="lrow"><b>税込 請求額</b><b>¥586,740</b></div></div><div class="lbtn hl">この内容で発行する</div>` },
+    { c: "「発行する」で確定。請求書番号が自動で付きます。",
+      s: `<div class="lcard" style="text-align:center;padding:20px"><div style="font-size:32px">✓</div><b>発行しました</b><div style="font-size:12px;color:var(--sub);margin-top:4px">請求書番号　No. 2026-003</div></div>` },
+    { c: "発行後は一覧からタップ →「📄 請求書を表示」でA4請求書に。PCで開けばPDF保存できます。直すときは「修正する（改訂）」、なかったことにするなら「取消する」。",
+      s: `<div class="lcard"><b>請求の詳細</b><div class="lrow" style="margin-top:6px"><span>状態</span><b>発行済み</b></div></div><div class="lbtn ghost hl">📄 請求書を表示（印刷 / PDF）</div><div class="lbtn ghost">修正する（改訂）</div>` },
+  ]},
+  nebiki: { name: "端数調整（値引き）", slides: [
+    { c: "確認画面の「端数調整（値引き）」をタップします。",
+      s: `<div class="lcard"><div class="lrow"><span>塗装（終日21人工）</span><b>¥533,400</b></div><div class="lrow"><b>税込 請求額</b><b>¥586,740</b></div></div><div class="lbtn ghost hl">端数調整（値引き）</div><div class="lbtn ghost">＋その他の調整</div>` },
+    { c: "丸めたい税抜額を入れます。万円未満を切り捨てた金額が最初から入っています（例：¥530,000）。",
+      s: `<div class="lcard"><div style="font-size:12px;color:var(--sub)">今の税抜合計 ¥533,400 を丸い金額にします</div><div class="lrow" style="margin-top:8px"><span>請求額（税抜・円）</span><b>530,000</b></div></div><div class="lbtn hl">値引き行を追加する</div>` },
+    { c: "差額が「値引き」行になり、税込もきれいな金額に。",
+      s: `<div class="lcard"><div class="lrow"><span>塗装（終日21人工）</span><b>¥533,400</b></div><div class="lrow"><span>値引き</span><b class="minus">−¥3,400</b></div><div class="lrow" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px"><span>税抜 合計</span><b>¥530,000</b></div><div class="lrow"><b>税込 請求額</b><b>¥583,000</b></div></div>` },
+    { c: "そのまま発行すれば、請求書にも「値引き」行が印字されます。駐車場代などの追加は「＋その他の調整」からどうぞ。",
+      s: `<div class="lcard"><b>請　求　書（A4）</b><div class="lrow" style="margin-top:8px"><span>塗装（終日）21人工</span><span>¥533,400</span></div><div class="lrow"><span>値引き　1式</span><span class="minus">−¥3,400</span></div><div class="lrow"><b>合計（税込）</b><b>¥583,000</b></div></div>` },
+  ]},
+};
+
+let cur = null, idx = 0;
+function start(key) {
+  cur = COURSES[key]; idx = 0;
+  document.getElementById("menu").style.display = "none";
+  document.getElementById("player").style.display = "block";
+  document.getElementById("back").style.display = "block";
+  render();
+}
+function toMenu() {
+  document.getElementById("menu").style.display = "block";
+  document.getElementById("player").style.display = "none";
+  document.getElementById("back").style.display = "none";
+  window.scrollTo(0, 0);
+}
+function move(d) {
+  idx += d;
+  if (idx < 0) { idx = 0; return; }
+  if (idx >= cur.slides.length) { toMenu(); return; }
+  render();
+}
+function render() {
+  const s = cur.slides[idx];
+  document.getElementById("cap-step").textContent = `${cur.name}　${idx + 1} / ${cur.slides.length}`;
+  document.getElementById("cap-txt").textContent = s.c;
+  const scr = document.getElementById("screen");
+  scr.innerHTML = s.s;
+  scr.className = "phone" + (s.s.includes("lcard") || s.s.includes("lbtn") ? " liff" : "");
+  document.getElementById("dots").innerHTML = cur.slides.map((_, i) => `<div class="dot${i === idx ? " on" : ""}"></div>`).join("");
+  document.getElementById("next-btn").textContent = idx === cur.slides.length - 1 ? "おわる ✓" : "次へ ▶";
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>

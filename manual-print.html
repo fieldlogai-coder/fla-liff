@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FIELDLOG かんたんガイド（印刷用A4）</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    :root{--acc:#00875a;--ink:#22211d;--sub:#6b6a63;--line:#e2e0d8;--bg:#f7f6f1;}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;background:#888;color:var(--ink);}
+    .page{width:210mm;min-height:296mm;background:#fff;margin:10px auto;padding:14mm 14mm 12mm;position:relative;}
+    .head{display:flex;align-items:baseline;gap:10px;border-bottom:3px solid var(--acc);padding-bottom:6px;margin-bottom:8mm;}
+    .head .logo{font-size:20px;font-weight:800;letter-spacing:2px;color:var(--acc);}
+    .head .t{font-size:16px;font-weight:700;}
+    .head .aud{margin-left:auto;font-size:12px;background:var(--acc);color:#fff;border-radius:999px;padding:3px 14px;}
+    h2{font-size:14px;color:var(--acc);margin:6mm 0 3mm;border-left:4px solid var(--acc);padding-left:8px;}
+    p,li,td{font-size:12.5px;line-height:1.8;}
+    ol,ul{padding-left:20px;}
+    .cols{display:grid;grid-template-columns:1fr 1fr;gap:8mm;}
+    .steps{counter-reset:st;}
+    .step{display:flex;gap:8px;margin-bottom:3mm;align-items:flex-start;}
+    .step .n{counter-increment:st;flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--acc);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px;}
+    .step .n::before{content:counter(st);}
+    .step b{font-weight:700;}
+    .box{border:1.5px solid var(--line);border-radius:8px;padding:8px 10px;margin:2mm 0;}
+    .box.warn{border-color:#e5b3ab;background:#fdf3f2;}
+    .box .bt{font-weight:700;font-size:12.5px;}
+    .qr{border:2px dashed var(--sub);border-radius:8px;width:38mm;height:38mm;display:flex;align-items:center;justify-content:center;text-align:center;font-size:10px;color:var(--sub);line-height:1.6;}
+    .qrline{display:flex;gap:8mm;align-items:center;margin-top:3mm;}
+    .menu6{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin:2mm 0;}
+    .menu6 div{border:1.5px solid var(--line);border-radius:8px;text-align:center;font-size:11.5px;font-weight:700;padding:8px 2px;}
+    .foot{position:absolute;bottom:8mm;left:14mm;right:14mm;display:flex;justify-content:space-between;font-size:10px;color:var(--sub);border-top:1px solid var(--line);padding-top:2mm;}
+    .noprint{max-width:210mm;margin:12px auto;background:#fff8dd;border-radius:8px;padding:12px 16px;font-size:13px;line-height:1.8;}
+    @media print{
+      body{background:#fff;}
+      .page{margin:0;width:auto;min-height:auto;page-break-after:always;}
+      .noprint{display:none;}
+      @page{size:A4;margin:0;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="noprint">🖨️ <b>印刷のしかた</b>：PCのブラウザでこのページを開き、印刷（Ctrl+P）→「PDFに保存」または印刷。2枚出ます（1枚目=作業員向け・2枚目=管理者向け）。QR欄には公式アカウントの友だち追加QRを貼ってください。</div>
+
+<!-- ═══ 1枚目: 作業員向け ═══ -->
+<div class="page">
+  <div class="head"><span class="logo">FIELDLOG</span><span class="t">かんたんガイド</span><span class="aud">作業員のみなさま</span></div>
+
+  <div class="cols">
+    <div>
+      <h2>はじめての設定（1回だけ）</h2>
+      <div class="steps">
+        <div class="step"><span class="n"></span><div>右のQRコードで<b>LINEの友だち追加</b></div></div>
+        <div class="step"><span class="n"></span><div>名前を聞かれたら、画面の案内に沿って登録</div></div>
+        <div class="step"><span class="n"></span><div>トーク下の<b>メニュー</b>から操作できます</div></div>
+      </div>
+      <div class="menu6">
+        <div>日報報告</div><div>日報確認</div><div>日報修正</div>
+        <div>現場メモ</div><div>設定</div><div>休み報告</div>
+      </div>
+    </div>
+    <div>
+      <div class="qrline">
+        <div class="qr">友だち追加QRを<br>ここに貼付</div>
+        <div>
+          <p style="font-weight:700">アプリ不要。<br>ぜんぶLINEでできます。</p>
+          <p style="font-size:11px;color:var(--sub);margin-top:2mm">スマホでくわしい説明を見る：<br>LINEのトークに届く「使い方ガイド」から</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>毎日やること：日報（目安1分）</h2>
+  <div class="steps cols" style="gap:4mm">
+    <div>
+      <div class="step"><span class="n"></span><div>メニューの<b>「日報報告」</b>をタップ</div></div>
+      <div class="step"><span class="n"></span><div>種類を選ぶ（いつも通り＝<b>通常報告</b>／前日と同じなら<b>昨日と同じ</b>で一発）</div></div>
+      <div class="step"><span class="n"></span><div><b>現場</b>をボタンで選ぶ</div></div>
+    </div>
+    <div>
+      <div class="step" style="counter-reset:st 3"><span class="n"></span><div><b>終日/半日</b>を選ぶ</div></div>
+      <div class="step"><span class="n"></span><div><b>異常・引き継ぎ</b>：なければ「なし」をタップ</div></div>
+      <div class="step"><span class="n"></span><div>最後に<b>「完了」</b>（別の現場があれば「別の現場を追加」）</div></div>
+    </div>
+  </div>
+
+  <h2>休みの日</h2>
+  <p>メニューの<b>「休み報告」</b>をタップするだけ。「お休みを登録しました」と返ってきたら完了です。</p>
+
+  <h2>困ったとき</h2>
+  <div class="cols" style="gap:4mm">
+    <div class="box"><span class="bt">途中でやめたい・ボタンが効かない</span><br>「<b>✖ キャンセル</b>」をタップ（どの画面にもあります）。約1時間放置でも自動で最初に戻ります。</div>
+    <div class="box"><span class="bt">まちがえて送った</span><br>「<b>日報修正</b>」から当日分は直せます。「登録されていません」と出たら会社の管理者へ。</div>
+  </div>
+
+  <div class="foot"><span>FIELDLOG かんたんガイド（作業員向け）</span><span>2026-07-20版</span></div>
+</div>
+
+<!-- ═══ 2枚目: 管理者向け ═══ -->
+<div class="page">
+  <div class="head"><span class="logo">FIELDLOG</span><span class="t">かんたんガイド</span><span class="aud">社長・事務ご担当</span></div>
+
+  <h2>最初の準備（1回だけ・約15分）　メニュー「請求」タブ →「請求を開く」→ 右上「マスタ」</h2>
+  <div class="steps cols" style="gap:4mm">
+    <div>
+      <div class="step"><span class="n"></span><div><b>自社情報</b>：会社名・インボイス登録番号・振込口座（請求書に印字）</div></div>
+      <div class="step"><span class="n"></span><div><b>元請（請求先）</b>：会社名・<b>締め日</b>・必須欄（工事番号など）＋担当現場にチェック</div></div>
+    </div>
+    <div>
+      <div class="step" style="counter-reset:st 2"><span class="n"></span><div><b>工種と常用単価</b>：工種×元請ごとの終日単価（常用請求を使う場合）</div></div>
+      <div class="step"><span class="n"></span><div><b>請負金額</b>：現場×元請の契約金額（出来高請求を使う場合）</div></div>
+    </div>
+  </div>
+
+  <h2>毎月の請求（現場ごとに1枚）</h2>
+  <div class="steps">
+    <div class="step"><span class="n"></span><div>請求一覧 →<b>「＋ 今月の請求をつくる」</b>→ 現場を選ぶ（<b>締め期間は締め日から自動</b>。末日締めは月初に作ると前月分）</div></div>
+    <div class="step"><span class="n"></span><div>種類を選ぶ：<b>出来高</b>＝今月分の金額を入力／<b>常用</b>＝工種と人工数（単価は自動・複数工種は「＋明細に追加」）</div></div>
+    <div class="step"><span class="n"></span><div>確認画面：<b>端数調整（値引き）</b>で丸い金額に（例 533,400円→530,000円と入力→「値引き −3,400」が自動で明細に）</div></div>
+    <div class="step"><span class="n"></span><div><b>「発行する」</b>→ 番号が自動で付いて確定</div></div>
+    <div class="step"><span class="n"></span><div>印刷は 詳細 →「📄 請求書を表示」→ <b>PCのブラウザで開いて印刷/PDF保存</b></div></div>
+  </div>
+
+  <h2>発行したあと</h2>
+  <div class="cols" style="gap:4mm">
+    <div class="box"><span class="bt">直したい</span><br>詳細 →「<b>修正する（改訂）</b>」。番号は変わらず第2版・第3版…として履歴に残ります。</div>
+    <div class="box"><span class="bt">なかったことにしたい</span><br>詳細 →「<b>取消する</b>」。同じ締め期間で作り直せるようになります。</div>
+  </div>
+
+  <h2>作業員・現場の登録（LINEトークで）</h2>
+  <p>トークで「<b>設定</b>」と送信 → <b>作業員を追加/削除・現場を追加/終了・一覧の確認</b>ができます（管理者のみ）。単価の変更は「請求」タブのマスタ →「工種と常用単価」から。</p>
+
+  <div class="box warn"><span class="bt">⚠️ 大事なルール</span><br>同じ現場・同じ締め期間の請求書は2枚作れません（二重請求防止）。作り直すときは先に「取消」してください。</div>
+
+  <div class="foot"><span>FIELDLOG かんたんガイド（管理者向け）</span><span>2026-07-20版</span></div>
+</div>
+
+</body>
+</html>

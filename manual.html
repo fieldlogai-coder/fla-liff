@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>FIELDLOG 使い方ガイド</title>
+  <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-20" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;-webkit-text-size-adjust:100%;}
+    header{background:var(--acc);color:#fff;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));position:sticky;top:0;z-index:100;}
+    header h1{font-size:17px;}
+    header .sub{font-size:12px;opacity:.85;margin-top:2px;}
+
+    /* 下線タブ（settings と同パターン） */
+    .tabs{display:flex;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:calc(48px + env(safe-area-inset-top));z-index:99;}
+    .tab{flex:1;text-align:center;padding:12px 0 10px;font-size:14px;font-weight:600;color:var(--sub);border-bottom:3px solid transparent;cursor:pointer;}
+    .tab.active{color:var(--acc);border-bottom-color:var(--acc);}
+
+    .wrap{padding:14px 14px calc(30px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;}
+    .pane{display:none;} .pane.active{display:block;}
+    .card{background:var(--card);border-radius:var(--r);padding:14px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:12px;}
+    h2{font-size:16px;margin:18px 2px 8px;display:flex;align-items:center;gap:8px;}
+    h2 .no{width:26px;height:26px;border-radius:50%;background:var(--acc);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+    h3{font-size:14px;margin:12px 0 6px;}
+    p,li{font-size:14px;line-height:1.8;}
+    ol,ul{padding-left:20px;margin:6px 0;}
+    .muted{color:var(--sub);font-size:12px;line-height:1.7;}
+    .note{background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:10px 12px;font-size:13px;line-height:1.7;margin:8px 0;}
+    .warn{background:#fdecea;color:var(--warn);border-radius:var(--r-sm);padding:10px 12px;font-size:13px;line-height:1.7;margin:8px 0;}
+    b{font-weight:700;}
+    kbd{display:inline-block;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 8px;font-size:13px;font-family:inherit;}
+
+    /* LINEトーク風モック */
+    .chat{background:#8cabd9;border-radius:var(--r);padding:12px 10px;margin:8px 0;}
+    .bub{max-width:82%;border-radius:14px;padding:8px 12px;font-size:13px;line-height:1.6;margin:6px 0;}
+    .bub.bot{background:#fff;color:#222;border-top-left-radius:4px;}
+    .bub.me{background:#8de055;color:#111;margin-left:auto;border-top-right-radius:4px;}
+    .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px;}
+    .chip{background:rgba(30,30,30,.75);color:#fff;border-radius:999px;padding:6px 12px;font-size:12px;white-space:nowrap;}
+    .chip.x{background:rgba(30,30,30,.55);}
+    .flexcard{background:#fff;border-radius:12px;padding:12px;margin:6px 0;max-width:88%;}
+    .flexcard .t{font-size:12px;color:#6b6a63;margin-bottom:8px;}
+    .fchips{display:flex;gap:6px;flex-wrap:wrap;}
+    .fchip{flex:1;background:#e9f7ec;color:#00b900;text-align:center;border-radius:10px;padding:9px 4px;font-size:13px;font-weight:700;white-space:nowrap;}
+    .fchip.gray{background:#f0eee6;color:#6b6a63;flex-basis:100%;}
+
+    /* リッチメニュー図 */
+    .rm{background:#fff;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin:8px 0;}
+    .rm .rtabs{display:flex;border-bottom:2px solid var(--line);font-size:12px;}
+    .rm .rtabs div{padding:8px 16px;color:var(--sub);}
+    .rm .rtabs div.on{color:var(--acc);font-weight:700;border-bottom:2px solid var(--acc);margin-bottom:-2px;}
+    .rm .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:10px;}
+    .rm .btn6{border:1px solid var(--line);border-radius:10px;text-align:center;padding:12px 2px;font-size:12px;font-weight:600;}
+    .toc{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+    .toc a{display:block;background:var(--card);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px;font-size:13px;font-weight:600;color:var(--ink);text-decoration:none;}
+    .toc a span{display:block;font-weight:400;font-size:11px;color:var(--sub);margin-top:2px;}
+    footer{padding:20px 14px calc(30px + env(safe-area-inset-bottom));text-align:center;}
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>FIELDLOG 使い方ガイド</h1>
+  <div class="sub">日報も請求も、LINEだけで。</div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showPane('worker',this)">日報（作業員）</div>
+  <div class="tab" onclick="showPane('admin',this)">請求・管理</div>
+</div>
+
+<div class="wrap">
+
+<!-- ═══════════ 作業員向け ═══════════ -->
+<div id="pane-worker" class="pane active">
+
+  <div class="card">
+    <div class="toc">
+      <a href="#w1">1. はじめに<span>友だち追加と画面の見方</span></a>
+      <a href="#w2">2. 日報を出す<span>毎日の基本操作</span></a>
+      <a href="#w3">3. 休みの日<span>ワンタップで登録</span></a>
+      <a href="#w4">4. 確認・修正<span>出した報告を見る・直す</span></a>
+      <a href="#w5">5. 現場メモ<span>写真つきの伝言板</span></a>
+      <a href="#w6">6. 困ったとき<span>キャンセルで最初に戻る</span></a>
+    </div>
+  </div>
+
+  <h2 id="w1"><span class="no">1</span>はじめに</h2>
+  <div class="card">
+    <p>FIELDLOGは<b>LINEの友だち</b>として使います。アプリのインストールは不要です。</p>
+    <ol>
+      <li>会社からもらったQRコードで<b>友だち追加</b></li>
+      <li>名前の登録を求められたら、画面の案内に沿って入力（管理者が登録済みの場合は不要）</li>
+      <li>トーク画面の下に出る<b>メニュー</b>から操作します</li>
+    </ol>
+    <div class="rm">
+      <div class="rtabs"><div class="on">日報</div><div>請求</div></div>
+      <div class="grid">
+        <div class="btn6">日報報告</div><div class="btn6">日報確認</div><div class="btn6">日報修正</div>
+        <div class="btn6">現場メモ</div><div class="btn6">設定</div><div class="btn6">休み報告</div>
+      </div>
+    </div>
+    <p class="muted">メニューが出ていないときは、入力欄の横のメニューアイコンをタップすると開きます。</p>
+  </div>
+
+  <h2 id="w2"><span class="no">2</span>日報を出す（毎日）</h2>
+  <div class="card">
+    <p>メニューの<b>「日報報告」</b>をタップして、あとは<b>出てくるボタンを選ぶだけ</b>です。文字入力はほぼありません。</p>
+    <div class="chat">
+      <div class="bub me">日報報告</div>
+      <div class="flexcard"><div class="t">報告の種類を選んでください</div>
+        <div class="fchips"><div class="fchip">昨日と同じ</div><div class="fchip">通常報告</div><div class="fchip">休み</div></div>
+        <div class="fchips" style="margin-top:6px"><div class="fchip gray">✖ キャンセル</div></div>
+      </div>
+      <div class="bub me">通常報告</div>
+      <div class="flexcard"><div class="t">現場を選んでください</div>
+        <div class="fchips"><div class="fchip">〇〇現場</div><div class="fchip">△△ビル</div></div>
+      </div>
+      <div class="bub me">〇〇現場</div>
+      <div class="bub bot">勤務区分を選んでください</div>
+      <div class="chips"><span class="chip">終日</span><span class="chip">半日</span><span class="chip x">✖ キャンセル</span></div>
+    </div>
+    <ol>
+      <li><b>種類</b>：いつも通りなら「通常報告」。前日と同じ内容なら<b>「昨日と同じ」</b>で一発登録</li>
+      <li><b>現場</b>：ボタンから選ぶ（新しい現場は「＋新しい現場」から追加できます）</li>
+      <li><b>勤務区分</b>：終日 or 半日（半日は理由を選びます）</li>
+      <li><b>異常の有無</b>：「異常なし」or「異常あり」→ あれば内容を文字で送信</li>
+      <li><b>引き継ぎ</b>：あれば内容を送信、なければ「なし」</li>
+      <li>最後に<b>「完了」</b>。同じ日に別の現場でも働いたら「別の現場を追加」</li>
+    </ol>
+    <div class="note">🕐 目安は<b>1分</b>。「異常あり」で報告した内容は、自動で現場メモにも転記されて職長・社長に共有されます。</div>
+  </div>
+
+  <h2 id="w3"><span class="no">3</span>休みの日</h2>
+  <div class="card">
+    <p>メニューの<b>「休み報告」</b>をタップするだけ。確認メッセージが返ってきたら完了です。</p>
+    <div class="chat">
+      <div class="bub me">（休み報告 をタップ）</div>
+      <div class="bub bot">了解しました。お休みを登録しました。お大事に！</div>
+    </div>
+    <p class="muted">同じ日に2回押しても二重登録にはなりません。</p>
+  </div>
+
+  <h2 id="w4"><span class="no">4</span>出した報告を確認する・直す</h2>
+  <div class="card">
+    <h3>確認</h3>
+    <p><b>「日報確認」</b>→「今日の集計」または「今月の累計」を選ぶと、登録内容がカードで表示されます。</p>
+    <h3>修正</h3>
+    <p><b>「日報修正」</b>→ 直したい報告を選ぶ →「現場名」「勤務区分」「異常・引き継ぎ内容」のどれを直すか選んで入力し直します。</p>
+    <p class="muted">修正できるのは当日分です。前日以前の修正は管理者に相談してください。</p>
+  </div>
+
+  <h2 id="w5"><span class="no">5</span>現場メモ（写真つき伝言板）</h2>
+  <div class="card">
+    <p>メニューの<b>「現場メモ」</b>をタップすると、現場ごとの掲示板が開きます。</p>
+    <ul>
+      <li><b>投稿</b>：現場を選んで、メモと写真（任意）を投稿</li>
+      <li><b>区分バッジ</b>：メモ → 未対応 → 対応中 → 完了 の順に<b>バッジをタップで切り替え</b>。未対応・対応中は一覧の上に固定されます</li>
+      <li><b>確認</b>：他の人の投稿は「確認」ボタンで既読がつきます</li>
+    </ul>
+  </div>
+
+  <h2 id="w6"><span class="no">6</span>困ったとき</h2>
+  <div class="card">
+    <ul>
+      <li><b>途中でやめたい・ボタンが効かない</b> → <kbd>✖ キャンセル</kbd>をタップ（どの画面にも付いています）。最初に戻ります</li>
+      <li><b>入力の途中で放置してしまった</b> → 約1時間で自動的に最初に戻ります。そのまま次の操作をどうぞ</li>
+      <li><b>「登録されていません」と言われる</b> → 管理者に「作業員登録」を依頼してください</li>
+      <li><b>間違えて送った</b> → 「日報修正」から直せます</li>
+    </ul>
+  </div>
+
+</div>
+
+<!-- ═══════════ 管理者・請求担当向け ═══════════ -->
+<div id="pane-admin" class="pane">
+
+  <div class="card">
+    <div class="toc">
+      <a href="#a1">1. 準備（最初だけ）<span>マスタ登録の4点セット</span></a>
+      <a href="#a2">2. 毎月の請求<span>現場を選んで発行まで</span></a>
+      <a href="#a3">3. 締め日のしくみ<span>期間は自動で決まる</span></a>
+      <a href="#a4">4. 値引き・端数調整<span>丸い金額にする</span></a>
+      <a href="#a5">5. 発行後の修正・印刷<span>改訂・取消・PDF</span></a>
+      <a href="#a6">6. 作業員・現場の管理<span>「設定」コマンド</span></a>
+    </div>
+  </div>
+
+  <h2 id="a1"><span class="no">1</span>準備（最初だけ・約15分）</h2>
+  <div class="card">
+    <p>メニュー右上の<b>「請求」タブ</b> → <b>「請求を開く」</b> → 画面右上の<b>「マスタ」</b>から、台帳を4つ登録します。</p>
+    <ol>
+      <li><b>自社情報</b> — 会社名・代表者・インボイス登録番号・振込口座（請求書に印字されます）</li>
+      <li><b>元請（請求先）</b> — 会社名・<b>締め日</b>・請求書に必須の欄（工事番号など）＋<b>この元請の現場</b>にチェック</li>
+      <li><b>工種と常用単価</b> — 工種（例：塗装・シール）と元請ごとの終日単価（半日は自動で半額・変更可）※常用請求を使う場合</li>
+      <li><b>請負金額</b> — 現場×元請の契約金額と工事名 ※出来高請求を使う場合</li>
+    </ol>
+    <div class="note">👤 請求メニューは<b>権限（can_bill）のある人だけ</b>に表示されます。担当を増やしたいときはシステム管理者に依頼してください。</div>
+  </div>
+
+  <h2 id="a2"><span class="no">2</span>毎月の請求（現場ごとに1枚）</h2>
+  <div class="card">
+    <ol>
+      <li>請求一覧 →<b>「＋ 今月の請求をつくる」</b></li>
+      <li><b>現場を選ぶ</b>（元請と締め期間は自動で決まります）</li>
+      <li><b>種類を選ぶ</b>：
+        <ul>
+          <li><b>出来高（請負）</b>…今月分の金額（税抜）を入力。進捗バー・累計・残額は自動表示</li>
+          <li><b>常用（人工）</b>…工種を選ぶ → 終日/半日の人工数（単価は自動で入ります）→ 材料費（あれば）。<b>複数の工種</b>は「＋この工種を明細に追加」で1枚にまとめられます</li>
+        </ul>
+      </li>
+      <li><b>確認画面</b>：明細・金額・必須欄（工事番号など）をチェック。値引きはここで（→ 4章）</li>
+      <li><b>「発行する」</b> → 請求書番号が自動で付いて確定</li>
+    </ol>
+  </div>
+
+  <h2 id="a3"><span class="no">3</span>締め日のしくみ</h2>
+  <div class="card">
+    <p>請求の期間は、元請マスタの<b>締め日から自動</b>で決まります。対象になるのは<b>「直近に締めた期間」</b>です。</p>
+    <ul>
+      <li><b>25日締め</b>の例：8/26〜9/25 の間に作ると「8/25締め分（7/26〜8/25）」の請求書になります</li>
+      <li><b>末日締め</b>の例：9月中に作ると「8月分（8/1〜8/31）」＝<b>月初に前月分を請求</b>する流れです</li>
+    </ul>
+    <div class="warn">⚠️ 同じ現場・同じ締め期間の請求書は2枚作れません（二重請求の防止）。作り直すときは先に「取消」してください。</div>
+  </div>
+
+  <h2 id="a4"><span class="no">4</span>値引き・端数調整</h2>
+  <div class="card">
+    <p>確認画面の<b>「端数調整（値引き）」</b>を使うと、請求額を丸い金額にできます。</p>
+    <ol>
+      <li>今の税抜合計が表示される（例：¥533,400）</li>
+      <li>丸めたい金額を入れる（万円未満切捨てが最初から入っています。例：¥530,000）</li>
+      <li>「値引き行を追加する」→ 差額が<b>「値引き −¥3,400」</b>として明細に載り、請求書にもそのまま印字されます</li>
+    </ol>
+    <p>駐車場代などの追加は<b>「＋その他の調整」</b>から名目と金額で登録できます。</p>
+  </div>
+
+  <h2 id="a5"><span class="no">5</span>発行後の修正・取消・印刷</h2>
+  <div class="card">
+    <ul>
+      <li><b>修正する（改訂）</b>：一覧から請求をタップ →「修正する」。番号は変わらず<b>第2版・第3版…</b>として履歴に残ります</li>
+      <li><b>取消する</b>：無効化されます（履歴には残る）。同じ期間で作り直せるようになります</li>
+      <li><b>印刷・PDF</b>：詳細 →「📄 請求書を表示」→ A4の請求書。<b>PCのブラウザで開いて「印刷」→「PDFに保存」</b>が確実です</li>
+    </ul>
+  </div>
+
+  <h2 id="a6"><span class="no">6</span>作業員・現場の管理（LINEトークで）</h2>
+  <div class="card">
+    <p>トークで<kbd>設定</kbd>と送ると、管理メニューが出ます（管理者のみ）。</p>
+    <ul>
+      <li><b>作業員を追加/削除</b> — 名前と役割（作業員・職長・管理者）で登録</li>
+      <li><b>現場を追加/終了</b> — 終了した現場は選択肢から消えます</li>
+      <li><b>現場を確認/作業員を確認</b> — 登録一覧の表示</li>
+    </ul>
+    <div class="note">💡 単価の登録・変更は「請求」タブのマスタ（工種と常用単価）から行います。</div>
+  </div>
+
+</div>
+</div>
+
+<footer>
+  <p class="muted">FIELDLOG 使い方ガイド（2026-07-20版）<br>操作の流れを画面で見たい方は「かんたん操作ツアー」もどうぞ。</p>
+  <p style="margin-top:8px"><a href="./manual-walkthrough.html" style="color:var(--acc);font-weight:700;font-size:14px">▶ かんたん操作ツアーを開く</a></p>
+</footer>
+
+<script>
+function showPane(name, el) {
+  document.querySelectorAll(".pane").forEach(p => p.classList.remove("active"));
+  document.getElementById("pane-" + name).classList.add("active");
+  document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+  el.classList.add("active");
+  window.scrollTo(0, 0);
+}
+</script>
+</body>
+</html>
