@@ -31,6 +31,17 @@
     return flaToken;
   }
 
+  // PoC観測キット: LIFFのREST失敗を app_events に記録（fire-and-forget・失敗は無視）
+  function logEvent(kind, detail) {
+    try {
+      fetch(`${SUPA_URL}/rest/v1/app_events`, {
+        method: "POST",
+        headers: { "apikey": SUPA_ANON, "Authorization": `Bearer ${flaToken}`, "Content-Type": "application/json", "Prefer": "return=minimal" },
+        body: JSON.stringify({ level: "error", kind, detail }),
+      }).catch(function () { /* 記録失敗は無視 */ });
+    } catch (_e) { /* 記録失敗は無視 */ }
+  }
+
   // REST 呼び出し: apikey=anon 据え置き、Authorization=user JWT。401（期限切れ等）は1回だけ再取得して再試行。
   // path は "/workers?..." のように /rest/v1 以下を渡す。init は fetch と同じ（method/headers/body）。
   // ※ 写真アップロード(Storage) は anon のままにしたい箇所があるため、それは本ヘルパーを通さないこと。
@@ -42,6 +53,15 @@
     });
     let res = await run();
     if (res.status === 401) { flaToken = ""; await ensureToken(); res = await run(); }
+    // 409(重複=UIで案内済み) と app_events 自身は記録しない（ノイズ・再帰防止）
+    if (!res.ok && res.status !== 409 && path.indexOf("/app_events") !== 0) {
+      logEvent("liff_fetch_failed", {
+        path: path.split("?")[0],
+        method: (init.method || "GET"),
+        status: res.status,
+        page: (location.pathname.split("/").pop() || ""),
+      });
+    }
     return res;
   }
 
