@@ -65,6 +65,27 @@
     return res;
   }
 
+  // 締め日連動の請求期間（M3.5-a・案A=直近に締めた期間）
+  // closingDay が null または 28以上 → 末日締め（前月1日〜前月末日）
+  // closingDay=D(1〜27) → 実行日がD日以降なら当月D日締め・D日より前なら前月D日締め
+  //   （期間＝締め月の前月(D+1)日 〜 締め月D日）
+  // ※ billing.html の同名関数と同一ロジック（請求発行の二重発行ガードと期間を一致させるため）。
+  //   billing.html 側はページ内に同じ関数を持ったまま（退行回避）。統合は次の機会に。
+  function billingPeriod(closingDay, now = new Date()) {
+    const y = now.getFullYear(), m = now.getMonth(), d = now.getDate(); // m は 0-based
+    const iso = (yy, mm, dd) => `${yy}-${String(mm + 1).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+    const lastDay = (yy, mm) => new Date(yy, mm + 1, 0).getDate();
+    const cd = (closingDay == null || closingDay >= 28) ? null : closingDay;
+    if (cd === null) {
+      const py = m === 0 ? y - 1 : y, pm = m === 0 ? 11 : m - 1;
+      return { periodStart: iso(py, pm, 1), periodEnd: iso(py, pm, lastDay(py, pm)) };
+    }
+    let ey = y, em = m;
+    if (d < cd) { em = m - 1; if (em < 0) { em = 11; ey = y - 1; } }
+    let sy = ey, sm = em - 1; if (sm < 0) { sm = 11; sy = ey - 1; }
+    return { periodStart: iso(sy, sm, cd + 1), periodEnd: iso(ey, em, cd) };
+  }
+
   // HTML エスケープ（属性・テキスト共用。' も含める）
   function esc(s) {
     return String(s)
@@ -72,5 +93,5 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  global.FLA = { SUPA_URL, SUPA_ANON, AUTH_FN, ensureToken, rest, esc };
+  global.FLA = { SUPA_URL, SUPA_ANON, AUTH_FN, ensureToken, rest, esc, billingPeriod };
 })(window);

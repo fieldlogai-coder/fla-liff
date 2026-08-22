@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>ダッシュボード</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-12" />
+  <style>
+    /* 設計: docs/PHASE2_DASHBOARD_DESIGN_DRAFT.md v0.2 ／ 見た目: docs/mockups/dashboard_mock_v02_2026-07-24.html
+       Step1（読み取り版）＝請負・請求・未請求まで。支払と利益率2種は Step2 で点灯。 */
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;-webkit-text-size-adjust:100%;}
+    header{background:var(--acc);color:#fff;padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top));position:sticky;top:0;z-index:100;}
+    header h1{font-size:17px;}
+    .ybar{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;}
+    .ybar select{font-family:inherit;font-size:13px;padding:4px 8px;border-radius:var(--r-sm);border:none;background:rgba(255,255,255,.22);color:#fff;}
+    .ybar select option{color:var(--ink);}
+    .ynote{font-size:11px;opacity:.85;}
+
+    #loading{display:flex;justify-content:center;align-items:center;height:60vh;font-size:15px;color:var(--sub);}
+    #loading.hidden{display:none;}
+    #app{display:none;padding:12px 12px calc(24px + env(safe-area-inset-bottom));}
+    #app.on{display:block;}
+
+    .vtabs{display:flex;gap:6px;margin-bottom:10px;}
+    .vtab{flex:1;text-align:center;font-size:13px;padding:8px 0;border-radius:var(--r-sm);background:#fff;color:var(--sub);border:1px solid var(--line);cursor:pointer;}
+    .vtab.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:bold;}
+
+    .card{background:var(--card);border-radius:var(--r);box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:10px;overflow:hidden;}
+    .card.pad{padding:14px;}
+    .muted{color:var(--sub);font-size:12px;}
+    .kpi3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px;}
+    .kpi{background:var(--bg);border-radius:var(--r-sm);padding:9px 8px;}
+    .kpi .k{font-size:11px;color:var(--sub);}
+    .kpi .v{font-size:15px;font-weight:bold;margin-top:3px;white-space:nowrap;}
+    .alert{margin-top:10px;background:#fdecea;color:var(--warn);border-radius:var(--r-sm);padding:9px 11px;font-size:12px;line-height:1.5;}
+    .note{margin-top:10px;background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:9px 11px;font-size:12px;line-height:1.5;}
+
+    /* 元請グループ */
+    .grp{display:flex;align-items:center;gap:8px;padding:12px 13px;cursor:pointer;}
+    .grp .nm{font-size:15px;font-weight:bold;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .grp .st{font-size:11px;color:var(--sub);white-space:nowrap;}
+    .grp-body{display:none;border-top:1px solid var(--line);}
+    .card.open>.grp-body{display:block;}
+    .tg{font-size:10px;color:var(--sub);transition:transform .15s;flex-shrink:0;}
+    .open>.grp .tg,.site.open>.srow .tg,.open>.ch .tg{transform:rotate(90deg);}
+
+    /* 現場行 */
+    .site{border-bottom:1px solid var(--line);}
+    .site:last-child{border-bottom:none;}
+    .srow{display:flex;align-items:center;gap:8px;padding:11px 13px;cursor:pointer;}
+    .srow .nm{font-size:14px;font-weight:bold;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .srow .mini{font-size:11px;color:var(--sub);white-space:nowrap;}
+    .sbody{display:none;padding:2px 13px 13px;}
+    .site.open .sbody{display:block;}
+    .badge{font-size:10px;padding:2px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0;}
+    .b-warn{background:#fdecea;color:var(--warn);}
+    .b-draft{background:#f0eee6;color:#8a887f;}
+    .b-done{background:#eceae2;color:#6b6a63;}
+    .b-ok{background:var(--ok-bg);color:var(--ok-ink);}
+
+    .row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;padding:3px 0;}
+    .row .l{color:var(--sub);}
+    .row .r{font-weight:bold;}
+    .bar{height:8px;background:#eceae2;border-radius:999px;overflow:hidden;margin:6px 0 4px;}
+    .bar>div{height:100%;background:var(--acc);border-radius:999px;}
+    .sub-list{margin-top:8px;border-top:1px dashed var(--line);padding-top:7px;}
+    .sub-list .il{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);padding:2px 0;}
+    .empty{padding:20px 14px;text-align:center;color:var(--sub);font-size:13px;line-height:1.6;}
+    #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#333;color:#fff;font-size:13px;padding:10px 16px;border-radius:var(--r-sm);opacity:0;transition:opacity .2s;pointer-events:none;z-index:200;max-width:90%;}
+    #toast.show{opacity:.94;}
+    #toast.err{background:var(--warn);}
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>ダッシュボード</h1>
+  <div class="ybar">
+    <select id="fy-sel" onchange="onFy(this.value)"></select>
+    <span class="ynote" id="fy-note"></span>
+  </div>
+</header>
+
+<div id="loading">読み込み中…</div>
+
+<div id="app">
+  <div class="card pad" id="summary"></div>
+
+  <div class="vtabs">
+    <div class="vtab on" id="tab-group"  onclick="setView('group')">元請別</div>
+    <div class="vtab"    id="tab-flat"   onclick="setView('flat')">現場一覧</div>
+    <div class="vtab"    id="tab-active" onclick="setView('active')">稼働中のみ</div>
+  </div>
+
+  <div id="content"></div>
+  <div class="muted" id="view-note" style="margin:0 2px 12px"></div>
+</div>
+
+<div id="toast"></div>
+
+<script src="./fla-core.js?v=2026-08-23"></script>
+<script>
+// ── 設定 ───────────────────────────────────────────────────────────────
+// ★LIFF ID：LINE Developers で新規発行したIDに差し替えること（エンドポイント＝本ファイルのURL）
+const LIFF_ID = "2009694631-XXXXXXXX";
+
+// ── 状態 ───────────────────────────────────────────────────────────────
+let cu = null;                       // { lineId, workerId, name, role, companyId, companyName, canBill }
+let cfg = { closingDay: null, fyStartMonth: 1, hasFyColumn: true };
+let db  = { sites: [], contracts: [], invoices: [], a2: {} };  // a2: contract_id → 発行済みA2累計
+let calc = [];                       // 現場ごとの集計結果
+let fy = null;                       // 選択中の年度（開始年）
+let view = "group";
+
+const rGet = (p) => FLA.rest(p);
+const enc  = (s) => encodeURIComponent(s);
+const esc  = (s) => FLA.esc(s);
+const fmt  = (n) => Number(n || 0).toLocaleString("ja-JP");
+
+// ── 初期化 ─────────────────────────────────────────────────────────────
+(async () => {
+  try {
+    await liff.init({ liffId: LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login(); return; }
+    const profile = await liff.getProfile();
+    cu = { lineId: profile.userId };
+    await FLA.ensureToken();
+    await boot();
+  } catch (e) {
+    toast("初期化に失敗しました: " + e.message, true);
+    document.getElementById("loading").textContent = "初期化に失敗しました。もう一度開いてください。";
+  }
+})();
+
+async function boot() {
+  const res = await rGet(`/workers?line_user_id=eq.${enc(cu.lineId)}&select=id,name,role,company_id,can_bill,companies(name)`);
+  if (!res.ok) { fail("利用者の取得に失敗しました (HTTP " + res.status + ")"); return; }
+  const rows = await res.json();
+  if (!rows.length) { fail("登録されていません。管理者に連絡してください。"); return; }
+  const w = rows[0];
+  cu = { ...cu, workerId: w.id, name: w.name, role: w.role, companyId: w.company_id,
+         companyName: w.companies?.name ?? "", canBill: !!w.can_bill };
+  // アクセス制御: 請求・請負データは RLS が can_bill=true 必須（M4.1 形B）。画面側も同じ基準で出し分ける。
+  if (!cu.canBill) { fail("この画面は請求を扱う権限のある方（社長・事務担当）のみご覧いただけます。<br>管理者に連絡してください。"); return; }
+  await loadAll();
+}
+
+// ── 読み込み ───────────────────────────────────────────────────────────
+async function loadAll() {
+  const c = cu.companyId;
+  const settingsSelect = (withFy) =>
+    `/company_settings?company_id=eq.${c}&select=closing_day${withFy ? ",fiscal_year_start_month" : ""}`;
+
+  let gr = await rGet(settingsSelect(true));
+  if (!gr.ok) { cfg.hasFyColumn = false; gr = await rGet(settingsSelect(false)); }   // 年度列が未適用でも動かす
+
+  const [sr, cr, ir, lr] = await Promise.all([
+    rGet(`/sites?company_id=eq.${c}&select=id,name,status,created_at,prime_contractor_id,prime_contractors(id,name,closing_day)&order=name`),
+    rGet(`/construction_contracts?company_id=eq.${c}&select=id,site_id,prime_contractor_id,contract_amount,status,title`),
+    rGet(`/billing_invoices?company_id=eq.${c}&status=neq.void&select=id,site_id,prime_contractor_id,status,invoice_type,period_start,period_end,subtotal_amount,total_amount,issued_at&order=period_end`),
+    rGet(`/billing_invoice_lines?company_id=eq.${c}&mode=eq.A2_rate&select=contract_id,amount,billing_invoices!inner(status)&billing_invoices.status=eq.issued`),
+  ]);
+  if (!sr.ok || !cr.ok || !ir.ok) { fail("データの取得に失敗しました。時間をおいて開き直してください。"); return; }
+
+  if (gr.ok) {
+    const s = (await gr.json())[0] || {};
+    cfg.closingDay  = s.closing_day ?? null;
+    cfg.fyStartMonth = s.fiscal_year_start_month ?? 1;
+  }
+  db.sites     = await sr.json();
+  db.contracts = await cr.json();
+  db.invoices  = await ir.json();
+  db.a2 = {};
+  if (lr.ok) (await lr.json()).forEach(r => { db.a2[r.contract_id] = (db.a2[r.contract_id] || 0) + (r.amount || 0); });
+
+  buildCalc();
+  buildYears();
+  render();
+  document.getElementById("loading").classList.add("hidden");
+  document.getElementById("app").classList.add("on");
+}
+
+// ── 集計 ───────────────────────────────────────────────────────────────
+// 年度: fyStartMonth 開始。例) 開始月9 → 「2026年度」＝2026-09-01〜2027-08-31
+function fyOf(iso) {
+  if (!iso) return null;
+  const y = +String(iso).slice(0, 4), m = +String(iso).slice(5, 7);
+  return m >= cfg.fyStartMonth ? y : y - 1;
+}
+function fyLabel(y) {
+  return cfg.fyStartMonth === 1 ? `${y}年` : `${y}年度（${cfg.fyStartMonth}月開始）`;
+}
+function currentFy() { const d = new Date(); return fyOf(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`); }
+
+function buildCalc() {
+  const issued = db.invoices.filter(i => i.status === "issued");
+  calc = db.sites.map(s => {
+    const contracts = db.contracts.filter(x => x.site_id === s.id);
+    const contractTotal = contracts.reduce((n, x) => n + (x.contract_amount || 0), 0);
+    const billedA2 = contracts.reduce((n, x) => n + (db.a2[x.id] || 0), 0);
+    const sIssued  = issued.filter(i => i.site_id === s.id);
+    const invoiceSubtotal = sIssued.reduce((n, i) => n + (i.subtotal_amount || 0), 0);
+
+    // 未請求判定: 元請の締め日から「直近に締めた期間」を出し、その period_end の請求（取消以外）が無ければ未請求。
+    // ※ billing.html の二重発行ガードと同じ期間の取り方（FLA.billingPeriod）＝画面間で判定がズレない。
+    const closingDay = s.prime_contractors?.closing_day ?? null;
+    const { periodStart, periodEnd } = FLA.billingPeriod(closingDay);
+    const inPeriod  = db.invoices.filter(i => i.site_id === s.id && i.period_end === periodEnd);
+    const hasIssued = inPeriod.some(i => i.status === "issued");
+    const hasDraft  = inPeriod.some(i => i.status === "draft");
+    const isActive  = s.status === "active";
+
+    // 現場の年度＝初回発行請求の締め期間ベース（設計 §6-2）。請求ゼロなら現場の作成日で暫定判定。
+    const firstIssued = sIssued.map(i => i.period_end).sort()[0] || null;
+    const siteFy = firstIssued ? fyOf(firstIssued) : fyOf(String(s.created_at).slice(0, 10));
+
+    return {
+      site: s, primeName: s.prime_contractors?.name ?? "", primeId: s.prime_contractor_id || "none",
+      isActive, contracts, contractTotal, billedA2, invoiceSubtotal, sIssued,
+      hasContract: contracts.length > 0 && contractTotal > 0,
+      billed: (contracts.length > 0 && contractTotal > 0) ? billedA2 : invoiceSubtotal,
+      remain: contractTotal - billedA2,
+      pct: contractTotal ? Math.max(0, Math.min(100, billedA2 / contractTotal * 100)) : 0,
+      periodStart, periodEnd,
+      unbilled: isActive && !hasIssued && !hasDraft,
+      draftOnly: isActive && !hasIssued && hasDraft,
+      fy: siteFy,
+    };
+  });
+}
+
+function buildYears() {
+  const years = new Set(calc.map(x => x.fy).filter(v => v != null));
+  years.add(currentFy());
+  const list = [...years].sort((a, b) => b - a);
+  fy = list.includes(currentFy()) ? currentFy() : list[0];
+  const sel = document.getElementById("fy-sel");
+  sel.innerHTML = list.map(y => `<option value="${y}"${y === fy ? " selected" : ""}>${esc(fyLabel(y))}</option>`).join("");
+  document.getElementById("fy-note").textContent =
+    cfg.hasFyColumn ? "年度の開始月は会社設定で変更できます" : "年度の開始月は未設定（1月開始）です";
+}
+
+function onFy(v) { fy = +v; render(); }
+function setView(v) {
+  view = v;
+  ["group", "flat", "active"].forEach(k => document.getElementById("tab-" + k).classList.toggle("on", k === v));
+  render();
+}
+
+// ── 描画 ───────────────────────────────────────────────────────────────
+function render() {
+  const rows = calc.filter(x => x.fy === fy);
+  renderSummary(rows);
+  const el = document.getElementById("content");
+  const note = document.getElementById("view-note");
+  if (!rows.length) {
+    el.innerHTML = `<div class="card"><div class="empty">${esc(fyLabel(fy))}に動いた現場はまだありません。</div></div>`;
+    note.textContent = ""; return;
+  }
+  if (view === "group") {
+    const groups = {};
+    rows.forEach(r => { (groups[r.primeId] = groups[r.primeId] || { name: r.primeName || "元請 未設定", rows: [] }).rows.push(r); });
+    el.innerHTML = Object.entries(groups).map(([id, g], idx) => {
+      const billed = g.rows.reduce((n, r) => n + r.billed, 0);
+      const ct     = g.rows.reduce((n, r) => n + r.contractTotal, 0);
+      return `<div class="card${idx === 0 ? " open" : ""}" id="g-${esc(id)}">
+        <div class="grp" onclick="tgl('g-${esc(id)}')">
+          <span class="tg">▶</span><span class="nm">${esc(g.name)}</span>
+          <span class="st">${g.rows.length}現場 ／ 請求 ¥${fmt(billed)}${ct ? ` ／ 請負 ¥${fmt(ct)}` : ""}</span>
+        </div>
+        <div class="grp-body">${g.rows.map(siteHtml).join("")}</div>
+      </div>`;
+    }).join("");
+    note.textContent = "元請ごとにまとめた表示です。金額は税抜。";
+  } else {
+    const list = view === "active" ? rows.filter(r => r.isActive) : rows;
+    const sorted = [...list].sort((a, b) => (a.primeName || "").localeCompare(b.primeName || "", "ja") || a.site.name.localeCompare(b.site.name, "ja"));
+    el.innerHTML = `<div class="card">${sorted.length ? sorted.map(siteHtml).join("") : '<div class="empty">該当する現場はありません。</div>'}</div>`;
+    note.textContent = view === "active"
+      ? "いま稼働中（status=active）の現場だけ。完了現場は出ません。"
+      : "この年度に動いたすべての現場（完了含む）。並びは元請→現場名。";
+  }
+}
+
+function renderSummary(rows) {
+  const billed   = rows.reduce((n, r) => n + r.invoiceSubtotal, 0);          // 発行済み請求の税抜合計（調整行を含む）
+  const contract = rows.reduce((n, r) => n + r.contractTotal, 0);
+  const a2       = rows.reduce((n, r) => n + r.billedA2, 0);
+  const unbilled = rows.filter(r => r.unbilled);
+  const drafts   = rows.filter(r => r.draftOnly);
+  const noSite   = db.invoices.filter(i => i.status === "issued" && !i.site_id).length;
+
+  document.getElementById("summary").innerHTML = `
+    <div style="display:flex;align-items:baseline;gap:8px">
+      <b style="font-size:14px">会社全体</b>
+      <span class="muted">${esc(cu.companyName)}／${esc(fyLabel(fy))}・現場${rows.length}件</span>
+    </div>
+    <div class="kpi3">
+      <div class="kpi"><div class="k">請求 累計（税抜）</div><div class="v">¥${fmt(billed)}</div></div>
+      <div class="kpi"><div class="k">請負 合計</div><div class="v">¥${fmt(contract)}</div></div>
+      <div class="kpi"><div class="k">請負の残り</div><div class="v">¥${fmt(contract - a2)}</div></div>
+    </div>
+    ${unbilled.length ? `<div class="alert">⚠ 未請求 ${unbilled.length}現場（${unbilled.slice(0, 3).map(r => esc(r.site.name)).join("・")}${unbilled.length > 3 ? " ほか" : ""}）</div>` : ""}
+    ${drafts.length ? `<div class="note">📝 作成中のまま未発行 ${drafts.length}現場（${drafts.slice(0, 3).map(r => esc(r.site.name)).join("・")}${drafts.length > 3 ? " ほか" : ""}）</div>` : ""}
+    ${noSite ? `<div class="muted" style="margin-top:8px">※ 現場が紐づかない請求が${noSite}件あります（現場カードには出ません）</div>` : ""}
+    <div class="note">支払・粗利・利益率は <b>Step2（支払のざっくり登録）</b> で点灯します。</div>`;
+}
+
+function siteHtml(r) {
+  const id = "s-" + r.site.id;
+  const badge = r.unbilled ? '<span class="badge b-warn">⚠ 未請求</span>'
+              : r.draftOnly ? '<span class="badge b-draft">作成中</span>'
+              : !r.isActive ? '<span class="badge b-done">完了</span>' : "";
+  const mini = r.hasContract
+    ? `請求 ${r.pct.toFixed(0)}%`
+    : (r.billed ? `請求累計 ¥${fmt(r.billed)}` : "請求なし");
+  const body = r.hasContract ? `
+      <div class="row"><span class="l">請負金額</span><span class="r">¥${fmt(r.contractTotal)}</span></div>
+      <div class="row"><span class="l">請求済み（${r.pct.toFixed(1)}%）</span><span class="r">¥${fmt(r.billedA2)}</span></div>
+      <div class="bar"><div style="width:${r.pct}%"></div></div>
+      <div class="row"><span class="l">残り</span><span class="r">¥${fmt(r.remain)}</span></div>
+      ${r.invoiceSubtotal !== r.billedA2 ? `<div class="muted">請求書の税抜合計は ¥${fmt(r.invoiceSubtotal)}（値引き・端数調整などを含む）</div>` : ""}`
+    : `
+      <div class="row"><span class="l">請求累計（税抜）</span><span class="r">¥${fmt(r.invoiceSubtotal)}</span></div>
+      <div class="muted">請負金額が未登録の現場（常用など）。請負の進捗バーは出ません。</div>`;
+  const period = `${fmtDate(r.periodStart)}〜${fmtDate(r.periodEnd)}`;
+  const status = r.unbilled ? `<div class="muted" style="margin-top:6px">⚠ 直近の締め分（${period}）の請求がまだありません。</div>`
+               : r.draftOnly ? `<div class="muted" style="margin-top:6px">📝 直近の締め分（${period}）は作成中のまま未発行です。</div>`
+               : r.isActive ? `<div class="muted" style="margin-top:6px">✓ 直近の締め分（${period}）は発行済みです。</div>` : "";
+  const list = r.sIssued.length ? `<div class="sub-list">${r.sIssued.slice(-4).map(i =>
+      `<div class="il"><span>${fmtDate(i.period_end)}締め ${i.invoice_type === "ukeoi" ? "出来高" : "常用"}</span><span>¥${fmt(i.subtotal_amount)}</span></div>`).join("")}</div>` : "";
+
+  return `<div class="site" id="${esc(id)}">
+    <div class="srow" onclick="tgl('${esc(id)}')">
+      <span class="tg">▶</span><span class="nm">${esc(r.site.name)}</span>${badge}
+      <span class="mini">${esc(mini)}</span>
+    </div>
+    <div class="sbody">
+      <div class="muted" style="margin-bottom:4px">元請: ${esc(r.primeName || "未設定")}</div>
+      ${body}${status}${list}
+    </div>
+  </div>`;
+}
+
+// ── ユーティリティ ─────────────────────────────────────────────────────
+function tgl(id) { const el = document.getElementById(id); if (el) el.classList.toggle("open"); }
+function fmtDate(iso) { if (!iso) return ""; const [, m, d] = String(iso).split("-"); return `${+m}/${+d}`; }
+function fail(html) {
+  document.getElementById("loading").classList.add("hidden");
+  document.getElementById("app").classList.add("on");
+  document.getElementById("summary").innerHTML = `<div class="empty">${html}</div>`;
+  document.querySelector(".vtabs").style.display = "none";
+}
+function toast(msg, err) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = err ? "err show" : "show";
+  setTimeout(() => t.classList.remove("show"), 3500);
+}
+</script>
+</body>
+</html>
