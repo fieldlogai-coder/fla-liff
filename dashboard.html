@@ -7,77 +7,102 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-12" />
   <style>
-    /* 設計: docs/PHASE2_DASHBOARD_DESIGN_DRAFT.md v0.2 ／ 見た目: docs/mockups/dashboard_mock_v02_2026-07-24.html
-       Step1（読み取り版）＝請負・請求・未請求まで。支払と利益率2種は Step2 で点灯。 */
+    /* 設計: docs/PHASE2_DASHBOARD_DESIGN_DRAFT.md v0.4 §9〜§11
+       見た目: docs/mockups/dashboard_c_detail_2026-08-23.html（案C v0.6）
+       用語   : docs/UI_TERMINOLOGY.md（今期の売上／これから請求する分／要対応 …） */
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;-webkit-text-size-adjust:100%;}
-    header{background:var(--acc);color:#fff;padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top));position:sticky;top:0;z-index:100;}
-    header h1{font-size:17px;}
-    .ybar{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;}
-    .ybar select{font-family:inherit;font-size:13px;padding:4px 8px;border-radius:var(--r-sm);border:none;background:rgba(255,255,255,.22);color:#fff;}
+    header{background:var(--acc);color:#fff;padding:11px 13px;padding-top:calc(11px + env(safe-area-inset-top));position:sticky;top:0;z-index:100;}
+    header .top{display:flex;align-items:center;gap:8px;}
+    header h1{font-size:16px;flex:1;}
+    header .hbtn{background:rgba(255,255,255,.22);border:none;color:#fff;padding:5px 10px;border-radius:var(--r-sm);font-size:12px;font-family:inherit;cursor:pointer;}
+    .ybar{display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap;}
+    .ybar select{font-family:inherit;font-size:12.5px;padding:3px 7px;border-radius:var(--r-sm);border:none;background:rgba(255,255,255,.22);color:#fff;}
     .ybar select option{color:var(--ink);}
     .ynote{font-size:11px;opacity:.85;}
 
     #loading{display:flex;justify-content:center;align-items:center;height:60vh;font-size:15px;color:var(--sub);}
     #loading.hidden{display:none;}
-    #app{display:none;padding:12px 12px calc(24px + env(safe-area-inset-bottom));}
-    #app.on{display:block;}
+    .screen{display:none;padding:10px 10px calc(26px + env(safe-area-inset-bottom));}
+    .screen.on{display:block;}
 
-    .vtabs{display:flex;gap:6px;margin-bottom:10px;}
-    .vtab{flex:1;text-align:center;font-size:13px;padding:8px 0;border-radius:var(--r-sm);background:#fff;color:var(--sub);border:1px solid var(--line);cursor:pointer;}
-    .vtab.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:bold;}
-
-    .card{background:var(--card);border-radius:var(--r);box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:10px;overflow:hidden;}
-    .card.pad{padding:14px;}
-    .muted{color:var(--sub);font-size:12px;}
-    .kpi3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px;}
-    .kpi{background:var(--bg);border-radius:var(--r-sm);padding:9px 8px;}
-    .kpi .k{font-size:11px;color:var(--sub);}
-    .kpi .v{font-size:15px;font-weight:bold;margin-top:3px;white-space:nowrap;}
-    .alert{margin-top:10px;background:#fdecea;color:var(--warn);border-radius:var(--r-sm);padding:9px 11px;font-size:12px;line-height:1.5;}
-    .note{margin-top:10px;background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:9px 11px;font-size:12px;line-height:1.5;}
-
-    /* 元請グループ */
-    .grp{display:flex;align-items:center;gap:8px;padding:12px 13px;cursor:pointer;}
-    .grp .nm{font-size:15px;font-weight:bold;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .grp .st{font-size:11px;color:var(--sub);white-space:nowrap;}
-    .grp-body{display:none;border-top:1px solid var(--line);}
-    .card.open>.grp-body{display:block;}
-    .tg{font-size:10px;color:var(--sub);transition:transform .15s;flex-shrink:0;}
-    .open>.grp .tg,.site.open>.srow .tg,.open>.ch .tg{transform:rotate(90deg);}
-
-    /* 現場行 */
-    .site{border-bottom:1px solid var(--line);}
-    .site:last-child{border-bottom:none;}
-    .srow{display:flex;align-items:center;gap:8px;padding:11px 13px;cursor:pointer;}
-    .srow .nm{font-size:14px;font-weight:bold;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-    .srow .mini{font-size:11px;color:var(--sub);white-space:nowrap;}
-    .sbody{display:none;padding:2px 13px 13px;}
+    .c{background:var(--card);border-radius:var(--r);padding:12px;margin-bottom:9px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+    .c-t{font-size:11.5px;color:var(--sub);display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;gap:8px;}
+    .c-t b{color:var(--ink);font-size:12.5px;}
+    .c-t .lnk{color:var(--acc);font-weight:bold;cursor:pointer;white-space:nowrap;}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+    .tile{background:var(--bg);border-radius:var(--r-sm);padding:9px 10px;cursor:pointer;}
+    .tile .k{font-size:10.5px;color:var(--sub);}
+    .tile .v{font-size:16px;font-weight:bold;margin-top:2px;letter-spacing:-.3px;}
+    .tile .n{font-size:10px;color:var(--sub);margin-top:1px;line-height:1.4;}
+    .tile.in .v{color:var(--ok-ink);}
+    .tile.mut .v,.tile.mut .n{color:#b3b1a8;}
+    .kv{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;gap:8px;}
+    .kv .l{color:var(--sub);} .kv .r{font-weight:bold;white-space:nowrap;}
+    .bar{height:8px;background:#eceae2;border-radius:999px;overflow:hidden;display:flex;margin:5px 0 3px;}
+    .bar i{display:block;height:100%;}
+    .b-done{background:var(--acc);} .b-rest{background:#a8d8c4;} .b-plan{background:#dfdccf;}
+    .lg{font-size:10.5px;color:var(--sub);display:flex;gap:9px;flex-wrap:wrap;}
+    .lg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:3px;vertical-align:middle;}
+    .row{display:flex;align-items:center;gap:7px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;}
+    .row:last-child{border-bottom:none;}
+    .row .nm{flex:1;min-width:0;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .row .mt{color:var(--sub);font-size:11px;white-space:nowrap;}
+    .row .am{font-weight:bold;white-space:nowrap;}
+    .pill{font-size:10px;padding:2px 7px;border-radius:999px;white-space:nowrap;flex-shrink:0;}
+    .p-warn{background:#fdecea;color:var(--warn);}
+    .p-ok{background:var(--ok-bg);color:var(--ok-ink);}
+    .p-cau{background:#fdf4e0;color:#a8781a;}
+    .p-mut{background:#efeee7;color:var(--sub);}
+    .tabs{display:flex;gap:5px;margin-bottom:9px;}
+    .tab{flex:1;text-align:center;font-size:12px;padding:7px 0;border-radius:var(--r-sm);background:#fff;border:1px solid var(--line);color:var(--sub);cursor:pointer;}
+    .tab.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:bold;}
+    .chart{display:flex;align-items:flex-end;gap:10px;height:98px;padding-top:6px;}
+    .chart .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;}
+    .chart .stack{width:100%;display:flex;flex-direction:column;justify-content:flex-end;height:100%;}
+    .chart .in{background:var(--acc);border-radius:3px 3px 0 0;min-height:1px;}
+    .chart .out{background:#e3b5ae;border-radius:0 0 3px 3px;min-height:1px;}
+    .chart .lab{font-size:10px;color:var(--sub);margin-top:4px;}
+    .chart .amt{font-size:10px;font-weight:bold;}
+    .note{background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:8px 10px;font-size:11.5px;line-height:1.55;}
+    .setup{background:var(--bg);border:1px dashed #cfcdc2;border-radius:var(--r-sm);padding:9px 10px;font-size:11.5px;color:var(--sub);}
+    .setup b{color:var(--ink);display:block;margin-bottom:2px;font-size:12.5px;}
+    .btn{display:inline-block;background:var(--acc);color:#fff;font-size:12px;padding:7px 13px;border-radius:var(--r-sm);margin-top:7px;font-weight:bold;border:none;font-family:inherit;cursor:pointer;}
+    .btn.g{background:#fff;color:var(--acc);border:1px solid var(--acc);}
+    .btn.w{background:#fff;color:var(--warn);border:1px solid #f0c8c2;}
+    .btn:active{opacity:.7;}
+    .sec{font-size:11.5px;color:var(--sub);margin:12px 2px 6px;font-weight:bold;}
+    .empty{padding:22px 14px;text-align:center;color:var(--sub);font-size:13px;line-height:1.7;}
+    .sbody{display:none;border-top:1px solid var(--line);margin-top:8px;padding-top:8px;}
     .site.open .sbody{display:block;}
-    .badge{font-size:10px;padding:2px 8px;border-radius:999px;white-space:nowrap;flex-shrink:0;}
-    .b-warn{background:#fdecea;color:var(--warn);}
-    .b-draft{background:#f0eee6;color:#8a887f;}
-    .b-done{background:#eceae2;color:#6b6a63;}
-    .b-ok{background:var(--ok-bg);color:var(--ok-ink);}
-
-    .row{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;padding:3px 0;}
-    .row .l{color:var(--sub);}
-    .row .r{font-weight:bold;}
-    .bar{height:8px;background:#eceae2;border-radius:999px;overflow:hidden;margin:6px 0 4px;}
-    .bar>div{height:100%;background:var(--acc);border-radius:999px;}
-    .sub-list{margin-top:8px;border-top:1px dashed var(--line);padding-top:7px;}
-    .sub-list .il{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);padding:2px 0;}
-    .empty{padding:20px 14px;text-align:center;color:var(--sub);font-size:13px;line-height:1.6;}
-    #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:24px;background:#333;color:#fff;font-size:13px;padding:10px 16px;border-radius:var(--r-sm);opacity:0;transition:opacity .2s;pointer-events:none;z-index:200;max-width:90%;}
-    #toast.show{opacity:.94;}
-    #toast.err{background:var(--warn);}
+    .srow{display:flex;align-items:center;gap:7px;cursor:pointer;}
+    .site{border-bottom:1px solid var(--line);padding:9px 0;}
+    .site:first-child{padding-top:0;}
+    .site:last-child{border-bottom:none;padding-bottom:0;}
+    .tg{font-size:10px;color:var(--sub);transition:transform .15s;flex-shrink:0;}
+    .site.open .srow .tg{transform:rotate(90deg);}
+    input[type=text],input[type=number],input[type=month],input[type=date],select.f{
+      font-family:inherit;font-size:15px;padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-sm);width:100%;background:#fff;color:var(--ink);}
+    input:focus,select.f:focus{outline:none;border-color:var(--acc);}
+    .fl{font-size:11.5px;color:var(--sub);margin:9px 0 3px;}
+    .inline{display:flex;gap:6px;align-items:center;}
+    .inline input{flex:1;}
+    .chips{display:flex;gap:6px;flex-wrap:wrap;}
+    .chip{font-size:12px;padding:6px 11px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--sub);cursor:pointer;}
+    .chip.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:bold;}
+    #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:26px;background:#333;color:#fff;font-size:13px;padding:10px 16px;border-radius:var(--r-sm);opacity:0;transition:opacity .2s;pointer-events:none;z-index:200;max-width:90%;}
+    #toast.show{opacity:.94;} #toast.err{background:var(--warn);}
   </style>
 </head>
 <body>
 
 <header>
-  <h1>ダッシュボード</h1>
-  <div class="ybar">
+  <div class="top">
+    <span class="hbtn" id="btn-back" style="display:none" onclick="go('home')">‹ 戻る</span>
+    <h1 id="h-title">ダッシュボード</h1>
+    <span class="hbtn" id="btn-settings" onclick="go('settings')">設定</span>
+  </div>
+  <div class="ybar" id="ybar">
     <select id="fy-sel" onchange="onFy(this.value)"></select>
     <span class="ynote" id="fy-note"></span>
   </div>
@@ -85,18 +110,28 @@
 
 <div id="loading">読み込み中…</div>
 
-<div id="app">
-  <div class="card pad" id="summary"></div>
-
-  <div class="vtabs">
-    <div class="vtab on" id="tab-group"  onclick="setView('group')">元請別</div>
-    <div class="vtab"    id="tab-flat"   onclick="setView('flat')">現場一覧</div>
-    <div class="vtab"    id="tab-active" onclick="setView('active')">稼働中のみ</div>
+<!-- ── ホーム ─────────────────────────────────────────────── -->
+<div class="screen" id="s-home">
+  <div class="c" id="tiles"></div>
+  <div id="todo-card"></div>
+  <div class="tabs">
+    <div class="tab on" id="tab-money" onclick="setTab('money')">お金</div>
+    <div class="tab" id="tab-sites" onclick="setTab('sites')">現場</div>
+    <div class="tab" id="tab-primes" onclick="setTab('primes')">元請</div>
   </div>
-
-  <div id="content"></div>
-  <div class="muted" id="view-note" style="margin:0 2px 12px"></div>
+  <div id="tabbody"></div>
 </div>
+
+<!-- ── 入金予定 ───────────────────────────────────────────── -->
+<div class="screen" id="s-payin"><div id="payin-body"></div></div>
+<!-- ── 要対応 ─────────────────────────────────────────────── -->
+<div class="screen" id="s-todo"><div id="todo-body"></div></div>
+<!-- ── 見込み案件 ─────────────────────────────────────────── -->
+<div class="screen" id="s-leads"><div id="leads-body"></div></div>
+<!-- ── 見込み案件フォーム ─────────────────────────────────── -->
+<div class="screen" id="s-leadform"><div id="leadform-body"></div></div>
+<!-- ── 設定 ───────────────────────────────────────────────── -->
+<div class="screen" id="s-settings"><div id="settings-body"></div></div>
 
 <div id="toast"></div>
 
@@ -104,259 +139,811 @@
 <script>
 // ── 設定 ───────────────────────────────────────────────────────────────
 // LIFF ID（2026-08-23 発行・チャネル「FLA現場メモ」／サイズFull／scope: openid+profile）
-const LIFF_ID = "2009694631-JZQ5AgVq";
+const LIFF_ID  = "2009694631-JZQ5AgVq";
+const BILL_URL = "https://liff.line.me/2009694631-7HvWrIGj";   // 請求LIFF（請求をつくる導線）
+const CAT = [["subcontract","外注費"],["material","材料費"],["other","その他"]];
+const PROB = { high:["高（ほぼ決まり）",1], mid:["中（五分五分）",.5], low:["低（声かけ段階）",.2] };
 
 // ── 状態 ───────────────────────────────────────────────────────────────
-let cu = null;                       // { lineId, workerId, name, role, companyId, companyName, canBill }
-let cfg = { closingDay: null, fyStartMonth: 1, hasFyColumn: true };
-let db  = { sites: [], contracts: [], invoices: [], a2: {} };  // a2: contract_id → 発行済みA2累計
-let calc = [];                       // 現場ごとの集計結果
-let fy = null;                       // 選択中の年度（開始年）
-let view = "group";
+let cu   = null;
+let cfg  = { closingDay:null, fyStartMonth:1, lowMarginPct:15, backlogMonths:3, laborCostPerDay:0 };
+let db   = { sites:[], contracts:[], invoices:[], a2:{}, plans:[], months:[], leads:[], reports:[], workers:[] };
+let calc = [];               // 現場ごとの集計
+let sum  = {};               // 会社サマリー
+let todos = [];              // 要対応
+let fy = null, tab = "money", screen = "home", leadDraft = null, sortMode = "margin";
 
-const rGet = (p) => FLA.rest(p);
-const enc  = (s) => encodeURIComponent(s);
-const esc  = (s) => FLA.esc(s);
-const fmt  = (n) => Number(n || 0).toLocaleString("ja-JP");
+const rGet   = (p)          => FLA.rest(p);
+const rPost  = (p, b, pf)   => FLA.rest(p, { method:"POST",  headers:{ "Content-Type":"application/json", "Prefer": pf || "return=representation" }, body: JSON.stringify(b) });
+const rPatch = (p, b)       => FLA.rest(p, { method:"PATCH", headers:{ "Content-Type":"application/json", "Prefer":"return=minimal" }, body: JSON.stringify(b) });
+const rDel   = (p)          => FLA.rest(p, { method:"DELETE" });
+const enc = (s) => encodeURIComponent(s);
+const esc = (s) => FLA.esc(s);
+const fmt = (n) => "¥" + Number(Math.round(n||0)).toLocaleString("ja-JP");
+const man = (n) => { const v = Math.round((n||0)/10000); return (v>=0?"+":"") + v + "万"; };
 
 // ── 初期化 ─────────────────────────────────────────────────────────────
 (async () => {
   try {
     await liff.init({ liffId: LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login(); return; }
-    const profile = await liff.getProfile();
-    cu = { lineId: profile.userId };
+    const p = await liff.getProfile();
+    cu = { lineId: p.userId };
     await FLA.ensureToken();
     await boot();
   } catch (e) {
-    toast("初期化に失敗しました: " + e.message, true);
     document.getElementById("loading").textContent = "初期化に失敗しました。もう一度開いてください。";
   }
 })();
 
 async function boot() {
   const res = await rGet(`/workers?line_user_id=eq.${enc(cu.lineId)}&select=id,name,role,company_id,can_bill,companies(name)`);
-  if (!res.ok) { fail("利用者の取得に失敗しました (HTTP " + res.status + ")"); return; }
+  if (!res.ok) return fail("利用者の取得に失敗しました (HTTP " + res.status + ")");
   const rows = await res.json();
-  if (!rows.length) { fail("登録されていません。管理者に連絡してください。"); return; }
+  if (!rows.length) return fail("登録されていません。管理者に連絡してください。");
   const w = rows[0];
-  cu = { ...cu, workerId: w.id, name: w.name, role: w.role, companyId: w.company_id,
-         companyName: w.companies?.name ?? "", canBill: !!w.can_bill };
-  // アクセス制御: 請求・請負データは RLS が can_bill=true 必須（M4.1 形B）。画面側も同じ基準で出し分ける。
-  if (!cu.canBill) { fail("この画面は請求を扱う権限のある方（社長・事務担当）のみご覧いただけます。<br>管理者に連絡してください。"); return; }
+  cu = { ...cu, workerId:w.id, name:w.name, role:w.role, companyId:w.company_id,
+         companyName:w.companies?.name ?? "", canBill:!!w.can_bill };
+  // 請負・請求・支払は RLS が can_bill 必須（形B）。画面側も同じ基準で出し分ける。
+  if (!cu.canBill) return fail("この画面は請求を扱う権限のある方（社長・事務担当）のみご覧いただけます。<br>管理者に連絡してください。");
   await loadAll();
 }
 
 // ── 読み込み ───────────────────────────────────────────────────────────
 async function loadAll() {
   const c = cu.companyId;
-  const settingsSelect = (withFy) =>
-    `/company_settings?company_id=eq.${c}&select=closing_day${withFy ? ",fiscal_year_start_month" : ""}`;
-
-  let gr = await rGet(settingsSelect(true));
-  if (!gr.ok) { cfg.hasFyColumn = false; gr = await rGet(settingsSelect(false)); }   // 年度列が未適用でも動かす
-
-  const [sr, cr, ir, lr] = await Promise.all([
-    rGet(`/sites?company_id=eq.${c}&select=id,name,status,created_at,prime_contractor_id,prime_contractors(id,name,closing_day)&order=name`),
+  const [gr, sr, cr, ir, lr, pr, mr, ld, rr, wr] = await Promise.all([
+    rGet(`/company_settings?company_id=eq.${c}&select=closing_day,fiscal_year_start_month,low_margin_pct,backlog_alert_months,labor_cost_per_day`),
+    rGet(`/sites?company_id=eq.${c}&select=id,name,status,created_at,target_margin_pct,prime_contractor_id,prime_contractors(id,name,closing_day,payment_month_offset,payment_day)&order=name`),
     rGet(`/construction_contracts?company_id=eq.${c}&select=id,site_id,prime_contractor_id,contract_amount,status,title`),
-    rGet(`/billing_invoices?company_id=eq.${c}&status=neq.void&select=id,site_id,prime_contractor_id,status,invoice_type,period_start,period_end,subtotal_amount,total_amount,issued_at&order=period_end`),
+    rGet(`/billing_invoices?company_id=eq.${c}&status=neq.void&select=id,site_id,prime_contractor_id,status,invoice_type,invoice_number,period_start,period_end,subtotal_amount,total_amount,issued_at,paid_on&order=period_end`),
     rGet(`/billing_invoice_lines?company_id=eq.${c}&mode=eq.A2_rate&select=contract_id,amount,billing_invoices!inner(status)&billing_invoices.status=eq.issued`),
+    rGet(`/site_payment_plans?company_id=eq.${c}&select=id,site_id,category,planned_amount`),
+    rGet(`/site_payment_months?company_id=eq.${c}&select=id,plan_id,month,amount,is_paid&order=month`),
+    rGet(`/sales_leads?company_id=eq.${c}&select=id,name,prime_contractor_id,prime_name,amount,probability,start_month,status&order=created_at.desc`),
+    rGet(`/report_details?company_id=eq.${c}&is_subcontractor=eq.false&select=site_id,worker_id,duration,report_date`),
+    rGet(`/workers?company_id=eq.${c}&select=id,name,labor_cost_per_day`),
   ]);
-  if (!sr.ok || !cr.ok || !ir.ok) { fail("データの取得に失敗しました。時間をおいて開き直してください。"); return; }
+  if (!sr.ok || !cr.ok || !ir.ok) return fail("データの取得に失敗しました。時間をおいて開き直してください。");
 
   if (gr.ok) {
     const s = (await gr.json())[0] || {};
-    cfg.closingDay  = s.closing_day ?? null;
-    cfg.fyStartMonth = s.fiscal_year_start_month ?? 1;
+    cfg = { closingDay: s.closing_day ?? null, fyStartMonth: s.fiscal_year_start_month ?? 1,
+            lowMarginPct: s.low_margin_pct ?? 15, backlogMonths: Number(s.backlog_alert_months ?? 3),
+            laborCostPerDay: s.labor_cost_per_day ?? 0 };
   }
   db.sites     = await sr.json();
   db.contracts = await cr.json();
   db.invoices  = await ir.json();
   db.a2 = {};
-  if (lr.ok) (await lr.json()).forEach(r => { db.a2[r.contract_id] = (db.a2[r.contract_id] || 0) + (r.amount || 0); });
+  if (lr.ok) (await lr.json()).forEach(r => { db.a2[r.contract_id] = (db.a2[r.contract_id]||0) + (r.amount||0); });
+  db.plans   = pr.ok ? await pr.json() : [];
+  db.months  = mr.ok ? await mr.json() : [];
+  db.leads   = ld.ok ? await ld.json() : [];
+  db.reports = rr.ok ? await rr.json() : [];
+  db.workers = wr.ok ? await wr.json() : [];
 
-  buildCalc();
+  buildAll();
   buildYears();
   render();
   document.getElementById("loading").classList.add("hidden");
-  document.getElementById("app").classList.add("on");
+  go("home");
+}
+
+async function reload(msg) { await loadAll(); if (msg) toast(msg); }
+
+// ── 日付ユーティリティ ─────────────────────────────────────────────────
+function today()      { const d = new Date(); return iso(d.getFullYear(), d.getMonth(), d.getDate()); }
+function iso(y,m,d)   { return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`; }
+function lastDay(y,m) { return new Date(y, m+1, 0).getDate(); }
+function ymOf(isoStr) { return String(isoStr).slice(0,7); }
+function thisYm()     { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
+function ymPlus(ym,n) { const [y,m] = ym.split("-").map(Number); const d = new Date(y, m-1+n, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
+function ymLabel(ym)  { return +ym.slice(5,7) + "月"; }
+function fmtDate(s)   { if (!s) return ""; const [,m,d] = String(s).split("-"); return `${+m}/${+d}`; }
+function daysBetween(a,b){ return Math.round((new Date(b) - new Date(a)) / 86400000); }
+
+// 会計年度（開始月ベース）
+function fyOf(isoStr) { if (!isoStr) return null; const y=+String(isoStr).slice(0,4), m=+String(isoStr).slice(5,7); return m >= cfg.fyStartMonth ? y : y-1; }
+function fyLabel(y)   { return cfg.fyStartMonth === 1 ? `${y}年` : `${y}年度（${cfg.fyStartMonth}月開始）`; }
+function currentFy()  { return fyOf(today()); }
+function fyRange(y)   { const s = iso(y, cfg.fyStartMonth-1, 1); const e2 = new Date(y+1, cfg.fyStartMonth-1, 0); return [s, iso(e2.getFullYear(), e2.getMonth(), e2.getDate())]; }
+function inFy(isoStr, y) { if (!isoStr) return false; const [s,e] = fyRange(y); const d = String(isoStr).slice(0,10); return d >= s && d <= e; }
+
+// 入金予定日 ＝ 締め日(period_end)の payment_month_offset ヶ月後の payment_day 日（31=末日）
+function dueDateOf(inv) {
+  const prime = primeOf(inv);
+  if (!prime || prime.payment_month_offset == null || prime.payment_day == null) return null;
+  const [y,m,d] = String(inv.period_end).split("-").map(Number);
+  const base = new Date(y, m-1+prime.payment_month_offset, 1);
+  const by = base.getFullYear(), bm = base.getMonth();
+  const day = prime.payment_day >= 31 ? lastDay(by,bm) : Math.min(prime.payment_day, lastDay(by,bm));
+  return iso(by, bm, day);
+}
+function primeOf(inv) {
+  const site = db.sites.find(s => s.id === inv.site_id);
+  if (site?.prime_contractors) return site.prime_contractors;
+  const viaContract = db.sites.map(s => s.prime_contractors).find(p => p && p.id === inv.prime_contractor_id);
+  return viaContract || null;
 }
 
 // ── 集計 ───────────────────────────────────────────────────────────────
-// 年度: fyStartMonth 開始。例) 開始月9 → 「2026年度」＝2026-09-01〜2027-08-31
-function fyOf(iso) {
-  if (!iso) return null;
-  const y = +String(iso).slice(0, 4), m = +String(iso).slice(5, 7);
-  return m >= cfg.fyStartMonth ? y : y - 1;
+function laborRate(workerId) {
+  const w = db.workers.find(x => x.id === workerId);
+  return (w && w.labor_cost_per_day != null) ? w.labor_cost_per_day : cfg.laborCostPerDay;
 }
-function fyLabel(y) {
-  return cfg.fyStartMonth === 1 ? `${y}年` : `${y}年度（${cfg.fyStartMonth}月開始）`;
+function laborOf(filterFn) {
+  return db.reports.filter(filterFn).reduce((n,r) => n + laborRate(r.worker_id) * (r.duration === "full" ? 1 : 0.5), 0);
 }
-function currentFy() { const d = new Date(); return fyOf(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`); }
 
-function buildCalc() {
+function buildAll() {
   const issued = db.invoices.filter(i => i.status === "issued");
+
   calc = db.sites.map(s => {
     const contracts = db.contracts.filter(x => x.site_id === s.id);
-    const contractTotal = contracts.reduce((n, x) => n + (x.contract_amount || 0), 0);
-    const billedA2 = contracts.reduce((n, x) => n + (db.a2[x.id] || 0), 0);
+    const contractTotal = contracts.reduce((n,x) => n + (x.contract_amount||0), 0);
+    const billedA2 = contracts.reduce((n,x) => n + (db.a2[x.id]||0), 0);
     const sIssued  = issued.filter(i => i.site_id === s.id);
-    const invoiceSubtotal = sIssued.reduce((n, i) => n + (i.subtotal_amount || 0), 0);
+    const invoiceSubtotal = sIssued.reduce((n,i) => n + (i.subtotal_amount||0), 0);
+    const hasContract = contracts.length > 0 && contractTotal > 0;
+    const billed = hasContract ? billedA2 : invoiceSubtotal;
 
-    // 未請求判定: 元請の締め日から「直近に締めた期間」を出し、その period_end の請求（取消以外）が無ければ未請求。
-    // ※ billing.html の二重発行ガードと同じ期間の取り方（FLA.billingPeriod）＝画面間で判定がズレない。
-    const closingDay = s.prime_contractors?.closing_day ?? null;
-    const { periodStart, periodEnd } = FLA.billingPeriod(closingDay);
+    const plans = db.plans.filter(p => p.site_id === s.id);
+    const planIds = plans.map(p => p.id);
+    const months = db.months.filter(m => planIds.includes(m.plan_id));
+    const planTotal = plans.reduce((n,p) => n + (p.planned_amount||0), 0);
+    const paidTotal = months.filter(m => m.is_paid).reduce((n,m) => n + (m.amount||0), 0);
+    const labor = laborOf(r => r.site_id === s.id);
+
+    const costNow = paidTotal + labor;
+    const costPlan = planTotal + labor;
+    const hasCost = months.length > 0 || labor > 0;
+    const marginNow  = (billed > 0 && hasCost) ? (billed - costNow) / billed * 100 : null;
+    const marginFinal = (contractTotal > 0 && (planTotal > 0 || labor > 0)) ? (contractTotal - costPlan) / contractTotal * 100 : null;
+    const targetPct = s.target_margin_pct != null ? s.target_margin_pct : cfg.lowMarginPct;
+
+    // 未請求判定（billing.html の二重発行ガードと同じ期間の取り方）
+    const cd = s.prime_contractors?.closing_day ?? null;
+    const { periodStart, periodEnd } = FLA.billingPeriod(cd);
     const inPeriod  = db.invoices.filter(i => i.site_id === s.id && i.period_end === periodEnd);
     const hasIssued = inPeriod.some(i => i.status === "issued");
     const hasDraft  = inPeriod.some(i => i.status === "draft");
     const isActive  = s.status === "active";
 
-    // 現場の年度＝初回発行請求の締め期間ベース（設計 §6-2）。請求ゼロなら現場の作成日で暫定判定。
     const firstIssued = sIssued.map(i => i.period_end).sort()[0] || null;
-    const siteFy = firstIssued ? fyOf(firstIssued) : fyOf(String(s.created_at).slice(0, 10));
 
-    return {
-      site: s, primeName: s.prime_contractors?.name ?? "", primeId: s.prime_contractor_id || "none",
-      isActive, contracts, contractTotal, billedA2, invoiceSubtotal, sIssued,
-      hasContract: contracts.length > 0 && contractTotal > 0,
-      billed: (contracts.length > 0 && contractTotal > 0) ? billedA2 : invoiceSubtotal,
-      remain: contractTotal - billedA2,
-      pct: contractTotal ? Math.max(0, Math.min(100, billedA2 / contractTotal * 100)) : 0,
+    return { site:s, primeName:s.prime_contractors?.name ?? "", primeId:s.prime_contractor_id || "none",
+      isActive, contracts, contractTotal, billedA2, invoiceSubtotal, hasContract, billed, sIssued,
+      backlog: Math.max(0, contractTotal - billedA2),
+      pct: contractTotal ? Math.max(0, Math.min(100, billedA2/contractTotal*100)) : 0,
+      plans, months, planTotal, paidTotal, labor, costNow, costPlan, marginNow, marginFinal, targetPct,
+      lowMargin: marginNow != null && marginNow < targetPct,
       periodStart, periodEnd,
       unbilled: isActive && !hasIssued && !hasDraft,
       draftOnly: isActive && !hasIssued && hasDraft,
-      fy: siteFy,
+      fy: firstIssued ? fyOf(firstIssued) : fyOf(String(s.created_at).slice(0,10)),
     };
   });
+
+  buildSummary();
+  buildTodos();
+}
+
+function buildSummary() {
+  const y = fy ?? currentFy();
+  const issued = db.invoices.filter(i => i.status === "issued");
+  const ym = thisYm();
+
+  // 今月 入る／出る
+  const dues = issued.map(i => ({ inv:i, due:dueDateOf(i) })).filter(x => x.due);
+  const inThis = dues.filter(x => ymOf(x.due) === ym);
+  const inMonth = inThis.reduce((n,x) => n + (x.inv.total_amount || x.inv.subtotal_amount || 0), 0);
+  const inPaid  = inThis.filter(x => x.inv.paid_on).reduce((n,x) => n + (x.inv.total_amount || x.inv.subtotal_amount || 0), 0);
+  const outThis = db.months.filter(m => ymOf(m.month) === ym);
+  const outMonth = outThis.reduce((n,m) => n + (m.amount||0), 0);
+  const outPaid  = outThis.filter(m => m.is_paid).reduce((n,m) => n + (m.amount||0), 0);
+
+  // 今期
+  const salesFY = issued.filter(i => inFy(i.period_end, y)).reduce((n,i) => n + (i.subtotal_amount||0), 0);
+  const paidFY  = db.months.filter(m => m.is_paid && inFy(m.month, y)).reduce((n,m) => n + (m.amount||0), 0);
+  const laborFY = laborOf(r => inFy(r.report_date, y));
+  const grossFY = salesFY - (paidFY + laborFY);
+  const backlog = calc.filter(x => x.fy === y || x.isActive).reduce((n,x) => n + x.backlog, 0);
+  const openLeads = db.leads.filter(l => l.status === "open");
+  const leadTotal = openLeads.reduce((n,l) => n + (l.amount||0), 0);
+  const leadWeighted = openLeads.reduce((n,l) => n + (l.amount||0) * (PROB[l.probability]?.[1] ?? .5), 0);
+
+  // 月平均の売上（年度の経過月数で割る）
+  const [fs] = fyRange(y);
+  const elapsed = Math.max(1, Math.min(12, (new Date(today()).getFullYear()*12 + new Date(today()).getMonth()) - (new Date(fs).getFullYear()*12 + new Date(fs).getMonth()) + 1));
+  const avgMonth = salesFY / elapsed;
+  const monthsOfWork = avgMonth > 0 ? (backlog + leadTotal) / avgMonth : null;
+
+  // 3ヶ月の見通し
+  const chart = [0,1,2].map(k => {
+    const m = ymPlus(ym, k);
+    const cin  = dues.filter(x => ymOf(x.due) === m).reduce((n,x) => n + (x.inv.total_amount || x.inv.subtotal_amount || 0), 0);
+    const cout = db.months.filter(z => ymOf(z.month) === m).reduce((n,z) => n + (z.amount||0), 0);
+    return { ym:m, in:cin, out:cout };
+  });
+
+  const hasPaySite = db.plans.length > 0 || db.months.length > 0;
+  const hasDue = db.sites.some(s => s.prime_contractors && s.prime_contractors.payment_month_offset != null);
+
+  sum = { y, inMonth, inPaid, outMonth, outPaid, salesFY, paidFY, laborFY, grossFY,
+          marginFY: salesFY > 0 ? grossFY/salesFY*100 : null, backlog, leadTotal, leadWeighted,
+          monthsOfWork, avgMonth, chart, hasDue, hasPaySite, elapsed };
+}
+
+function buildTodos() {
+  const y = fy ?? currentFy();
+  todos = [];
+  calc.filter(x => x.unbilled && (x.fy === y || x.isActive)).forEach(x => todos.push({
+    kind:"unbilled", label:"請求漏れ", name:x.site.name, sub:`${fmtDate(x.periodStart)}〜${fmtDate(x.periodEnd)}締め分`,
+    amount:null, siteId:x.site.id }));
+  db.invoices.filter(i => i.status === "issued" && !i.paid_on).forEach(i => {
+    const due = dueDateOf(i);
+    if (due && due < today()) todos.push({ kind:"overdue", label:"入金遅延", name:(primeOf(i)?.name ?? "元請未設定"),
+      sub:`${fmtDate(i.period_end)}締め分・${due.slice(5).replace("-","/")}予定から${daysBetween(due, today())}日`,
+      amount:(i.total_amount || i.subtotal_amount || 0), invId:i.id, invNo:i.invoice_number });
+  });
+  calc.filter(x => x.lowMargin && (x.fy === y || x.isActive)).forEach(x => todos.push({
+    kind:"low", label:"低採算", name:x.site.name, sub:`目標 ${x.targetPct}% に対して ${x.marginNow.toFixed(1)}%`,
+    amount:null, siteId:x.site.id }));
+  if (sum.monthsOfWork != null && sum.monthsOfWork < cfg.backlogMonths) todos.push({
+    kind:"backlog", label:"仕事量", name:"受注残＋見込みが少なめ",
+    sub:`約 ${sum.monthsOfWork.toFixed(1)}ヶ月分（目安 ${cfg.backlogMonths}ヶ月）`, amount:null });
 }
 
 function buildYears() {
   const years = new Set(calc.map(x => x.fy).filter(v => v != null));
+  db.invoices.filter(i => i.status === "issued").forEach(i => years.add(fyOf(i.period_end)));
   years.add(currentFy());
-  const list = [...years].sort((a, b) => b - a);
-  fy = list.includes(currentFy()) ? currentFy() : list[0];
-  const sel = document.getElementById("fy-sel");
-  sel.innerHTML = list.map(y => `<option value="${y}"${y === fy ? " selected" : ""}>${esc(fyLabel(y))}</option>`).join("");
-  document.getElementById("fy-note").textContent =
-    cfg.hasFyColumn ? "年度の開始月は会社設定で変更できます" : "年度の開始月は未設定（1月開始）です";
+  const list = [...years].filter(v => v != null).sort((a,b) => b-a);
+  if (fy == null) fy = list.includes(currentFy()) ? currentFy() : list[0];
+  document.getElementById("fy-sel").innerHTML = list.map(y => `<option value="${y}"${y===fy?" selected":""}>${esc(fyLabel(y))}</option>`).join("");
+  document.getElementById("fy-note").textContent = `${cu.companyName}／${new Date().getMonth()+1}月${new Date().getDate()}日`;
 }
 
-function onFy(v) { fy = +v; render(); }
-function setView(v) {
-  view = v;
-  ["group", "flat", "active"].forEach(k => document.getElementById("tab-" + k).classList.toggle("on", k === v));
-  render();
+function onFy(v) { fy = +v; buildSummary(); buildTodos(); render(); }
+function setTab(t) { tab = t; ["money","sites","primes"].forEach(k => document.getElementById("tab-"+k).classList.toggle("on", k===t)); renderTab(); }
+
+// ── 画面切替 ───────────────────────────────────────────────────────────
+function go(name) {
+  screen = name;
+  ["home","payin","todo","leads","leadform","settings"].forEach(k => document.getElementById("s-"+k).classList.toggle("on", k===name));
+  const titles = { home:"ダッシュボード", payin:"入金予定", todo:"要対応", leads:"見込み案件", leadform:"見込み案件", settings:"ダッシュボードの設定" };
+  document.getElementById("h-title").textContent = titles[name];
+  document.getElementById("btn-back").style.display = name === "home" ? "none" : "inline-block";
+  document.getElementById("btn-settings").style.display = name === "home" ? "inline-block" : "none";
+  document.getElementById("ybar").style.display = name === "home" ? "flex" : "none";
+  window.scrollTo(0,0);
+  if (name === "payin") renderPayin();
+  if (name === "todo") renderTodo();
+  if (name === "leads") renderLeads();
+  if (name === "settings") renderSettings();
 }
 
-// ── 描画 ───────────────────────────────────────────────────────────────
-function render() {
-  const rows = calc.filter(x => x.fy === fy);
-  renderSummary(rows);
-  const el = document.getElementById("content");
-  const note = document.getElementById("view-note");
-  if (!rows.length) {
-    el.innerHTML = `<div class="card"><div class="empty">${esc(fyLabel(fy))}に動いた現場はまだありません。</div></div>`;
-    note.textContent = ""; return;
-  }
-  if (view === "group") {
-    const groups = {};
-    rows.forEach(r => { (groups[r.primeId] = groups[r.primeId] || { name: r.primeName || "元請 未設定", rows: [] }).rows.push(r); });
-    el.innerHTML = Object.entries(groups).map(([id, g], idx) => {
-      const billed = g.rows.reduce((n, r) => n + r.billed, 0);
-      const ct     = g.rows.reduce((n, r) => n + r.contractTotal, 0);
-      return `<div class="card${idx === 0 ? " open" : ""}" id="g-${esc(id)}">
-        <div class="grp" onclick="tgl('g-${esc(id)}')">
-          <span class="tg">▶</span><span class="nm">${esc(g.name)}</span>
-          <span class="st">${g.rows.length}現場 ／ 請求 ¥${fmt(billed)}${ct ? ` ／ 請負 ¥${fmt(ct)}` : ""}</span>
-        </div>
-        <div class="grp-body">${g.rows.map(siteHtml).join("")}</div>
-      </div>`;
-    }).join("");
-    note.textContent = "元請ごとにまとめた表示です。金額は税抜。";
-  } else {
-    const list = view === "active" ? rows.filter(r => r.isActive) : rows;
-    const sorted = [...list].sort((a, b) => (a.primeName || "").localeCompare(b.primeName || "", "ja") || a.site.name.localeCompare(b.site.name, "ja"));
-    el.innerHTML = `<div class="card">${sorted.length ? sorted.map(siteHtml).join("") : '<div class="empty">該当する現場はありません。</div>'}</div>`;
-    note.textContent = view === "active"
-      ? "いま稼働中（status=active）の現場だけ。完了現場は出ません。"
-      : "この年度に動いたすべての現場（完了含む）。並びは元請→現場名。";
-  }
-}
+// ── 描画: ホーム ───────────────────────────────────────────────────────
+function render() { renderTiles(); renderTodoCard(); renderTab(); }
 
-function renderSummary(rows) {
-  const billed   = rows.reduce((n, r) => n + r.invoiceSubtotal, 0);          // 発行済み請求の税抜合計（調整行を含む）
-  const contract = rows.reduce((n, r) => n + r.contractTotal, 0);
-  const a2       = rows.reduce((n, r) => n + r.billedA2, 0);
-  const unbilled = rows.filter(r => r.unbilled);
-  const drafts   = rows.filter(r => r.draftOnly);
-  const noSite   = db.invoices.filter(i => i.status === "issued" && !i.site_id).length;
-
-  document.getElementById("summary").innerHTML = `
-    <div style="display:flex;align-items:baseline;gap:8px">
-      <b style="font-size:14px">会社全体</b>
-      <span class="muted">${esc(cu.companyName)}／${esc(fyLabel(fy))}・現場${rows.length}件</span>
+function renderTiles() {
+  const gross = sum.hasPaySite || sum.laborFY > 0
+    ? `粗利 ${fmt(sum.grossFY)}（${sum.marginFY != null ? sum.marginFY.toFixed(1) : "—"}%）`
+    : "粗利は支払の登録後";
+  document.getElementById("tiles").innerHTML = `
+    <div class="split">
+      <div class="tile ${sum.hasDue ? "in" : "mut"}" onclick="go('payin')">
+        <div class="k">今月 入る</div>
+        <div class="v">${sum.hasDue ? fmt(sum.inMonth) : "—"}</div>
+        <div class="n">${sum.hasDue ? "入金済み " + fmt(sum.inPaid) : "元請の入金サイト 未設定"}</div>
+      </div>
+      <div class="tile ${sum.hasPaySite ? "" : "mut"}" onclick="setTab('sites')">
+        <div class="k">今月 出る</div>
+        <div class="v">${sum.hasPaySite ? fmt(sum.outMonth) : "—"}</div>
+        <div class="n">${sum.hasPaySite ? "支払済み " + fmt(sum.outPaid) : "支払 未登録"}</div>
+      </div>
     </div>
-    <div class="kpi3">
-      <div class="kpi"><div class="k">請求 累計（税抜）</div><div class="v">¥${fmt(billed)}</div></div>
-      <div class="kpi"><div class="k">請負 合計</div><div class="v">¥${fmt(contract)}</div></div>
-      <div class="kpi"><div class="k">請負の残り</div><div class="v">¥${fmt(contract - a2)}</div></div>
-    </div>
-    ${unbilled.length ? `<div class="alert">⚠ 未請求 ${unbilled.length}現場（${unbilled.slice(0, 3).map(r => esc(r.site.name)).join("・")}${unbilled.length > 3 ? " ほか" : ""}）</div>` : ""}
-    ${drafts.length ? `<div class="note">📝 作成中のまま未発行 ${drafts.length}現場（${drafts.slice(0, 3).map(r => esc(r.site.name)).join("・")}${drafts.length > 3 ? " ほか" : ""}）</div>` : ""}
-    ${noSite ? `<div class="muted" style="margin-top:8px">※ 現場が紐づかない請求が${noSite}件あります（現場カードには出ません）</div>` : ""}
-    <div class="note">支払・粗利・利益率は <b>Step2（支払のざっくり登録）</b> で点灯します。</div>`;
+    <div class="split" style="margin-top:7px">
+      <div class="tile" onclick="setTab('sites')">
+        <div class="k">今期の売上</div><div class="v">${fmt(sum.salesFY)}</div><div class="n">${esc(gross)}</div>
+      </div>
+      <div class="tile" onclick="go('leads')">
+        <div class="k">これから請求する分</div><div class="v">${fmt(sum.backlog)}</div>
+        <div class="n">＋見込み ${fmt(sum.leadTotal)}</div>
+      </div>
+    </div>`;
 }
+
+function renderTodoCard() {
+  const el = document.getElementById("todo-card");
+  if (!todos.length) {
+    el.innerHTML = `<div class="c"><div class="c-t"><b style="color:var(--ok-ink)">要対応はありません</b></div>
+      <div class="note">請求漏れ・入金遅延・低採算の現場は見つかりませんでした。</div></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="c" style="border:1px solid #f0c8c2">
+    <div class="c-t"><b style="color:var(--warn)">要対応 ${todos.length}件</b><span class="lnk" onclick="go('todo')">すべて見る ›</span></div>
+    ${todos.slice(0,3).map(t => `<div class="row">
+      <span class="pill ${t.kind==="low"||t.kind==="backlog"?"p-cau":"p-warn"}">${esc(t.label)}</span>
+      <span class="nm">${esc(t.name)}</span>
+      <span class="${t.amount!=null?"am":"mt"}">${t.amount!=null?fmt(t.amount):esc(t.sub)}</span></div>`).join("")}
+    ${todos.length>3?`<div class="row"><span class="mt">ほか ${todos.length-3}件</span></div>`:""}
+  </div>`;
+}
+
+function renderTab() {
+  const el = document.getElementById("tabbody");
+  if (tab === "money")  el.innerHTML = moneyHtml();
+  if (tab === "sites")  el.innerHTML = sitesHtml();
+  if (tab === "primes") el.innerHTML = primesHtml();
+}
+
+function moneyHtml() {
+  if (!sum.hasDue && !sum.hasPaySite) {
+    return `<div class="c"><div class="setup"><b>入金予定を出すには</b>
+        元請ごとに「締めのあと何ヶ月後の何日に入金か」を1回だけ設定します（例：末日締め・翌月末）。
+        <div><button class="btn" onclick="go('settings')">元請の入金サイトを設定</button></div></div></div>
+      <div class="c"><div class="setup"><b>粗利・利益率を出すには</b>
+        現場ごとに外注費・材料費の予定をざっくり入れるだけで出ます（1現場1分）。
+        <div><button class="btn" onclick="setTab('sites')">支払をざっくり登録</button></div></div></div>
+      <div class="c"><div class="c-t"><b>いま出せているもの</b></div>
+        <div class="row"><span class="pill p-ok">OK</span><span class="nm">今期の売上・現場別の売上</span></div>
+        <div class="row"><span class="pill p-ok">OK</span><span class="nm">これから請求する分（受注残）</span></div>
+        <div class="row"><span class="pill p-ok">OK</span><span class="nm">請求漏れの警告</span></div></div>`;
+  }
+  const max = Math.max(1, ...sum.chart.map(c => Math.max(c.in, c.out)));
+  const chart = `<div class="c"><div class="c-t"><b>入金と支払（3ヶ月）</b><span>上=入金／下=支払</span></div>
+    <div class="chart">${sum.chart.map(c => {
+      const diff = c.in - c.out;
+      return `<div class="col"><div class="amt" style="color:${diff>=0?"var(--ok-ink)":"var(--warn)"}">${man(diff)}</div>
+        <div class="stack"><i class="in" style="height:${Math.round(c.in/max*46)}px"></i><i class="out" style="height:${Math.round(c.out/max*46)}px"></i></div>
+        <div class="lab">${ymLabel(c.ym)}</div></div>`;
+    }).join("")}</div>
+    ${sum.chart.some(c => c.in - c.out < 0) ? `<div class="note" style="margin-top:8px">支払が入金を上回る月があります。請求の前倒しや支払時期の相談を検討してください。</div>` : ""}
+  </div>`;
+
+  const dues = db.invoices.filter(i => i.status === "issued" && !i.paid_on)
+    .map(i => ({ inv:i, due:dueDateOf(i) })).filter(x => x.due).sort((a,b) => a.due < b.due ? -1 : 1).slice(0,4);
+  const payin = `<div class="c"><div class="c-t"><b>近い入金予定</b><span class="lnk" onclick="go('payin')">すべて見る ›</span></div>
+    ${dues.length ? dues.map(x => `<div class="row">
+      ${x.due < today() ? '<span class="pill p-warn">遅延</span>' : ''}
+      <span class="nm">${esc(primeOf(x.inv)?.name ?? "元請未設定")}</span>
+      <span class="mt">${fmtDate(x.due)}入金・${fmtDate(x.inv.period_end)}締め</span>
+      <span class="am">${fmt(x.inv.total_amount || x.inv.subtotal_amount)}</span></div>`).join("")
+      : '<div class="row"><span class="mt">未入金の請求はありません</span></div>'}</div>`;
+
+  const ym = thisYm();
+  const byCat = CAT.map(([key,label]) => {
+    const planIds = db.plans.filter(p => p.category === key).map(p => p.id);
+    const ms = db.months.filter(m => planIds.includes(m.plan_id) && ymOf(m.month) === ym);
+    return { label, total: ms.reduce((n,m)=>n+(m.amount||0),0), paid: ms.filter(m=>m.is_paid).reduce((n,m)=>n+(m.amount||0),0) };
+  }).filter(x => x.total > 0);
+  const pay = `<div class="c"><div class="c-t"><b>今月の支払</b><span class="lnk" onclick="setTab('sites')">登録する ›</span></div>
+    ${byCat.length ? byCat.map(x => `<div class="row"><span class="nm">${esc(x.label)}</span>
+      <span class="mt">済 ${fmt(x.paid)}</span><span class="am">${fmt(x.total)}</span></div>`).join("")
+      : '<div class="row"><span class="mt">今月の支払予定は登録されていません</span></div>'}
+    ${sum.laborFY > 0 ? `<div class="note" style="margin-top:7px">※ 人件費（日報×日額原価 ${fmt(cfg.laborCostPerDay)}）は今期 ${fmt(sum.laborFY)}。粗利には含めていますが、この「支払」欄には出していません。</div>` : ""}</div>`;
+
+  return chart + payin + pay;
+}
+
+function sitesHtml() {
+  const y = fy ?? currentFy();
+  let rows = calc.filter(x => x.fy === y || (x.isActive && x.billed === 0));
+  if (!rows.length) return `<div class="c"><div class="empty">${esc(fyLabel(y))}に動いた現場はまだありません。</div></div>`;
+  const sorters = {
+    margin: (a,b) => (a.marginNow ?? 999) - (b.marginNow ?? 999),
+    billed: (a,b) => b.billed - a.billed,
+    name:   (a,b) => a.site.name.localeCompare(b.site.name, "ja"),
+  };
+  rows = [...rows].sort(sorters[sortMode]);
+  const label = { margin:"採算の悪い順", billed:"請求の多い順", name:"現場名" }[sortMode];
+  return `<div class="c">
+    <div class="c-t"><b>現場 ${rows.length}件</b>
+      <span class="lnk" onclick="cycleSort()">${esc(label)} ▼</span></div>
+    ${rows.map(siteHtml).join("")}</div>`;
+}
+function cycleSort() { sortMode = sortMode === "margin" ? "billed" : sortMode === "billed" ? "name" : "margin"; renderTab(); }
 
 function siteHtml(r) {
-  const id = "s-" + r.site.id;
-  const badge = r.unbilled ? '<span class="badge b-warn">⚠ 未請求</span>'
-              : r.draftOnly ? '<span class="badge b-draft">作成中</span>'
-              : !r.isActive ? '<span class="badge b-done">完了</span>' : "";
-  const mini = r.hasContract
-    ? `請求 ${r.pct.toFixed(0)}%`
-    : (r.billed ? `請求累計 ¥${fmt(r.billed)}` : "請求なし");
-  const body = r.hasContract ? `
-      <div class="row"><span class="l">請負金額</span><span class="r">¥${fmt(r.contractTotal)}</span></div>
-      <div class="row"><span class="l">請求済み（${r.pct.toFixed(1)}%）</span><span class="r">¥${fmt(r.billedA2)}</span></div>
-      <div class="bar"><div style="width:${r.pct}%"></div></div>
-      <div class="row"><span class="l">残り</span><span class="r">¥${fmt(r.remain)}</span></div>
-      ${r.invoiceSubtotal !== r.billedA2 ? `<div class="muted">請求書の税抜合計は ¥${fmt(r.invoiceSubtotal)}（値引き・端数調整などを含む）</div>` : ""}`
-    : `
-      <div class="row"><span class="l">請求累計（税抜）</span><span class="r">¥${fmt(r.invoiceSubtotal)}</span></div>
-      <div class="muted">請負金額が未登録の現場（常用など）。請負の進捗バーは出ません。</div>`;
-  const period = `${fmtDate(r.periodStart)}〜${fmtDate(r.periodEnd)}`;
-  const status = r.unbilled ? `<div class="muted" style="margin-top:6px">⚠ 直近の締め分（${period}）の請求がまだありません。</div>`
-               : r.draftOnly ? `<div class="muted" style="margin-top:6px">📝 直近の締め分（${period}）は作成中のまま未発行です。</div>`
-               : r.isActive ? `<div class="muted" style="margin-top:6px">✓ 直近の締め分（${period}）は発行済みです。</div>` : "";
-  const list = r.sIssued.length ? `<div class="sub-list">${r.sIssued.slice(-4).map(i =>
-      `<div class="il"><span>${fmtDate(i.period_end)}締め ${i.invoice_type === "ukeoi" ? "出来高" : "常用"}</span><span>¥${fmt(i.subtotal_amount)}</span></div>`).join("")}</div>` : "";
+  const id = "site-" + r.site.id;
+  const badge = r.unbilled ? '<span class="pill p-warn">⚠ 未請求</span>'
+              : r.draftOnly ? '<span class="pill p-mut">作成中</span>'
+              : !r.isActive ? '<span class="pill p-mut">完了</span>' : "";
+  const mg = r.marginNow != null
+    ? `<span class="pill ${r.lowMargin ? "p-cau" : "p-ok"}">${r.marginNow.toFixed(1)}%</span>`
+    : `<span class="mt">${r.hasContract ? "請求 " + r.pct.toFixed(0) + "%" : (r.billed ? fmt(r.billed) : "請求なし")}</span>`;
+
+  const contract = r.hasContract ? `
+      <div class="kv"><span class="l">請負金額</span><span class="r">${fmt(r.contractTotal)}</span></div>
+      <div class="bar"><i class="b-done" style="width:${r.pct}%"></i><i class="b-rest" style="width:${100-r.pct}%"></i></div>
+      <div class="lg" style="margin-bottom:6px"><span><i class="b-done"></i>請求済み ${fmt(r.billedA2)}（${r.pct.toFixed(0)}%）</span><span><i class="b-rest"></i>これから ${fmt(r.backlog)}</span></div>
+      ${r.invoiceSubtotal !== r.billedA2 ? `<div class="kv"><span class="l">請求書の税抜合計</span><span class="r">${fmt(r.invoiceSubtotal)}</span></div>` : ""}`
+    : `<div class="kv"><span class="l">請求累計（税抜）</span><span class="r">${fmt(r.invoiceSubtotal)}</span></div>
+       <div class="lg" style="margin-bottom:4px">請負金額が未登録の現場（常用など）</div>`;
+
+  const margins = `<div class="split" style="margin-top:7px">
+      <div class="tile" style="cursor:default"><div class="k">いま時点の利益率</div>
+        <div class="v" style="color:${r.marginNow==null?"#b3b1a8":(r.lowMargin?"#a8781a":"var(--ok-ink)")}">${r.marginNow!=null?r.marginNow.toFixed(1)+"%":"—"}</div>
+        <div class="n">(請求済−支払済−人件費)÷請求済</div></div>
+      <div class="tile" style="cursor:default"><div class="k">最終見込み</div>
+        <div class="v" style="color:${r.marginFinal==null?"#b3b1a8":"var(--ink)"}">${r.marginFinal!=null?r.marginFinal.toFixed(1)+"%":"—"}</div>
+        <div class="n">(請負−支払予定−人件費)÷請負</div></div>
+    </div>
+    <div class="kv" style="margin-top:5px"><span class="l">目標の利益率</span>
+      <span class="r"><input type="number" inputmode="numeric" value="${r.site.target_margin_pct ?? ""}" placeholder="${cfg.lowMarginPct}"
+        style="width:70px;text-align:right;font-size:13px;padding:4px 6px" onchange="saveTarget('${r.site.id}', this.value)"> %</span></div>`;
+
+  const payRows = CAT.map(([key,label]) => {
+    const plan = r.plans.find(p => p.category === key);
+    const planned = plan?.planned_amount ?? 0;
+    const ms = plan ? r.months.filter(m => m.plan_id === plan.id) : [];
+    const paid = ms.filter(m => m.is_paid).reduce((n,m)=>n+(m.amount||0),0);
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--line)">
+      <div class="kv"><span class="l">${esc(label)}</span>
+        <span class="r"><input type="number" inputmode="numeric" value="${planned || ""}" placeholder="0"
+          style="width:110px;text-align:right;font-size:13px;padding:4px 6px" onchange="savePlan('${r.site.id}','${key}',this.value)"></span></div>
+      ${ms.length ? ms.map(m => `<div class="row" style="padding:5px 0">
+          <span class="mt">${esc(String(m.month).slice(0,7).replace("-","/"))}</span>
+          <span class="nm" style="font-weight:normal">${fmt(m.amount)}</span>
+          <span class="pill ${m.is_paid?"p-ok":"p-mut"}" onclick="togglePaid('${m.id}',${m.is_paid?"false":"true"})">${m.is_paid?"済":"予定"}</span>
+          <span class="mt" style="cursor:pointer" onclick="delMonth('${m.id}')">削除</span></div>`).join("") : ""}
+      ${plan ? `<div class="inline" style="margin-top:5px">
+          <input type="month" id="mo-${plan.id}" style="font-size:12px;padding:4px 6px">
+          <input type="number" inputmode="numeric" placeholder="金額" id="ma-${plan.id}" style="font-size:12px;padding:4px 6px">
+          <button class="btn g" style="margin-top:0;padding:5px 9px" onclick="addMonth('${plan.id}')">追加</button></div>
+        ${paid ? `<div class="lg" style="margin-top:4px">済の合計 ${fmt(paid)}</div>` : ""}` : ""}
+    </div>`;
+  }).join("");
+
+  const status = r.unbilled ? `<div class="note" style="margin-top:7px">⚠ 直近の締め分（${fmtDate(r.periodStart)}〜${fmtDate(r.periodEnd)}）の請求がまだありません。</div>`
+               : r.draftOnly ? `<div class="note" style="margin-top:7px">直近の締め分（${fmtDate(r.periodEnd)}）は作成中のまま未発行です。</div>` : "";
 
   return `<div class="site" id="${esc(id)}">
     <div class="srow" onclick="tgl('${esc(id)}')">
-      <span class="tg">▶</span><span class="nm">${esc(r.site.name)}</span>${badge}
-      <span class="mini">${esc(mini)}</span>
+      <span class="tg">▶</span><span class="nm">${esc(r.site.name)}</span>${badge}${mg}
     </div>
     <div class="sbody">
-      <div class="muted" style="margin-bottom:4px">元請: ${esc(r.primeName || "未設定")}</div>
-      ${body}${status}${list}
+      <div class="lg" style="margin-bottom:5px">元請: ${esc(r.primeName || "未設定")}${r.labor ? "／人件費 " + fmt(r.labor) : ""}</div>
+      ${contract}${margins}
+      <div class="c-t" style="margin-top:10px"><b>支払（ざっくり・税抜）</b><span>予定計 ${fmt(r.planTotal)}</span></div>
+      ${payRows}
+      ${status}
+      <div style="margin-top:8px"><a class="btn g" href="${BILL_URL}" style="text-decoration:none">請求を開く</a></div>
+    </div></div>`;
+}
+
+function primesHtml() {
+  const y = fy ?? currentFy();
+  const issued = db.invoices.filter(i => i.status === "issued" && inFy(i.period_end, y));
+  const groups = {};
+  issued.forEach(i => {
+    const p = primeOf(i); const key = p?.id ?? "none";
+    (groups[key] = groups[key] || { name: p?.name ?? "元請 未設定", prime:p, sales:0, unpaid:0, overdue:0, sites:new Set() });
+    groups[key].sales += (i.subtotal_amount||0);
+    if (!i.paid_on) {
+      const amt = i.total_amount || i.subtotal_amount || 0;
+      groups[key].unpaid += amt;
+      const due = dueDateOf(i);
+      if (due && due < today()) groups[key].overdue += amt;
+    }
+    if (i.site_id) groups[key].sites.add(i.site_id);
+  });
+  const list = Object.values(groups).sort((a,b) => b.sales - a.sales);
+  if (!list.length) return `<div class="c"><div class="empty">${esc(fyLabel(y))}に発行した請求がありません。</div></div>`;
+  const total = list.reduce((n,g) => n + g.sales, 0) || 1;
+  return list.map(g => {
+    const share = g.sales / total * 100;
+    const p = g.prime;
+    const terms = p && p.payment_month_offset != null
+      ? `${p.closing_day && p.closing_day < 28 ? p.closing_day + "日締め" : "末日締め"}・${p.payment_month_offset === 0 ? "当月" : p.payment_month_offset + "ヶ月後"}${p.payment_day >= 31 ? "末日" : p.payment_day + "日"}`
+      : "入金サイト 未設定";
+    return `<div class="c">
+      <div class="c-t"><b>${esc(g.name)}</b><span>現場${g.sites.size}件</span></div>
+      <div class="kv"><span class="l">今期の売上</span><span class="r">${fmt(g.sales)}（${share.toFixed(0)}%）</span></div>
+      <div class="bar"><i class="b-done" style="width:${share}%"></i></div>
+      <div class="kv"><span class="l">未入金</span><span class="r" style="${g.overdue?"color:var(--warn)":""}">${fmt(g.unpaid)}${g.overdue?`（うち遅延 ${fmt(g.overdue)}）`:""}</span></div>
+      <div class="kv"><span class="l">締め／入金</span><span class="r">${esc(terms)}</span></div>
+      ${share >= 60 ? `<div class="note" style="margin-top:6px">1社への偏りが大きめです（${share.toFixed(0)}%）。その元請の支払が止まると資金繰りに直結します。</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+// ── 描画: 入金予定 ─────────────────────────────────────────────────────
+function renderPayin() {
+  const rows = db.invoices.filter(i => i.status === "issued").map(i => ({ inv:i, due:dueDateOf(i) })).filter(x => x.due);
+  if (!rows.length) {
+    document.getElementById("payin-body").innerHTML = `<div class="c"><div class="setup"><b>入金予定はまだ出せません</b>
+      元請ごとに入金サイト（締めの◯ヶ月後の◯日）を設定すると、発行済みの請求から自動で計算します。
+      <div><button class="btn" onclick="go('settings')">元請の入金サイトを設定</button></div></div></div>`;
+    return;
+  }
+  const overdue = rows.filter(x => !x.inv.paid_on && x.due < today()).sort((a,b) => a.due < b.due ? -1 : 1);
+  const rest = rows.filter(x => !(!x.inv.paid_on && x.due < today())).sort((a,b) => a.due < b.due ? -1 : 1);
+  const byMonth = {};
+  rest.forEach(x => { (byMonth[ymOf(x.due)] = byMonth[ymOf(x.due)] || []).push(x); });
+  const unpaidTotal = rows.filter(x => !x.inv.paid_on).reduce((n,x) => n + (x.inv.total_amount || x.inv.subtotal_amount || 0), 0);
+
+  const card = (x) => {
+    const amt = x.inv.total_amount || x.inv.subtotal_amount || 0;
+    const pill = x.inv.paid_on ? '<span class="pill p-ok">入金済</span>'
+               : x.due < today() ? '<span class="pill p-warn">遅延</span>' : '<span class="pill p-mut">予定</span>';
+    return `<div class="row">${pill}<span class="nm">${esc(primeOf(x.inv)?.name ?? "元請未設定")}</span>
+      <span class="mt">${x.inv.paid_on ? fmtDate(x.inv.paid_on)+"入金" : fmtDate(x.due)}</span>
+      <span class="am">${fmt(amt)}</span>
+      ${x.inv.paid_on ? "" : `<button class="btn" style="margin-top:0;padding:5px 9px" onclick="markPaid('${x.inv.id}')">入金済</button>`}</div>`;
+  };
+
+  document.getElementById("payin-body").innerHTML = `
+    <div class="c"><div class="kv"><span class="l">今月 入る</span><span class="r">${fmt(sum.inMonth)}</span></div>
+      <div class="kv"><span class="l">未入金 合計</span><span class="r">${fmt(unpaidTotal)}</span></div></div>
+    ${overdue.length ? `<div class="sec">遅延 ${overdue.length}件</div><div class="c" style="border:1px solid #f0c8c2">${overdue.map(card).join("")}</div>` : ""}
+    ${Object.keys(byMonth).sort().map(m => `<div class="sec">${m.replace("-","年")}月</div><div class="c">${byMonth[m].map(card).join("")}</div>`).join("")}
+    <div class="note">入金予定日は「元請の締め日＋入金サイト」から自動計算しています。実際の入金日がずれても、「入金済」を押した日で記録します。</div>`;
+}
+
+// ── 描画: 要対応 ───────────────────────────────────────────────────────
+function renderTodo() {
+  const el = document.getElementById("todo-body");
+  if (!todos.length) { el.innerHTML = `<div class="c"><div class="empty">要対応はありません。<br>請求漏れ・入金遅延・低採算の現場は見つかりませんでした。</div></div>`; return; }
+  el.innerHTML = todos.map(t => {
+    const head = `<div class="c-t"><b style="color:${t.kind==="low"||t.kind==="backlog"?"#a8781a":"var(--warn)"}">${esc(t.label)}</b><span>${esc(t.sub)}</span></div>`;
+    const row = `<div class="row" style="border-bottom:none"><span class="nm">${esc(t.name)}</span>${t.amount!=null?`<span class="am">${fmt(t.amount)}</span>`:""}</div>`;
+    let act = "";
+    if (t.kind === "unbilled") act = `<a class="btn" href="${BILL_URL}" style="text-decoration:none">請求をつくる</a>`;
+    if (t.kind === "overdue")  act = `<button class="btn" onclick="markPaid('${t.invId}')">入金済みにする</button> <a class="btn g" href="${BILL_URL}" style="text-decoration:none">請求書を見る</a>`;
+    if (t.kind === "low")      act = `<button class="btn g" onclick="go('home');setTab('sites')">現場の支払を見る</button>`;
+    if (t.kind === "backlog")  act = `<button class="btn g" onclick="go('leads')">見込み案件を見る</button>`;
+    return `<div class="c">${head}${row}<div>${act}</div></div>`;
+  }).join("");
+}
+
+// ── 描画: 見込み案件 ───────────────────────────────────────────────────
+function renderLeads() {
+  const open = db.leads.filter(l => l.status === "open");
+  const total = open.reduce((n,l) => n + (l.amount||0), 0);
+  const weighted = open.reduce((n,l) => n + (l.amount||0) * (PROB[l.probability]?.[1] ?? .5), 0);
+  const backlog = sum.backlog;
+  const all = backlog + total;
+  const pct = all > 0 ? backlog / all * 100 : 0;
+  document.getElementById("leads-body").innerHTML = `
+    <div class="c">
+      <div class="c-t"><b>いま持っている仕事</b><span>月平均の売上 ${fmt(sum.avgMonth)}</span></div>
+      <div class="bar" style="height:12px"><i class="b-rest" style="width:${pct}%"></i><i class="b-plan" style="width:${100-pct}%"></i></div>
+      <div class="lg" style="margin-bottom:6px"><span><i class="b-rest"></i>これから請求 ${fmt(backlog)}</span><span><i class="b-plan"></i>見込み ${fmt(total)}</span></div>
+      <div class="kv"><span class="l">合計</span><span class="r">${fmt(all)}${sum.monthsOfWork!=null?`（約 ${sum.monthsOfWork.toFixed(1)}ヶ月分）`:""}</span></div>
+      ${total ? `<div class="kv"><span class="l">確度をかけた見込み</span><span class="r">${fmt(weighted)}</span></div>` : ""}
+      ${sum.monthsOfWork!=null && sum.monthsOfWork < cfg.backlogMonths ? `<div class="note" style="margin-top:6px">目安の ${cfg.backlogMonths}ヶ月を切っています。営業を強めるサインです。</div>` : ""}
     </div>
-  </div>`;
+    <div class="c">
+      <div class="c-t"><b>案件 ${open.length}件</b><span class="lnk" onclick="newLead()">＋ 追加</span></div>
+      ${open.length ? open.map(l => `<div class="row" onclick="editLead('${l.id}')" style="cursor:pointer">
+        <span class="pill ${l.probability==="high"?"p-ok":l.probability==="mid"?"p-cau":"p-mut"}">${l.probability==="high"?"高":l.probability==="mid"?"中":"低"}</span>
+        <span class="nm">${esc(l.name)}</span>
+        <span class="mt">${l.start_month ? String(l.start_month).slice(0,7).replace("-","/") : "時期未定"}</span>
+        <span class="am">${fmt(l.amount)}</span></div>`).join("")
+        : '<div class="empty">見込み案件はまだありません。<br>見積を出したら「＋ 追加」から1件登録してください。</div>'}
+    </div>
+    ${db.leads.some(l => l.status !== "open") ? `<div class="c"><div class="c-t"><b>決着した案件</b></div>
+      ${db.leads.filter(l => l.status !== "open").slice(0,8).map(l => `<div class="row">
+        <span class="pill ${l.status==="won"?"p-ok":"p-mut"}">${l.status==="won"?"受注":"見送り"}</span>
+        <span class="nm">${esc(l.name)}</span><span class="am">${fmt(l.amount)}</span></div>`).join("")}</div>` : ""}`;
+}
+
+function newLead()  { leadDraft = { id:null, name:"", prime_contractor_id:null, amount:"", probability:"mid", start_month:"" }; go("leadform"); renderLeadForm(); }
+function editLead(id){ const l = db.leads.find(x => x.id === id); if (!l) return;
+  leadDraft = { id:l.id, name:l.name, prime_contractor_id:l.prime_contractor_id, amount:l.amount, probability:l.probability, start_month:l.start_month ? String(l.start_month).slice(0,7) : "" };
+  go("leadform"); renderLeadForm(); }
+
+function renderLeadForm() {
+  const primes = [];
+  db.sites.forEach(s => { const p = s.prime_contractors; if (p && !primes.find(x => x.id === p.id)) primes.push(p); });
+  document.getElementById("leadform-body").innerHTML = `
+    <div class="c">
+      <div class="fl">案件名</div>
+      <input type="text" id="lf-name" value="${esc(leadDraft.name)}" placeholder="例）〇〇店舗 内装">
+      <div class="fl">元請</div>
+      <div class="chips" id="lf-primes">
+        ${primes.map(p => `<span class="chip ${leadDraft.prime_contractor_id===p.id?"on":""}" onclick="pickPrime('${p.id}')">${esc(p.name)}</span>`).join("")}
+        <span class="chip ${leadDraft.prime_contractor_id==null?"on":""}" onclick="pickPrime('')">未定</span>
+      </div>
+      <div class="fl">見積金額（税抜・ざっくりで可）</div>
+      <input type="number" inputmode="numeric" id="lf-amount" value="${leadDraft.amount||""}" placeholder="1200000">
+      <div class="fl">確度</div>
+      <div class="chips" id="lf-prob">
+        ${Object.entries(PROB).map(([k,v]) => `<span class="chip ${leadDraft.probability===k?"on":""}" onclick="pickProb('${k}')">${esc(v[0])}</span>`).join("")}
+      </div>
+      <div class="fl">着工予定（未定なら空欄）</div>
+      <input type="month" id="lf-month" value="${leadDraft.start_month||""}">
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" onclick="saveLead()">保存する</button>
+        ${leadDraft.id ? `<button class="btn g" onclick="wonLead()">受注した → 現場にする</button>
+                          <button class="btn w" onclick="lostLead()">見送りになった</button>` : ""}
+      </div>
+    </div>
+    ${leadDraft.id ? `<div class="note">「受注した」を押すと現場と請負金額が作られ、この案件は受注済みになります（二重入力になりません）。</div>` : ""}`;
+}
+function pickPrime(id) { leadDraft.prime_contractor_id = id || null; syncLeadForm(); renderLeadForm(); }
+function pickProb(k)   { leadDraft.probability = k; syncLeadForm(); renderLeadForm(); }
+function syncLeadForm() {
+  leadDraft.name = document.getElementById("lf-name").value.trim();
+  leadDraft.amount = document.getElementById("lf-amount").value;
+  leadDraft.start_month = document.getElementById("lf-month").value;
+}
+
+// ── 描画: 設定 ─────────────────────────────────────────────────────────
+function renderSettings() {
+  const primes = [];
+  db.sites.forEach(s => { const p = s.prime_contractors; if (p && !primes.find(x => x.id === p.id)) primes.push(p); });
+  document.getElementById("settings-body").innerHTML = `
+    <div class="c">
+      <div class="c-t"><b>会計年度の開始月</b></div>
+      <select class="f" onchange="saveSetting('fiscal_year_start_month', this.value)">
+        ${Array.from({length:12},(_,i)=>i+1).map(m => `<option value="${m}"${cfg.fyStartMonth===m?" selected":""}>${m}月 開始</option>`).join("")}
+      </select>
+    </div>
+    <div class="c">
+      <div class="c-t"><b>低採算とみなすライン</b><span>会社の既定</span></div>
+      <div class="inline"><input type="number" inputmode="numeric" value="${cfg.lowMarginPct}" onchange="saveSetting('low_margin_pct', this.value)"><span>％ 未満で警告</span></div>
+      <div class="note" style="margin-top:7px">現場ごとに違う目標があるときは、現場カードの「目標の利益率」で上書きできます（未設定ならこの値）。</div>
+    </div>
+    <div class="c">
+      <div class="c-t"><b>仕事量が少ないと知らせるライン</b></div>
+      <div class="inline"><input type="number" inputmode="numeric" step="0.5" value="${cfg.backlogMonths}" onchange="saveSetting('backlog_alert_months', this.value)"><span>ヶ月を切ったら知らせる</span></div>
+    </div>
+    <div class="c">
+      <div class="c-t"><b>人工の原価（1人1日）</b><span>労務費の自動集計に使用</span></div>
+      <div class="inline"><input type="number" inputmode="numeric" value="${cfg.laborCostPerDay}" onchange="saveSetting('labor_cost_per_day', this.value)"><span>円／日</span></div>
+      <div class="note" style="margin-top:7px">日報の人工（終日=1・半日=0.5）× この単価で人件費を自動計算し、粗利に含めます。0のままなら人件費は0として扱います。</div>
+    </div>
+    <div class="c">
+      <div class="c-t"><b>元請の入金サイト</b><span>締めの◯ヶ月後の◯日</span></div>
+      ${primes.length ? primes.map(p => `<div style="padding:7px 0;border-bottom:1px solid var(--line)">
+        <div class="kv"><span class="l">${esc(p.name)}</span><span class="r">${p.closing_day && p.closing_day < 28 ? p.closing_day+"日締め" : "末日締め"}</span></div>
+        <div class="inline" style="margin-top:5px">
+          <select class="f" style="font-size:13px" onchange="savePrime('${p.id}','payment_month_offset',this.value)">
+            ${[["","未設定"],["0","当月"],["1","1ヶ月後"],["2","2ヶ月後"],["3","3ヶ月後"]].map(([v,l]) =>
+              `<option value="${v}"${String(p.payment_month_offset ?? "")===v?" selected":""}>${l}</option>`).join("")}
+          </select>
+          <select class="f" style="font-size:13px" onchange="savePrime('${p.id}','payment_day',this.value)">
+            <option value="">日</option>
+            ${[5,10,15,20,25,31].map(d => `<option value="${d}"${p.payment_day===d?" selected":""}>${d>=31?"末日":d+"日"}</option>`).join("")}
+          </select>
+        </div></div>`).join("")
+        : '<div class="empty">元請が登録されていません。<br>請求LIFFのマスタから登録してください。</div>'}
+      <div class="note" style="margin-top:7px">例）末日締め・翌月末払い → 「1ヶ月後」＋「末日」。25日締め・翌月10日払い → 「1ヶ月後」＋「10日」。</div>
+    </div>
+    <div class="c"><div class="c-t"><b>この画面を見られる人</b></div>
+      <div class="lg">請求を扱う権限（can_bill）のある方＝社長・事務担当のみ。作業員には表示されません。</div></div>`;
+}
+
+// ── 書き込み ───────────────────────────────────────────────────────────
+async function saveSetting(col, val) {
+  const num = col === "backlog_alert_months" ? Number(val) : parseInt(val, 10);
+  if (isNaN(num)) return toast("数字を入れてください", true);
+  const r = await rPatch(`/company_settings?company_id=eq.${cu.companyId}`, { [col]: num });
+  if (!r.ok) return toast("保存に失敗しました", true);
+  await reload("保存しました");
+  go("settings");
+}
+async function savePrime(id, col, val) {
+  const v = val === "" ? null : parseInt(val, 10);
+  const r = await rPatch(`/prime_contractors?id=eq.${id}&company_id=eq.${cu.companyId}`, { [col]: v });
+  if (!r.ok) return toast("保存に失敗しました", true);
+  await reload("入金サイトを保存しました");
+  go("settings");
+}
+async function saveTarget(siteId, val) {
+  const v = val === "" ? null : parseInt(val, 10);
+  if (v !== null && (isNaN(v) || v < 0 || v > 100)) return toast("0〜100で入れてください", true);
+  const r = await rPatch(`/sites?id=eq.${siteId}&company_id=eq.${cu.companyId}`, { target_margin_pct: v });
+  if (!r.ok) return toast("保存に失敗しました", true);
+  await reload("目標の利益率を保存しました");
+  openSite(siteId);
+}
+async function savePlan(siteId, category, val) {
+  const amount = parseInt(val || "0", 10);
+  if (isNaN(amount) || amount < 0) return toast("金額を確認してください", true);
+  const r = await rPost(`/site_payment_plans?on_conflict=company_id,site_id,category`,
+    { company_id: cu.companyId, site_id: siteId, category, planned_amount: amount, created_by: cu.workerId },
+    "resolution=merge-duplicates,return=minimal");
+  if (!r.ok) return toast("支払の保存に失敗しました", true);
+  await reload("支払の予定を保存しました");
+  openSite(siteId);
+}
+async function addMonth(planId) {
+  const mo = document.getElementById("mo-"+planId).value;
+  const am = parseInt(document.getElementById("ma-"+planId).value || "0", 10);
+  if (!mo) return toast("月を選んでください", true);
+  if (!am || am < 0) return toast("金額を入れてください", true);
+  const plan = db.plans.find(p => p.id === planId);
+  const r = await rPost(`/site_payment_months?on_conflict=plan_id,month`,
+    { company_id: cu.companyId, plan_id: planId, month: mo + "-01", amount: am },
+    "resolution=merge-duplicates,return=minimal");
+  if (!r.ok) return toast("月別の保存に失敗しました", true);
+  await reload("月別の予定を追加しました");
+  if (plan) openSite(plan.site_id);
+}
+async function togglePaid(monthId, to) {
+  const m = db.months.find(x => x.id === monthId);
+  const r = await rPatch(`/site_payment_months?id=eq.${monthId}&company_id=eq.${cu.companyId}`,
+    { is_paid: to === true || to === "true", paid_on: (to === true || to === "true") ? today() : null });
+  if (!r.ok) return toast("更新に失敗しました", true);
+  await reload("更新しました");
+  const plan = db.plans.find(p => p.id === m?.plan_id);
+  if (plan) openSite(plan.site_id);
+}
+async function delMonth(monthId) {
+  const m = db.months.find(x => x.id === monthId);
+  const plan = db.plans.find(p => p.id === m?.plan_id);
+  const r = await rDel(`/site_payment_months?id=eq.${monthId}&company_id=eq.${cu.companyId}`);
+  if (!r.ok) return toast("削除に失敗しました", true);
+  await reload("削除しました");
+  if (plan) openSite(plan.site_id);
+}
+async function markPaid(invId) {
+  const r = await rPatch(`/billing_invoices?id=eq.${invId}&company_id=eq.${cu.companyId}`, { paid_on: today() });
+  if (!r.ok) return toast("更新に失敗しました", true);
+  const back = screen;
+  await reload("入金済みにしました");
+  go(back);
+}
+async function saveLead() {
+  syncLeadForm();
+  if (!leadDraft.name) return toast("案件名を入れてください", true);
+  const amount = parseInt(leadDraft.amount || "0", 10);
+  const body = { company_id: cu.companyId, name: leadDraft.name, prime_contractor_id: leadDraft.prime_contractor_id,
+    amount: isNaN(amount) ? 0 : amount, probability: leadDraft.probability,
+    start_month: leadDraft.start_month ? leadDraft.start_month + "-01" : null, created_by: cu.workerId };
+  const r = leadDraft.id
+    ? await rPatch(`/sales_leads?id=eq.${leadDraft.id}&company_id=eq.${cu.companyId}`, body)
+    : await rPost(`/sales_leads`, body, "return=minimal");
+  if (!r.ok) return toast("保存に失敗しました", true);
+  await reload("保存しました");
+  go("leads");
+}
+async function lostLead() {
+  const r = await rPatch(`/sales_leads?id=eq.${leadDraft.id}&company_id=eq.${cu.companyId}`, { status: "lost" });
+  if (!r.ok) return toast("更新に失敗しました", true);
+  await reload("見送りにしました");
+  go("leads");
+}
+async function wonLead() {
+  syncLeadForm();
+  const amount = parseInt(leadDraft.amount || "0", 10) || 0;
+  // ① 現場を作る
+  const sr = await rPost(`/sites`, { company_id: cu.companyId, name: leadDraft.name, status: "active",
+    prime_contractor_id: leadDraft.prime_contractor_id, created_by: cu.workerId }, "return=representation");
+  if (!sr.ok) return toast("現場の登録に失敗しました", true);
+  const site = (await sr.json())[0];
+  // ② 請負金額（元請と金額があるときだけ）
+  if (leadDraft.prime_contractor_id && amount > 0) {
+    const cr = await rPost(`/construction_contracts`, { company_id: cu.companyId, site_id: site.id,
+      prime_contractor_id: leadDraft.prime_contractor_id, original_amount: amount, title: leadDraft.name }, "return=minimal");
+    if (!cr.ok) toast("現場は作れましたが請負金額の登録に失敗しました", true);
+  }
+  // ③ 案件を受注済みに
+  await rPatch(`/sales_leads?id=eq.${leadDraft.id}&company_id=eq.${cu.companyId}`, { status: "won", site_id: site.id });
+  await reload("受注として現場を作りました");
+  go("home"); setTab("sites");
 }
 
 // ── ユーティリティ ─────────────────────────────────────────────────────
 function tgl(id) { const el = document.getElementById(id); if (el) el.classList.toggle("open"); }
-function fmtDate(iso) { if (!iso) return ""; const [, m, d] = String(iso).split("-"); return `${+m}/${+d}`; }
+function openSite(siteId) { const el = document.getElementById("site-" + siteId); if (el) el.classList.add("open"); }
 function fail(html) {
   document.getElementById("loading").classList.add("hidden");
-  document.getElementById("app").classList.add("on");
-  document.getElementById("summary").innerHTML = `<div class="empty">${html}</div>`;
-  document.querySelector(".vtabs").style.display = "none";
+  document.getElementById("s-home").classList.add("on");
+  document.getElementById("ybar").style.display = "none";
+  document.getElementById("btn-settings").style.display = "none";
+  document.getElementById("tiles").innerHTML = `<div class="empty">${html}</div>`;
+  document.querySelector(".tabs").style.display = "none";
 }
 function toast(msg, err) {
   const t = document.getElementById("toast");
   t.textContent = msg; t.className = err ? "err show" : "show";
-  setTimeout(() => t.classList.remove("show"), 3500);
+  setTimeout(() => t.classList.remove("show"), 3000);
 }
 </script>
 </body>
