@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FIELDLOG 準備シート</title>
+<link rel="stylesheet" href="./fla-tokens.css?v=2026-07-12" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.7;-webkit-text-size-adjust:100%;}
+  .wrap{max-width:820px;margin:0 auto;padding:18px 16px 60px;}
+  header{background:var(--acc);color:#fff;padding:20px 16px;margin:-18px -16px 18px;}
+  header .in{max-width:820px;margin:0 auto;}
+  header h1{font-size:20px;}
+  header p{font-size:13px;opacity:.95;margin-top:5px;}
+  .howto{background:#fff;border-radius:var(--r);padding:13px 15px;margin-bottom:16px;font-size:13.5px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  .howto b{color:var(--acc);}
+  h2{font-size:16px;margin:24px 0 9px;padding-left:10px;border-left:5px solid var(--acc);}
+  h2 span{font-size:12px;color:var(--sub);font-weight:normal;margin-left:6px;}
+  .card{background:#fff;border-radius:var(--r);padding:14px 15px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  .fld{margin-bottom:11px;}
+  .fld label{display:block;font-size:12.5px;color:var(--sub);margin-bottom:3px;}
+  .fld .ex{font-size:11.5px;color:#9d9b93;}
+  input[type=text]{width:100%;font-family:inherit;font-size:15px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--ink);}
+  input[type=text]:focus{outline:none;border-color:var(--acc);}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{border:1px solid var(--line);padding:5px 6px;text-align:left;}
+  th{background:#faf9f5;font-size:11.5px;color:var(--sub);white-space:nowrap;}
+  td input{width:100%;border:none;font-size:14px;padding:4px 2px;font-family:inherit;background:transparent;}
+  td input:focus{outline:none;background:#f5fbf8;}
+  td.ex{color:#9d9b93;font-size:11.5px;background:#fbfaf6;}
+  .note{background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:10px 12px;font-size:12.5px;line-height:1.6;margin-top:8px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:11px;}
+  @media (max-width:560px){ .grid2{grid-template-columns:1fr;} }
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 6px;}
+  .btn{background:var(--acc);color:#fff;border:none;font-family:inherit;font-size:14px;font-weight:bold;padding:11px 20px;border-radius:var(--r-sm);cursor:pointer;}
+  .btn.g{background:#fff;color:var(--acc);border:1px solid var(--acc);}
+  footer{margin-top:26px;font-size:12px;color:var(--sub);border-top:1px solid var(--line);padding-top:12px;}
+  @media print{
+    body{background:#fff;} header{background:#fff;color:var(--ink);border-bottom:3px solid var(--acc);margin:0 0 12px;padding:0 0 10px;}
+    .card{box-shadow:none;border:1px solid var(--line);} .howto,.btnrow,.noprint{display:none;}
+    input[type=text]{border:none;border-bottom:1px solid #bbb;border-radius:0;}
+    h2{page-break-after:avoid;} .card{page-break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header><div class="in">
+  <h1>FIELDLOG 準備シート</h1>
+  <p>ご記入は10〜15分ほどです。<b>分かる範囲でOK</b>、あとからいつでも変更できます。</p>
+</div></header>
+
+<div class="howto noprint">
+  <b>ご記入方法</b>：この画面に直接入力できます（保存はされません）。書き終えたら
+  <b>「印刷／PDFで保存」</b>を押してPDFにして送っていただくか、<b>「文字にまとめる」</b>を押して出てきた文章をLINEで送ってください。
+  紙に手書きされる場合は、そのまま印刷してお使いください。
+</div>
+
+<!-- ① 会社情報 -->
+<h2>① 会社情報 <span>請求書に印字されます</span></h2>
+<div class="card">
+  <div class="grid2">
+    <div class="fld"><label>会社名（正式名称）</label><input type="text" id="f_company" placeholder="例）〇〇塗装工業 株式会社"></div>
+    <div class="fld"><label>代表者名</label><input type="text" id="f_rep" placeholder="例）〇〇 太郎"></div>
+  </div>
+  <div class="fld"><label>住所</label><input type="text" id="f_addr" placeholder="例）〇〇県〇〇市〇〇1-2-3"></div>
+  <div class="grid2">
+    <div class="fld"><label>電話</label><input type="text" id="f_tel" placeholder="例）000-0000-0000"></div>
+    <div class="fld"><label>インボイス登録番号 <span class="ex">あれば</span></label><input type="text" id="f_inv" placeholder="例）T1234567890123"></div>
+  </div>
+  <div class="grid2">
+    <div class="fld"><label>振込先（銀行・支店）</label><input type="text" id="f_bank" placeholder="例）〇〇銀行 △△支店"></div>
+    <div class="fld"><label>種別・口座番号</label><input type="text" id="f_acc" placeholder="例）普通 1234567"></div>
+  </div>
+  <div class="fld"><label>口座名義（カナ）</label><input type="text" id="f_kana" placeholder="例）マルマルトソウコウギヨウ（カ"></div>
+</div>
+
+<!-- ② 使う方 -->
+<h2>② 使う方 <span>作業員の方も含めて全員</span></h2>
+<div class="card">
+  <table id="t_people">
+    <tr><th style="width:38%">お名前</th><th style="width:34%">役割</th><th>請求書を作る</th></tr>
+    <tr><td class="ex">例）〇〇 太郎</td><td class="ex">社長</td><td class="ex">○</td></tr>
+    <tr><td><input type="text"></td><td><input type="text" placeholder="社長／職長／作業員"></td><td><input type="text" placeholder="○／−"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+  </table>
+  <div class="note">「請求書を作る」に○の方だけが、請求と経営の数字（ダッシュボード）を開けます。</div>
+</div>
+
+<!-- ③ 元請 -->
+<h2>③ 請求先（元請）ごとに <span>取引のある元請の数だけ</span></h2>
+<div class="card">
+  <table id="t_primes">
+    <tr><th style="width:22%">会社名</th><th style="width:14%">締め日</th><th style="width:18%">入金の条件</th><th style="width:22%">請求書に必ず書く欄</th><th>出し方・指定様式</th></tr>
+    <tr><td class="ex">例）△△工業</td><td class="ex">25日締め</td><td class="ex">翌月10日払い</td><td class="ex">工事番号・注文番号</td><td class="ex">メール／指定様式あり</td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+  </table>
+  <div class="note"><b>入金の条件</b>は「今月いくら入ってくるか」の計算に使います（例：末日締め・翌月末払い）。<br>
+    <b>指定のExcel様式</b>がある元請は、そのファイルもお送りください。</div>
+</div>
+
+<!-- ④ 現場 -->
+<h2>④ いま動いている現場</h2>
+<div class="card">
+  <table id="t_sites">
+    <tr><th style="width:28%">現場名</th><th style="width:18%">元請</th><th style="width:14%">請負／常用</th><th style="width:18%">請負金額（税抜）</th><th>工事名（請求書の件名）</th></tr>
+    <tr><td class="ex">例）〇〇マンション改修</td><td class="ex">△△工業</td><td class="ex">請負</td><td class="ex">3,000,000</td><td class="ex">〇〇マンション改修工事</td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+  </table>
+</div>
+
+<!-- ⑤ 常用単価 -->
+<h2>⑤ 常用（人工）の単価 <span>常用の請求をする場合</span></h2>
+<div class="card">
+  <table id="t_prices">
+    <tr><th style="width:28%">工種</th><th style="width:28%">元請</th><th style="width:22%">終日の単価</th><th>半日の単価<span class="ex">（半額でない場合）</span></th></tr>
+    <tr><td class="ex">例）塗装</td><td class="ex">△△工業</td><td class="ex">22,000</td><td class="ex">12,000</td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+    <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
+  </table>
+</div>
+
+<!-- ⑥ 経営の数字 -->
+<h2>⑥ 経営の数字（ダッシュボード）のために <span>ざっくりで構いません</span></h2>
+<div class="card">
+  <div class="grid2">
+    <div class="fld"><label>人工1人1日あたりの原価の目安</label><input type="text" id="f_labor" placeholder="例）18,000円（日給＋保険等）"></div>
+    <div class="fld"><label>会計年度の開始月</label><input type="text" id="f_fy" placeholder="例）4月"></div>
+  </div>
+  <div class="fld"><label>「利益率が低い」と感じるライン</label><input type="text" id="f_margin" placeholder="例）15% を切ったら知らせてほしい"></div>
+  <div class="note">日報の人工 × この原価で<b>人件費を自動計算</b>し、現場ごとの利益率を出します。金額は後からいつでも変更でき、変更すると過去分も計算し直します。</div>
+</div>
+
+<!-- ⑦ その他 -->
+<h2>⑦ そのほか</h2>
+<div class="card">
+  <div class="fld"><label>いまお使いの請求書の見本（写真でも可）</label><input type="text" id="f_sample" placeholder="例）△△工業の様式を1枚お送りします"></div>
+  <div class="fld"><label>ご質問・ご要望</label><input type="text" id="f_memo" placeholder="例）現場が増えたときは自分たちで追加したい"></div>
+</div>
+
+<div class="btnrow noprint">
+  <button class="btn" onclick="window.print()">🖨 印刷／PDFで保存</button>
+  <button class="btn g" onclick="toText()">📋 文字にまとめる（LINEで送る用）</button>
+</div>
+<div class="card noprint" id="out" style="display:none">
+  <label style="font-size:12.5px;color:var(--sub)">下の文章をコピーして送ってください</label>
+  <textarea id="outtext" style="width:100%;height:230px;font-family:inherit;font-size:13px;padding:9px;border:1px solid var(--line);border-radius:var(--r-sm);margin-top:5px"></textarea>
+</div>
+
+<footer>
+  FIELDLOG 準備シート — 2026年8月版／記入例はすべて架空のものです。<br>
+  ご不明な点は、お気軽にお電話ください。
+</footer>
+
+</div>
+
+<script>
+function val(id){ const e = document.getElementById(id); return e && e.value.trim(); }
+function tableText(tid, head) {
+  const rows = [...document.querySelectorAll("#"+tid+" tr")].slice(2);   // ヘッダと記入例を除く
+  const out = [];
+  rows.forEach(tr => {
+    const cells = [...tr.querySelectorAll("input")].map(i => i.value.trim());
+    if (cells.some(c => c)) out.push("・" + cells.filter(c=>c).join(" ／ "));
+  });
+  return out.length ? head + "\n" + out.join("\n") : "";
+}
+function toText() {
+  const L = [];
+  L.push("【FIELDLOG 準備シート】");
+  const comp = [["会社名",val("f_company")],["代表者",val("f_rep")],["住所",val("f_addr")],["電話",val("f_tel")],
+                ["インボイス番号",val("f_inv")],["振込先",val("f_bank")],["種別・番号",val("f_acc")],["名義カナ",val("f_kana")]]
+                .filter(x => x[1]).map(x => "・" + x[0] + "：" + x[1]);
+  if (comp.length) L.push("\n■ 会社情報\n" + comp.join("\n"));
+  const t1 = tableText("t_people", "\n■ 使う方（お名前／役割／請求書を作る）");
+  const t2 = tableText("t_primes", "\n■ 請求先（会社名／締め日／入金条件／必須欄／出し方）");
+  const t3 = tableText("t_sites",  "\n■ 現場（現場名／元請／請負or常用／請負金額／工事名）");
+  const t4 = tableText("t_prices", "\n■ 常用単価（工種／元請／終日／半日）");
+  [t1,t2,t3,t4].forEach(t => { if (t) L.push(t); });
+  const mg = [["人工の原価",val("f_labor")],["年度開始月",val("f_fy")],["低採算ライン",val("f_margin")]]
+             .filter(x => x[1]).map(x => "・" + x[0] + "：" + x[1]);
+  if (mg.length) L.push("\n■ 経営の数字\n" + mg.join("\n"));
+  const etc = [["請求書の見本",val("f_sample")],["質問・要望",val("f_memo")]]
+              .filter(x => x[1]).map(x => "・" + x[0] + "：" + x[1]);
+  if (etc.length) L.push("\n■ そのほか\n" + etc.join("\n"));
+  document.getElementById("out").style.display = "block";
+  const ta = document.getElementById("outtext");
+  ta.value = L.join("\n");
+  ta.focus(); ta.select();
+}
+</script>
+</body>
+</html>
