@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FIELDLOG のご案内</title>
+<link rel="stylesheet" href="./fla-tokens.css?v=2026-07-12" />
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.75;-webkit-text-size-adjust:100%;}
+  .wrap{max-width:880px;margin:0 auto;padding:0 16px 56px;}
+
+  /* 表紙 */
+  .hero{background:var(--acc);color:#fff;padding:34px 20px 30px;margin-bottom:22px;}
+  .hero .inner{max-width:880px;margin:0 auto;}
+  .hero .mark{font-size:12px;letter-spacing:.18em;opacity:.9;}
+  .hero h1{font-size:26px;line-height:1.4;margin:6px 0 10px;}
+  .hero p{font-size:14.5px;opacity:.95;}
+  .hero .badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+  .hero .badge{background:rgba(255,255,255,.2);font-size:12px;padding:5px 11px;border-radius:999px;}
+
+  h2{font-size:19px;margin:30px 0 12px;padding-left:11px;border-left:5px solid var(--acc);}
+  h3{font-size:15px;margin:18px 0 7px;}
+  p{font-size:14px;margin-bottom:11px;}
+  .lead{color:var(--sub);font-size:13.5px;margin-bottom:14px;}
+  .card{background:#fff;border-radius:var(--r);padding:17px 18px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  .grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;}
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;}
+  .feat{background:#fff;border-radius:var(--r);padding:16px 17px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-top:4px solid var(--acc);}
+  .feat .who{display:inline-block;font-size:11.5px;background:var(--info-bg);color:var(--info-ink);padding:3px 9px;border-radius:999px;margin-bottom:8px;}
+  .feat h3{margin:0 0 6px;font-size:16px;}
+  .feat ul{margin:8px 0 0 18px;font-size:13.5px;}
+  .feat li{margin-bottom:5px;}
+  .feat .time{margin-top:10px;font-size:12.5px;color:var(--acc);font-weight:bold;}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px;background:#fff;border-radius:var(--r);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;}
+  th{background:#faf9f5;font-size:12.5px;color:var(--sub);white-space:nowrap;}
+  td.now{color:var(--sub);}
+  td.aft{font-weight:bold;}
+  ul.plain{margin:8px 0 8px 20px;font-size:14px;}
+  ul.plain li{margin-bottom:6px;}
+  .steps{counter-reset:st;}
+  .step{background:#fff;border-radius:var(--r);padding:15px 17px 15px 54px;margin-bottom:10px;position:relative;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+  .step::before{counter-increment:st;content:counter(st);position:absolute;left:16px;top:15px;width:26px;height:26px;border-radius:50%;
+    background:var(--acc);color:#fff;font-size:14px;font-weight:bold;display:flex;align-items:center;justify-content:center;}
+  .step b{display:block;font-size:15px;margin-bottom:3px;}
+  .step .who{font-size:12px;color:var(--sub);}
+  .note{background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:11px 13px;font-size:13px;line-height:1.65;}
+  .warn{background:#fdf4e0;color:#8a6212;border-radius:var(--r-sm);padding:11px 13px;font-size:13px;line-height:1.65;}
+  .q{font-weight:bold;font-size:14px;margin-top:14px;}
+  .a{font-size:13.5px;color:#3d3c38;}
+
+  /* スマホ画面イメージ */
+  .shots{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin:6px 0 4px;}
+  .phone{width:250px;background:var(--bg);border-radius:16px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.16);border:1px solid #d9d7ce;}
+  .ph-h{background:var(--acc);color:#fff;padding:9px 11px;font-size:13px;font-weight:bold;}
+  .ph-h.line{background:#06c755;}
+  .ph-b{padding:9px;}
+  .ph-cap{text-align:center;font-size:12px;color:var(--sub);margin-top:7px;}
+  .bub{max-width:86%;padding:7px 10px;border-radius:12px;font-size:11.5px;margin-bottom:6px;line-height:1.5;}
+  .bub.bot{background:#fff;}
+  .bub.me{background:#a6e3a1;margin-left:auto;}
+  .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px;}
+  .chip{background:#fff;border:1px solid var(--line);border-radius:999px;font-size:10.5px;padding:4px 9px;color:var(--sub);}
+  .menu6{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;}
+  .menu6 div{background:#fff;border:1px solid var(--line);border-radius:6px;font-size:10.5px;text-align:center;padding:9px 2px;}
+  .mini{background:#fff;border-radius:9px;padding:9px;margin-bottom:7px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+  .mini .k{font-size:10px;color:var(--sub);} .mini .v{font-size:15px;font-weight:bold;}
+  .split2{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .tile{background:var(--bg);border-radius:7px;padding:7px 8px;}
+  .tile .k{font-size:9.5px;color:var(--sub);} .tile .v{font-size:13.5px;font-weight:bold;}
+  .tile .n{font-size:9px;color:var(--sub);}
+  .rowl{display:flex;gap:6px;align-items:center;font-size:11px;padding:5px 0;border-bottom:1px solid var(--line);}
+  .rowl:last-child{border-bottom:none;}
+  .rowl .nm{flex:1;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .pill{font-size:9.5px;padding:2px 6px;border-radius:999px;}
+  .p-warn{background:#fdecea;color:var(--warn);} .p-ok{background:var(--ok-bg);color:var(--ok-ink);}
+  .p-cau{background:#fdf4e0;color:#a8781a;}
+  .a4{background:#fff;border:1px solid var(--line);border-radius:4px;padding:10px;font-size:9.5px;line-height:1.6;}
+  .a4 .ttl{text-align:center;font-size:12px;font-weight:bold;letter-spacing:.2em;margin-bottom:7px;}
+  .a4 .ln{display:flex;justify-content:space-between;border-bottom:1px dotted var(--line);padding:2px 0;}
+  .a4 .tot{display:flex;justify-content:space-between;font-weight:bold;border-top:2px solid var(--ink);margin-top:5px;padding-top:4px;font-size:11px;}
+
+  .links{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;}
+  .link{display:block;background:#fff;border-radius:var(--r);padding:14px 16px;text-decoration:none;color:var(--ink);box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid var(--acc);}
+  .link b{display:block;font-size:14.5px;margin-bottom:2px;}
+  .link span{font-size:12.5px;color:var(--sub);}
+  footer{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--sub);}
+  @media print{ body{background:#fff;} .hero{background:#fff;color:var(--ink);border-bottom:3px solid var(--acc);} .phone{box-shadow:none;} .card,.feat,.step,table{box-shadow:none;border:1px solid var(--line);} }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="inner">
+    <div class="mark">F I E L D L O G</div>
+    <h1>LINEだけで、日報・請求書・経営の数字が<br>ひとつながりになります。</h1>
+    <p>新しいアプリを覚える必要はありません。いつものLINEのメニューを押すだけ。<br>
+       現場の入力がそのまま請求書になり、会社のお金の流れまで見えます。</p>
+    <div class="badges">
+      <span class="badge">アプリのインストール不要</span>
+      <span class="badge">日報は1回1分</span>
+      <span class="badge">請求書は3分</span>
+      <span class="badge">パソコン不要</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ══ 1. 3つの機能 ══ -->
+  <h2>1. できること（3つ）</h2>
+  <p class="lead">同じLINEの中で、役割ごとに使う画面が変わります。作業員の方が触るのは「日報」だけです。</p>
+  <div class="grid3">
+    <div class="feat">
+      <span class="who">作業員・職長</span>
+      <h3>① 日報</h3>
+      <p style="font-size:13.5px;margin:0">メニューを押して、現場と終日／半日を選ぶだけ。紙の日報も、あとからの聞き取りも要りません。</p>
+      <ul>
+        <li>昨日と同じならワンタップ</li>
+        <li>休みもワンタップで登録</li>
+        <li>異常・引き継ぎは写真付きで共有</li>
+        <li>出し忘れには夕方お知らせ</li>
+      </ul>
+      <div class="time">🕐 1回 約1分</div>
+    </div>
+    <div class="feat">
+      <span class="who">社長・事務担当</span>
+      <h3>② 請求</h3>
+      <p style="font-size:13.5px;margin:0">元請・現場・締め日を登録しておけば、毎月の請求書が数タップで出来上がります。</p>
+      <ul>
+        <li>出来高（請負）と常用（人工）の両方に対応</li>
+        <li>単価は自動で入り、計算間違いが起きない</li>
+        <li>値引き・端数調整もその場で</li>
+        <li>A4の請求書として印刷・PDF保存</li>
+      </ul>
+      <div class="time">🕐 1枚 約3分</div>
+    </div>
+    <div class="feat">
+      <span class="who">社長</span>
+      <h3>③ ダッシュボード</h3>
+      <p style="font-size:13.5px;margin:0">日報と請求のデータがそのまま経営の数字になります。入力を増やさずに見えます。</p>
+      <ul>
+        <li>今月いくら入って、いくら出るか</li>
+        <li>現場ごとの利益率（悪い順に表示）</li>
+        <li>請求漏れ・入金遅れのお知らせ</li>
+        <li>これから請求する分・見込みの仕事量</li>
+      </ul>
+      <div class="time">🕐 見るだけ・設定は最初の10分</div>
+    </div>
+  </div>
+
+  <!-- ══ 2. 画面イメージ ══ -->
+  <h2>2. 実際の画面</h2>
+  <p class="lead">※ 表示している会社名・現場名・金額はすべて架空の例です。</p>
+
+  <div class="shots">
+    <div>
+      <div class="phone">
+        <div class="ph-h line">FIELDLOG（LINEトーク）</div>
+        <div class="ph-b">
+          <div class="bub bot">報告の種類を選んでください</div>
+          <div class="chips"><span class="chip">昨日と同じ</span><span class="chip">通常報告</span><span class="chip">休み</span></div>
+          <div class="bub me" style="margin-top:6px">通常報告</div>
+          <div class="bub bot">現場を選んでください</div>
+          <div class="chips"><span class="chip">〇〇マンション改修</span><span class="chip">△△ビル</span></div>
+          <div class="bub me" style="margin-top:6px">終日</div>
+          <div class="bub bot">✅ 登録しました。お疲れ様でした。</div>
+          <div class="menu6" style="margin-top:8px">
+            <div>日報報告</div><div>日報確認</div><div>日報修正</div>
+            <div>現場メモ</div><div>設定</div><div>休み報告</div>
+          </div>
+        </div>
+      </div>
+      <div class="ph-cap">① 日報：選ぶだけ・1分</div>
+    </div>
+
+    <div>
+      <div class="phone">
+        <div class="ph-h">請求書</div>
+        <div class="ph-b">
+          <div class="a4">
+            <div class="ttl">請 求 書</div>
+            <div class="ln"><span>△△工業 御中</span><span>2026年8月31日</span></div>
+            <div class="ln"><span>件名：〇〇マンション改修</span><span></span></div>
+            <div style="margin-top:6px">
+              <div class="ln"><span>出来高 60%（一式）</span><span>1,800,000</span></div>
+              <div class="ln"><span>端数調整（値引き）</span><span>−10,000</span></div>
+              <div class="ln"><span>小計</span><span>1,790,000</span></div>
+              <div class="ln"><span>消費税(10%)</span><span>179,000</span></div>
+            </div>
+            <div class="tot"><span>合計</span><span>¥1,969,000</span></div>
+            <div style="margin-top:7px;color:#6b6a63">振込先：〇〇銀行 △△支店 普通 1234567</div>
+          </div>
+          <div class="chips" style="margin-top:8px"><span class="chip">改訂する</span><span class="chip">取消する</span><span class="chip">印刷・PDF</span></div>
+        </div>
+      </div>
+      <div class="ph-cap">② 請求：発行するとこの形で出ます</div>
+    </div>
+
+    <div>
+      <div class="phone">
+        <div class="ph-h">ダッシュボード</div>
+        <div class="ph-b">
+          <div class="mini">
+            <div class="split2">
+              <div class="tile"><div class="k">今月 入る</div><div class="v" style="color:var(--ok-ink)">¥3,420,000</div><div class="n">入金済み ¥2,100,000</div></div>
+              <div class="tile"><div class="k">今月 出る</div><div class="v">¥2,180,000</div><div class="n">支払済み ¥900,000</div></div>
+            </div>
+            <div class="split2" style="margin-top:6px">
+              <div class="tile"><div class="k">今期の売上</div><div class="v">¥12,400,000</div><div class="n">粗利 24.0%</div></div>
+              <div class="tile"><div class="k">これから請求する分</div><div class="v">¥3,750,000</div><div class="n">＋見込み ¥2,700,000</div></div>
+            </div>
+          </div>
+          <div class="mini" style="border:1px solid #f0c8c2">
+            <div style="font-size:11px;color:var(--warn);font-weight:bold;margin-bottom:4px">要対応 3件</div>
+            <div class="rowl"><span class="pill p-warn">請求漏れ</span><span class="nm">□□工場 塗装</span><span>約25万</span></div>
+            <div class="rowl"><span class="pill p-warn">入金遅延</span><span class="nm">××建設 6月分</span><span>82万</span></div>
+            <div class="rowl"><span class="pill p-cau">低採算</span><span class="nm">△△ビル 改修</span><span>8.2%</span></div>
+          </div>
+          <div class="chips"><span class="chip">お金</span><span class="chip">現場</span><span class="chip">元請</span></div>
+        </div>
+      </div>
+      <div class="ph-cap">③ ダッシュボード：開いた瞬間に4つの数字</div>
+    </div>
+  </div>
+
+  <!-- ══ 3. 変わること ══ -->
+  <h2>3. 導入すると、こう変わります</h2>
+  <table>
+    <tr><th style="width:26%">場面</th><th style="width:37%">いま</th><th>FIELDLOG</th></tr>
+    <tr><td><b>日報</b></td><td class="now">紙・電話・あとからまとめて記入。誰がどの現場に何日入ったか曖昧</td><td class="aft">その日のうちにLINEで完了。人工が自動で積み上がる</td></tr>
+    <tr><td><b>請求書</b></td><td class="now">Excelを開いて前月分をコピー。単価の転記ミス・出し忘れが起きる</td><td class="aft">締め日ごとに数タップ。単価は自動、番号も自動</td></tr>
+    <tr><td><b>請求漏れ</b></td><td class="now">気づくのは翌月以降。言い出しにくい金額になる</td><td class="aft">締めた期間に請求が無い現場を自動で警告</td></tr>
+    <tr><td><b>入金の管理</b></td><td class="now">通帳を見て記憶と照合。遅れに気づきにくい</td><td class="aft">入金予定日を自動計算。遅れは一覧の最上段に</td></tr>
+    <tr><td><b>現場の採算</b></td><td class="now">終わってから、なんとなく</td><td class="aft">進行中でも現場ごとの利益率。悪い順に並ぶ</td></tr>
+    <tr><td><b>原価の把握</b></td><td class="now">人件費を現場ごとに割るのが手間で、やれていない</td><td class="aft"><b>日報の人工 × 日額原価で自動計算</b>（入力ゼロ）</td></tr>
+  </table>
+
+  <!-- ══ 4. 始め方 ══ -->
+  <h2>4. 始めるまでの流れ（3ステップ）</h2>
+  <div class="steps">
+    <div class="step"><b>準備シートのご記入（10〜15分）</b>
+      <span class="who">御社 → 弊社</span>
+      <p style="margin:6px 0 0;font-size:13.5px">下の§5の内容を、分かる範囲で教えてください。あとからいつでも直せます。</p></div>
+    <div class="step"><b>初期設定（1〜2日）</b>
+      <span class="who">弊社</span>
+      <p style="margin:6px 0 0;font-size:13.5px">いただいた内容をこちらで全部登録します。完了したら「友だち追加QR付きの紙」と「スマホで見られる使い方ガイド」をお渡しします。</p></div>
+    <div class="step"><b>利用開始</b>
+      <span class="who">御社</span>
+      <p style="margin:6px 0 0;font-size:13.5px">作業員の皆さま：QRで友だち追加 → お名前を登録 → その日から日報。<br>
+        社長・事務ご担当：<b>最初の締め日に、請求書づくりを電話でご一緒します</b>（1枚できれば、あとは同じ操作の繰り返しです）。</p></div>
+  </div>
+  <div class="note">困ったときは、どの画面でも<b>「✖ キャンセル」</b>を押せば最初に戻れます。壊れることはありません。</div>
+
+  <!-- ══ 5. 準備するもの ══ -->
+  <h2>5. ご準備いただくもの（準備シート）</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>■ 会社情報（請求書に印字されます）</h3>
+      <ul class="plain">
+        <li>会社名（正式名称）／代表者名／住所／電話</li>
+        <li>インボイス登録番号（T＋13桁・あれば）</li>
+        <li>振込口座（銀行・支店・種別・番号・名義カナ）</li>
+      </ul>
+      <h3>■ 使う方</h3>
+      <ul class="plain">
+        <li>お名前と役割（社長／職長／作業員）</li>
+        <li>請求書を作る方はどなたですか（社長のほかに事務のご担当がいれば）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>■ 請求先（元請）ごとに</h3>
+      <ul class="plain">
+        <li>会社名</li>
+        <li><b>締め日</b>（25日締め・末日締め など）</li>
+        <li><b>入金の条件</b>（例：翌月末払い・翌々月10日払い）</li>
+        <li>請求書に必ず書く欄（工事番号・注文番号など）</li>
+        <li>出し方（紙で持参／メール／元請の指定様式）<br>※指定のExcel様式があればファイルをください</li>
+      </ul>
+      <h3>■ いま動いている現場・単価</h3>
+      <ul class="plain">
+        <li>現場名と、どの元請のお仕事か</li>
+        <li>請負の現場は<b>請負金額と工事名</b></li>
+        <li>常用の<b>工種ごとの1日単価</b>（元請で違えばそれぞれ）</li>
+        <li>あれば、いまの請求書の見本を1〜2枚</li>
+      </ul>
+    </div>
+  </div>
+  <div class="warn"><b>ダッシュボードを使うために、あと2つだけ。</b>
+    ①<b>元請ごとの入金条件</b>（上記）と、②<b>人工1人1日あたりの原価の目安</b>（例：18,000円）。
+    この2つで「今月いくら入る／出る」「現場ごとの利益率」が出ます。②は概算で構いません（あとで変更できます）。</div>
+
+  <!-- ══ 6. サポート ══ -->
+  <h2>6. サポートと安心の仕組み</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>不具合は「こちらが先に気づく」仕組み</h3>
+      <p style="font-size:13.5px">エラーや操作の途中放置は<b>自動で記録され、毎朝こちらに届きます</b>。「なんか変だな」と思ったらそのままにしていただいて大丈夫です。必要ならこちらからご連絡します。</p>
+      <h3>使い方に迷ったら</h3>
+      <p style="font-size:13.5px">スマホの使い方ガイド・動く操作ツアー・印刷用の紙（下のリンク）をご用意しています。電話でのフォローもします。</p>
+    </div>
+    <div class="card">
+      <h3>データの扱い</h3>
+      <ul class="plain">
+        <li>入力されたデータは<b>御社専用の領域</b>に保存され、他社から見えることはありません</li>
+        <li>請求書の金額はデータとして保存され、あとから改訂・取消の履歴も残ります</li>
+        <li>お試し終了時は、データの削除・お渡しのどちらもご相談に応じます</li>
+      </ul>
+      <h3>お試し期間について</h3>
+      <p style="font-size:13.5px">実際の業務でお使いいただき、<b>合わなければいつでも中止できます</b>。使いにくい点はその場で直していきます（それがお試しの目的です）。</p>
+    </div>
+  </div>
+
+  <!-- ══ 7. FAQ ══ -->
+  <h2>7. よくあるご質問</h2>
+  <div class="card">
+    <div class="q">Q. 新しいアプリを入れる必要はありますか？</div>
+    <div class="a">A. ありません。いつものLINEに「FIELDLOG」を友だち追加するだけです。画面下のメニューから操作します。</div>
+    <div class="q">Q. スマホが苦手な作業員でも使えますか？</div>
+    <div class="a">A. 文字入力はほとんどありません。表示される選択肢を押していくだけで終わります。迷ったら「✖ キャンセル」で最初に戻れます。</div>
+    <div class="q">Q. パソコンは必要ですか？</div>
+    <div class="a">A. 日常の操作はすべてスマホで完結します。請求書を紙で印刷・PDF保存するときだけ、パソコンがあると便利です。</div>
+    <div class="q">Q. 元請ごとに請求書の書式が違うのですが。</div>
+    <div class="a">A. 工事番号・注文番号など「必ず書く欄」は元請ごとに設定できます。指定のExcel様式がある場合は、その様式に合わせる対応を順次進めています（様式をお預かりします）。</div>
+    <div class="q">Q. 途中で数字を間違えたら？</div>
+    <div class="a">A. 日報は「日報修正」から直せます。請求書は発行後でも<b>改訂</b>（第2版として履歴を残す）と<b>取消</b>ができます。消えてしまうことはありません。</div>
+    <div class="q">Q. 経理ソフトの代わりになりますか？</div>
+    <div class="a">A. 仕訳や確定申告は行いません。「現場ごと・会社全体で儲かっているか」を社長がスマホで把握するための道具です。税務は顧問の税理士さんの領分として、そこは置き換えません。</div>
+    <div class="q">Q. 人件費の原価が分からないのですが。</div>
+    <div class="a">A. 概算で構いません（例：日給＋保険等で18,000円）。あとから変更でき、変更すると過去分も再計算されます。</div>
+  </div>
+
+  <!-- ══ 8. 資料 ══ -->
+  <h2>8. あわせてご覧いただける資料</h2>
+  <div class="links">
+    <a class="link" href="./manual.html"><b>使い方ガイド</b><span>スマホ向け・日報／請求の全操作</span></a>
+    <a class="link" href="./manual-walkthrough.html"><b>かんたん操作ツアー</b><span>画面が動く紙芝居（日報・休み・請求）</span></a>
+    <a class="link" href="./manual-print.html"><b>印刷用（A4）</b><span>現場に貼れる作業員向け・管理者向け</span></a>
+  </div>
+
+  <footer>
+    FIELDLOG（フィールドログ）のご案内 — 2026年8月版<br>
+    本資料に記載の会社名・現場名・元請名・金額はすべて<b>架空の例</b>です。実在のものではありません。
+  </footer>
+
+</div>
+</body>
+</html>
