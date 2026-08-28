@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>FIELDLOG さわれるデモ</title>
+<meta name="description" content="日報 → 請求 → ダッシュボード。数字がどうつながるかを、実際の画面とほぼ同じデモで体験できます（すべて架空データ）。" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="FIELDLOG" />
+<meta property="og:title" content="FIELDLOG さわれるデモ" />
+<meta property="og:description" content="日報 → 請求 → ダッシュボード。数字がどうつながるかを、実際の画面とほぼ同じデモで体験できます（すべて架空データ）。" />
+<meta property="og:url" content="https://fieldlogai-coder.github.io/fla-liff/demo.html" />
+<meta name="twitter:card" content="summary" />
+  <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-12" />
+  <style>
+    /* 見た目の正本: liff/dashboard.html ／ liff/billing.html（そこからCSSを移植）
+       用語の正本: docs/UI_TERMINOLOGY.md
+       このページはブラウザ内のサンプルデータだけで動くデモです（DB・LINEには接続しません） */
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;background:#e8e6df;color:var(--ink);min-height:100vh;-webkit-text-size-adjust:100%;line-height:1.6;}
+
+    /* ページの枠 */
+    .pagehead{background:var(--acc);color:#fff;padding:16px 16px 14px;}
+    .pagehead .inner{max-width:1080px;margin:0 auto;}
+    .pagehead h1{font-size:19px;}
+    .pagehead .sub{font-size:12.5px;opacity:.9;margin-top:3px;}
+    .appbar{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:120;}
+    .appbar .inner{max-width:1080px;margin:0 auto;display:flex;}
+    .appbar .t{flex:1;text-align:center;padding:11px 2px 9px;font-size:13px;font-weight:600;color:var(--sub);border-bottom:3px solid transparent;cursor:pointer;white-space:nowrap;}
+    .appbar .t.on{color:var(--acc);border-bottom-color:var(--acc);}
+    .stage{max-width:1080px;margin:0 auto;padding:16px 12px 60px;display:flex;gap:20px;flex-wrap:wrap;justify-content:center;align-items:flex-start;}
+    .col-app{flex:0 1 410px;min-width:320px;max-width:440px;width:100%;}
+    .col-guide{flex:1 1 300px;min-width:280px;max-width:500px;}
+
+    /* いまのステップ（電話の上のバナー） */
+    .stepbar{background:#fff;border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:var(--r-sm);padding:9px 12px;margin-bottom:10px;font-size:12.5px;}
+    .stepbar b{font-size:13px;}
+    .stepbar .go{display:inline-block;margin-top:4px;color:var(--acc);font-weight:700;cursor:pointer;}
+    .stepbar.done-all{border-left-color:var(--ok-ink);}
+
+    /* スマホ枠 */
+    .phone{background:var(--bg);border-radius:20px;overflow:hidden;box-shadow:0 6px 22px rgba(0,0,0,.16);border:1px solid #d5d3ca;}
+    .app{display:none;} .app.on{display:block;}
+
+    /* ── アプリ共通（dashboard.html / billing.html から移植） ── */
+    .ph-head{background:var(--acc);color:#fff;padding:11px 13px;position:relative;}
+    .ph-head .top{display:flex;align-items:center;gap:8px;}
+    .ph-head h4{font-size:15.5px;font-weight:bold;flex:1;}
+    .ph-head .hbtn{background:rgba(255,255,255,.22);border:none;color:#fff;padding:5px 10px;border-radius:var(--r-sm);font-size:12px;font-family:inherit;cursor:pointer;}
+    .ph-head .ybar{display:flex;align-items:center;gap:8px;margin-top:7px;font-size:11.5px;}
+    .ph-head .ysel{background:rgba(255,255,255,.22);border-radius:var(--r-sm);padding:2px 8px;}
+    .ph-body{padding:10px 10px 22px;min-height:480px;}
+
+    .c{background:var(--card);border-radius:var(--r);padding:12px;margin-bottom:9px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+    .c-t{font-size:11.5px;color:var(--sub);display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;gap:8px;}
+    .c-t b{color:var(--ink);font-size:12.5px;}
+    .c-t .lnk{color:var(--acc);font-weight:bold;cursor:pointer;white-space:nowrap;}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+    .tile{background:var(--bg);border-radius:var(--r-sm);padding:9px 10px;cursor:pointer;}
+    .tile .k{font-size:10.5px;color:var(--sub);}
+    .tile .v{font-size:16px;font-weight:bold;margin-top:2px;letter-spacing:-.3px;}
+    .tile .n{font-size:10px;color:var(--sub);margin-top:1px;line-height:1.4;}
+    .tile.in .v{color:var(--ok-ink);}
+    .kv{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;gap:8px;}
+    .kv .l{color:var(--sub);} .kv .r{font-weight:bold;white-space:nowrap;}
+    .bar{height:8px;background:#eceae2;border-radius:999px;overflow:hidden;display:flex;margin:5px 0 3px;}
+    .bar i{display:block;height:100%;}
+    .b-done{background:var(--acc);} .b-rest{background:#a8d8c4;} .b-plan{background:#dfdccf;}
+    .lg{font-size:10.5px;color:var(--sub);display:flex;gap:9px;flex-wrap:wrap;}
+    .lg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:3px;vertical-align:middle;}
+    .row{display:flex;align-items:center;gap:7px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;}
+    .row:last-child{border-bottom:none;}
+    .row .nm{flex:1;min-width:0;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .row .mt{color:var(--sub);font-size:11px;white-space:nowrap;}
+    .row .am{font-weight:bold;white-space:nowrap;}
+    .pill{font-size:10px;padding:2px 7px;border-radius:999px;white-space:nowrap;flex-shrink:0;}
+    .p-warn{background:#fdecea;color:var(--warn);}
+    .p-ok{background:var(--ok-bg);color:var(--ok-ink);}
+    .p-cau{background:#fdf4e0;color:#a8781a;}
+    .p-mut{background:#efeee7;color:var(--sub);}
+    .dtabs{display:flex;gap:5px;margin-bottom:9px;}
+    .dtab{flex:1;text-align:center;font-size:12px;padding:7px 0;border-radius:var(--r-sm);background:#fff;border:1px solid var(--line);color:var(--sub);cursor:pointer;}
+    .dtab.on{background:var(--acc);color:#fff;border-color:var(--acc);font-weight:bold;}
+    .chart{display:flex;align-items:flex-end;gap:10px;height:98px;padding-top:6px;}
+    .chart .col{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;}
+    .chart .stack{width:100%;display:flex;flex-direction:column;justify-content:flex-end;height:100%;}
+    .chart .cin{background:var(--acc);border-radius:3px 3px 0 0;min-height:1px;}
+    .chart .cout{background:#e3b5ae;border-radius:0 0 3px 3px;min-height:1px;}
+    .chart .lab{font-size:10px;color:var(--sub);margin-top:4px;}
+    .chart .amt{font-size:10px;font-weight:bold;}
+    .note{background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:8px 10px;font-size:11.5px;line-height:1.55;}
+    .btn{display:inline-block;background:var(--acc);color:#fff;font-size:12px;padding:7px 13px;border-radius:var(--r-sm);margin-top:7px;font-weight:bold;border:none;font-family:inherit;cursor:pointer;}
+    .btn.g{background:#fff;color:var(--acc);border:1px solid var(--acc);}
+    .btn:active{opacity:.7;}
+    .sec{font-size:11.5px;color:var(--sub);margin:12px 2px 6px;font-weight:bold;}
+    .empty{padding:22px 14px;text-align:center;color:var(--sub);font-size:13px;line-height:1.7;}
+    .sbody{display:none;border-top:1px solid var(--line);margin-top:8px;padding-top:8px;}
+    .site.open .sbody{display:block;}
+    .srow{display:flex;align-items:center;gap:7px;cursor:pointer;}
+    .site{border-bottom:1px solid var(--line);padding:9px 0;}
+    .site:first-child{padding-top:0;}
+    .site:last-child{border-bottom:none;padding-bottom:0;}
+    .tg{font-size:10px;color:var(--sub);transition:transform .15s;flex-shrink:0;}
+    .site.open .srow .tg{transform:rotate(90deg);}
+
+    /* ── 請求（billing.html から移植） ── */
+    .bscr{display:none;} .bscr.on{display:block;}
+    .muted{color:var(--sub);font-size:12px;}
+    .sec-label{font-size:13px;font-weight:bold;color:#555;margin:8px 2px 8px;}
+    .inv-row{display:flex;align-items:center;gap:10px;}
+    .inv-main{flex:1;min-width:0;}
+    .inv-title{font-size:14px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .inv-sub{font-size:11.5px;color:var(--sub);margin-top:2px;}
+    .inv-amt{font-size:15px;font-weight:bold;white-space:nowrap;}
+    .badge{font-size:11px;padding:2px 9px;border-radius:999px;white-space:nowrap;flex-shrink:0;}
+    .b-draft{background:#f0eee6;color:#8a887f;}
+    .b-issued{background:var(--ok-bg);color:var(--ok-ink);}
+    .site-card{cursor:pointer;}
+    .site-card:active{transform:scale(.99);}
+    .site-name{font-size:15px;font-weight:bold;}
+    .ctx{display:flex;flex-direction:column;gap:2px;}
+    .ctx .prime{font-size:12.5px;color:var(--sub);}
+    .ctx .site2{font-size:15px;font-weight:bold;}
+    .tpill{display:inline-flex;align-items:center;gap:6px;background:var(--info-bg);color:var(--info-ink);font-size:12px;padding:4px 10px;border-radius:var(--r-sm);margin-top:8px;}
+    .bbtn{width:100%;height:46px;font-size:14px;font-weight:600;border:none;border-radius:var(--r);cursor:pointer;font-family:inherit;}
+    .bbtn-primary{background:var(--acc);color:#fff;}
+    .bbtn-primary:active{background:var(--acc-dark);}
+    .bbtn-ghost{background:var(--card);color:var(--ink);border:1px solid var(--line);}
+    .amt-box{background:var(--bg);border-radius:var(--r);padding:12px;}
+    .amt-box label{font-size:12.5px;color:var(--sub);display:block;margin-bottom:6px;}
+    .amt-input{display:flex;align-items:baseline;gap:6px;}
+    .amt-input .yen{font-size:20px;font-weight:500;}
+    .amt-input input{flex:1;font-size:26px;font-weight:600;border:none;background:transparent;width:100%;font-family:inherit;color:var(--ink);border-bottom:2px solid var(--line);padding-bottom:2px;min-width:0;}
+    .amt-input input:focus{outline:none;border-bottom-color:var(--acc);}
+    .prog-head{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-bottom:6px;}
+    .prog-bar{height:10px;background:#eceae2;border-radius:999px;overflow:hidden;}
+    .prog-fill{height:100%;background:var(--acc);border-radius:999px;transition:width .15s;}
+    .prog-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:4px;}
+    .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;}
+    .mini{background:var(--bg);border-radius:var(--r-sm);padding:9px 11px;}
+    .mini .k{font-size:11.5px;color:var(--sub);}
+    .mini .v{font-size:15px;font-weight:600;}
+    .total-box{padding:11px 13px;border:1px solid var(--line);border-radius:var(--r);}
+    .total-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;}
+    .total-row .lab{font-size:12.5px;color:var(--sub);}
+    .total-row .big{font-size:21px;font-weight:600;}
+    .stepper{display:flex;align-items:center;gap:9px;}
+    .stbtn{width:44px;height:44px;border:1px solid var(--line);background:var(--card);border-radius:var(--r-sm);font-size:20px;cursor:pointer;flex-shrink:0;font-family:inherit;}
+    .stepper input{flex:1;min-width:0;height:44px;text-align:center;font-size:21px;font-weight:600;border:1px solid var(--line);border-radius:var(--r-sm);font-family:inherit;}
+    .jlabel{font-size:13px;font-weight:600;margin:12px 0 6px;}
+    .fl2{font-size:12px;color:var(--sub);display:block;}
+    .fl2 input{width:100%;height:42px;border:1px solid var(--line);border-radius:var(--r-sm);padding:0 12px;font-size:15px;font-family:inherit;margin-top:4px;background:#fff;color:var(--ink);}
+    .stepper input:focus,.fl2 input:focus{outline:none;border-color:var(--acc);}
+    .line-item{display:flex;align-items:center;gap:8px;font-size:12.5px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:6px;}
+    .sum{padding:11px 13px;border:1px solid var(--line);border-radius:var(--r);}
+    .sum .r{display:flex;justify-content:space-between;font-size:12.5px;color:var(--sub);padding:2px 0;}
+    .sum .r.total{margin-top:6px;padding-top:8px;border-top:1px solid var(--line);align-items:center;}
+    .sum .r.total .big{font-size:21px;font-weight:600;color:var(--ink);}
+    .done-check{width:60px;height:60px;border-radius:50%;background:var(--ok-bg);display:inline-flex;align-items:center;justify-content:center;margin-bottom:10px;font-size:32px;color:var(--ok-ink);}
+    .neg{color:var(--warn);}
+
+    /* 請求書A4ビュー（billing.html ④d-1 と同書式・縮小表示） */
+    .sheet{background:#fff;color:#1a1a1a;border-radius:6px;box-shadow:0 1px 6px rgba(0,0,0,.12);padding:18px 16px;font-size:11px;line-height:1.6;}
+    .pv-title{text-align:center;font-size:17px;letter-spacing:8px;font-weight:600;margin-bottom:14px;}
+    .pv-head{display:flex;gap:14px;justify-content:space-between;align-items:flex-start;}
+    .pv-to{flex:1.3;min-width:0;}
+    .pv-toname{font-size:13.5px;font-weight:600;border-bottom:1px solid #333;padding:0 8px 3px 2px;display:inline-block;min-width:70%;}
+    .pv-sub2{font-size:10.5px;color:#333;margin-top:3px;}
+    .pv-amount{display:flex;align-items:baseline;gap:8px;border-bottom:2px solid #333;padding:8px 2px 5px;margin-top:10px;}
+    .pv-amount .lab{font-size:10.5px;}
+    .pv-amount .val{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;}
+    .pv-from{flex:1;min-width:0;font-size:10px;}
+    .pv-from .cname{font-size:12px;font-weight:600;margin-top:5px;}
+    .pv-seal{width:42px;height:42px;border:1px solid #bbb;border-radius:4px;color:#bbb;display:flex;align-items:center;justify-content:center;margin-top:6px;margin-left:auto;font-size:10px;}
+    .pv-table{width:100%;border-collapse:collapse;margin-top:13px;}
+    .pv-table th,.pv-table td{border:1px solid #999;padding:4px 7px;font-size:10.5px;font-variant-numeric:tabular-nums;}
+    .pv-table th{background:#f2f1ec;font-weight:600;text-align:center;}
+    .pv-table td.r,.pv-table th.r{text-align:right;}
+    .pv-table td.c{text-align:center;}
+    .pv-grand td{font-weight:700;background:#f7f6f1;}
+    .pv-bank{margin-top:12px;font-size:10.5px;border:1px solid #ccc;border-radius:4px;padding:8px 10px;background:#fafaf7;}
+
+    /* ── 日報（LINEトーク風・manual.html から移植） ── */
+    .chat-wrap{background:#8cabd9;min-height:480px;display:flex;flex-direction:column;}
+    .chat-date{align-self:center;background:rgba(30,30,30,.35);color:#fff;font-size:10.5px;padding:2px 12px;border-radius:999px;margin:10px 0 2px;}
+    .chat{flex:1;padding:8px 10px 12px;overflow-y:auto;max-height:430px;}
+    .bub{max-width:82%;border-radius:14px;padding:8px 12px;font-size:12.5px;line-height:1.6;margin:6px 0;}
+    .bub.bot{background:#fff;color:#222;border-top-left-radius:4px;}
+    .bub.me{background:#8de055;color:#111;margin-left:auto;border-top-right-radius:4px;}
+    .flexcard{background:#fff;border-radius:12px;padding:11px;margin:6px 0;max-width:90%;}
+    .flexcard .t{font-size:11.5px;color:#6b6a63;margin-bottom:8px;}
+    .fchips{display:flex;gap:6px;flex-wrap:wrap;}
+    .fchip{flex:1;background:#e9f7ec;color:#00b900;text-align:center;border-radius:10px;padding:9px 4px;font-size:12.5px;font-weight:700;white-space:nowrap;cursor:pointer;}
+    .fchip.gray{background:#f0eee6;color:#6b6a63;flex-basis:100%;}
+    .fchip.dis{opacity:.45;cursor:default;}
+    .sumcard{background:#fff;border-radius:12px;padding:11px;margin:6px 0;max-width:92%;font-size:12px;}
+    .sumcard .h{font-weight:700;font-size:12.5px;margin-bottom:6px;}
+    .sumcard .r2{display:flex;justify-content:space-between;padding:2px 0;color:#333;}
+    .rmenu{background:#fff;border-top:1px solid #d9d7cf;}
+    .rmenu .rtabs{display:flex;border-bottom:2px solid var(--line);font-size:11px;}
+    .rmenu .rtabs div{padding:6px 14px;color:var(--sub);}
+    .rmenu .rtabs div.on{color:#00b900;font-weight:700;border-bottom:2px solid #00b900;margin-bottom:-2px;}
+    .rmenu .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;padding:8px;}
+    .rmenu .btn6{border:1px solid var(--line);border-radius:10px;text-align:center;padding:9px 2px;font-size:11px;font-weight:600;cursor:pointer;background:#fff;}
+    .rmenu .btn6.hot{border-color:#00b900;color:#00b900;box-shadow:0 0 0 2px rgba(0,185,0,.15);}
+    .rmenu .btn6.dis{opacity:.45;cursor:default;}
+
+    /* ── ガイド（右カラム） ── */
+    .gcard{background:#fff;border-radius:var(--r);padding:14px 16px;margin-bottom:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
+    .gcard h3{font-size:14.5px;margin-bottom:8px;}
+    .gcard p{font-size:12.5px;margin-bottom:8px;}
+    .gstep{display:flex;gap:9px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;align-items:flex-start;cursor:pointer;}
+    .gstep:last-child{border-bottom:none;}
+    .gstep .no{width:22px;height:22px;border-radius:50%;background:var(--bg);color:var(--sub);display:inline-flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;flex-shrink:0;margin-top:1px;}
+    .gstep.cur .no{background:var(--acc);color:#fff;}
+    .gstep.ok .no{background:var(--ok-bg);color:var(--ok-ink);}
+    .gstep .tx b{display:block;font-size:12.5px;}
+    .gstep .tx span{color:var(--sub);font-size:11.5px;display:block;}
+    .gstep.cur .tx b{color:var(--acc);}
+    .chg{border-left:3px solid var(--acc);background:var(--bg);border-radius:0 var(--r-sm) var(--r-sm) 0;padding:7px 10px;font-size:11.5px;margin-bottom:7px;line-height:1.55;}
+    .chg b{color:var(--acc-dark);}
+    .chg .when{color:var(--sub);font-size:10.5px;}
+
+    /* ── つながり図 ── */
+    .flow{max-width:520px;margin:0 auto;}
+    .fnode{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:11px 14px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+    .fnode b{font-size:13.5px;display:flex;align-items:center;gap:7px;}
+    .fnode .d{font-size:11.5px;color:var(--sub);margin-top:3px;line-height:1.55;}
+    .farrow{text-align:center;color:var(--acc-dark);font-size:11.5px;padding:4px 0;line-height:1.4;}
+    .farrow::before{content:"↓";display:block;font-size:15px;font-weight:700;}
+    .maptable{width:100%;border-collapse:collapse;font-size:11.5px;background:#fff;border-radius:var(--r);overflow:hidden;margin-top:10px;}
+    .maptable th,.maptable td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top;}
+    .maptable th{background:#faf9f5;font-size:11px;color:var(--sub);white-space:nowrap;}
+
+    /* 変化のお知らせ（画面下） */
+    #callout{position:fixed;left:50%;transform:translateX(-50%) translateY(20px);bottom:14px;background:#22322b;color:#fff;font-size:12.5px;padding:12px 16px;border-radius:12px;z-index:300;max-width:min(92vw,460px);box-shadow:0 6px 24px rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;line-height:1.6;}
+    #callout.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0);}
+    #callout .jump{color:#8de0b5;font-weight:700;cursor:pointer;display:inline-block;margin-top:4px;}
+    #callout .x{position:absolute;top:6px;right:10px;cursor:pointer;opacity:.7;}
+    #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:#333;color:#fff;font-size:13px;padding:10px 16px;border-radius:var(--r-sm);opacity:0;transition:opacity .2s;pointer-events:none;z-index:310;max-width:90%;text-align:center;}
+    #toast.show{opacity:.94;} #toast.err{background:var(--warn);}
+
+    /* 発行モーダル */
+    #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:320;align-items:center;justify-content:center;padding:20px;}
+    #modal.open{display:flex;}
+    .modal-box{background:var(--card);border-radius:var(--r);padding:18px;width:100%;max-width:320px;}
+    .modal-box .t{font-size:15px;font-weight:600;margin-bottom:6px;}
+    .modal-box .d{font-size:12.5px;color:var(--sub);line-height:1.6;margin-bottom:14px;}
+    .modal-actions{display:grid;grid-template-columns:1fr 1.2fr;gap:10px;}
+
+    footer{max-width:1080px;margin:0 auto;padding:10px 16px 40px;text-align:center;color:var(--sub);font-size:11.5px;line-height:1.8;}
+    footer a{color:var(--acc);font-weight:700;}
+  </style>
+</head>
+<body>
+
+<div class="pagehead"><div class="inner">
+  <h1>FIELDLOG さわれるデモ</h1>
+  <div class="sub">日報 → 請求 → ダッシュボード。数字がどうつながるかを、実際の画面とほぼ同じ形で体験できます。<b>会社名・現場名・金額はすべて架空</b>で、押しても何も送信されません。</div>
+</div></div>
+
+<div class="appbar"><div class="inner">
+  <div class="t on" id="at-line" onclick="showApp('line')">📱 日報（LINE）</div>
+  <div class="t" id="at-bill" onclick="showApp('bill')">🧾 請求</div>
+  <div class="t" id="at-dash" onclick="showApp('dash')">📊 ダッシュボード</div>
+  <div class="t" id="at-map" onclick="showApp('map')">🔗 つながり図</div>
+</div></div>
+
+<div class="stage">
+
+  <!-- ═══════════ 左：スマホ ═══════════ -->
+  <div class="col-app">
+    <div class="stepbar" id="stepbar"></div>
+
+    <!-- 📱 日報（LINEトーク） -->
+    <div class="app on" id="app-line">
+      <div class="phone">
+        <div class="ph-head"><div class="top"><h4>FIELDLOG（公式アカウント）</h4><span style="font-size:11px;opacity:.85">作業員・佐藤さんのスマホ</span></div></div>
+        <div class="chat-wrap">
+          <div class="chat" id="chat"></div>
+          <div class="rmenu">
+            <div class="rtabs"><div class="on">日報</div><div>請求</div></div>
+            <div class="grid">
+              <div class="btn6" id="rm-report" onclick="chatStart()">日報報告</div>
+              <div class="btn6" onclick="demoToast('デモでは「日報報告」だけ体験できます')">日報確認</div>
+              <div class="btn6" onclick="demoToast('デモでは「日報報告」だけ体験できます')">日報修正</div>
+              <div class="btn6" onclick="demoToast('デモでは「日報報告」だけ体験できます')">現場メモ</div>
+              <div class="btn6" onclick="demoToast('デモでは「日報報告」だけ体験できます')">設定</div>
+              <div class="btn6" onclick="demoToast('デモでは「日報報告」だけ体験できます')">休み報告</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🧾 請求 -->
+    <div class="app" id="app-bill">
+      <div class="phone">
+        <div class="ph-head"><div class="top">
+          <span class="hbtn" id="b-back" style="display:none" onclick="bBack()">◀ 戻る</span>
+          <h4 id="b-title">請求</h4>
+          <span style="font-size:11px;opacity:.85">9月2日・田中社長</span>
+        </div></div>
+        <div class="ph-body" id="b-body"></div>
+      </div>
+    </div>
+
+    <!-- 📊 ダッシュボード -->
+    <div class="app" id="app-dash">
+      <div class="phone">
+        <div class="ph-head">
+          <div class="top">
+            <span class="hbtn" id="d-back" style="display:none" onclick="dGo('home')">‹ 戻る</span>
+            <h4 id="d-title">ダッシュボード</h4>
+            <span class="hbtn" id="d-set" onclick="dGo('settings')">設定</span>
+          </div>
+          <div class="ybar" id="d-ybar"><span class="ysel">2026年 ▼</span><span>架空建設株式会社／9月2日</span></div>
+        </div>
+        <div class="ph-body" id="d-body"></div>
+      </div>
+    </div>
+
+    <!-- 🔗 つながり図 -->
+    <div class="app" id="app-map">
+      <div class="flow">
+        <div class="fnode"><b>📱 日報（LINEトーク）</b><div class="d">作業員が毎日1分で送る「現場・終日/半日」。ここが唯一の入力起点で、<b>人工（にんく）</b>が貯まります。</div></div>
+        <div class="farrow">人工 × 日額原価 ＝ <b>人件費</b>（入力ゼロで自動計算）</div>
+        <div class="fnode"><b>🗂 マスタ（台帳・最初に1回だけ）</b><div class="d">元請の<b>締め日</b>と<b>入金サイト</b>／工種ごとの<b>常用単価</b>／現場×元請の<b>請負金額</b>。ここが請求と入金予定の計算のもとになります。</div></div>
+        <div class="farrow">締め日 → 請求期間を自動算出／単価 → 明細の金額</div>
+        <div class="fnode"><b>🧾 請求書（現場ごとに月1枚）</b><div class="d">現場を選ぶ → 出来高（請負）or 常用（人工）→ 端数調整 → 発行。<b>同じ現場・同じ締め期間は2枚作れません</b>（二重請求ガード）。発行した瞬間に「今期の売上」に乗り、請負なら「これから請求する分」が減ります。</div></div>
+        <div class="farrow">発行済みの請求 ＋ 入金サイト → <b>入金予定日を自動計算</b></div>
+        <div class="fnode"><b>💰 入金予定</b><div class="d">「締めの◯ヶ月後の◯日」から入金日を自動で並べ、遅れは最上段に。<b>「入金済」1タップ</b>で消し込みます。</div></div>
+        <div class="farrow">入金予定・支払・売上・人件費が1画面に集まる</div>
+        <div class="fnode"><b>📊 ダッシュボード（社長の画面）</b><div class="d">今月入る／今月出る／今期の売上／これから請求する分＋<b>要対応</b>（請求漏れ・入金遅延・低採算・仕事量）。現場ごとの支払をざっくり入れると粗利・利益率まで出ます。見込み案件は「受注した」1タップで現場＋請負金額に変わります。</div></div>
+      </div>
+
+      <table class="maptable">
+        <tr><th>ダッシュボードの数字</th><th>どこから来るか</th></tr>
+        <tr><td><b>今月 入る</b></td><td>発行済みの請求 × 元請の入金サイト（自動計算した入金予定日が今月のもの）</td></tr>
+        <tr><td><b>今月 出る</b></td><td>現場ごとにざっくり登録した支払（外注費・材料費）の今月分</td></tr>
+        <tr><td><b>今期の売上</b></td><td>発行済みの請求書の税抜合計（請求LIFFで発行した瞬間に反映）</td></tr>
+        <tr><td><b>これから請求する分</b></td><td>請負金額 −（請負の請求済み累計）。＋見込み案件の合計</td></tr>
+        <tr><td><b>粗利・利益率</b></td><td>売上 − 支払 − <b>人件費（日報の人工 × 日額原価）</b></td></tr>
+        <tr><td><b>要対応</b></td><td>請求漏れ（締め期間に請求なし）／入金遅延（予定日超過）／低採算（目標利益率割れ）／仕事量不足</td></tr>
+      </table>
+      <div class="note" style="margin-top:10px">実物では、これらすべてが LINE の中（LIFF）で動きます。デモにない画面：現場メモ（写真つき伝言板）・設定/確認・毎朝のリマインド通知。</div>
+    </div>
+  </div>
+
+  <!-- ═══════════ 右：ガイド ═══════════ -->
+  <div class="col-guide">
+    <div class="gcard">
+      <h3>おすすめの回り方（約3分）</h3>
+      <div id="gsteps"></div>
+      <button class="btn g" style="margin-top:10px" onclick="resetDemo()">はじめからやり直す</button>
+    </div>
+    <div class="gcard">
+      <h3>いま何が変わったか</h3>
+      <div id="changes"><div class="muted">操作すると、ここに「どの数字がどう動いたか」が積み上がっていきます。</div></div>
+    </div>
+    <div class="gcard">
+      <h3>このデモの設定（架空）</h3>
+      <p style="margin-bottom:4px"><b>架空建設株式会社</b>（塗装業・4人）— 今日は <b>2026年9月2日</b> という想定です。</p>
+      <table class="maptable">
+        <tr><th>現場</th><th>内容</th></tr>
+        <tr><td>〇〇ビル改修工事</td><td>元請 △△工業／<b>請負</b> ¥12,000,000（末日締め・翌月末入金）</td></tr>
+        <tr><td>◇◇マンション大規模修繕</td><td>元請 □□建材／<b>常用</b> 塗装 ¥18,000/日（25日締め・翌月10日入金）</td></tr>
+        <tr><td>××工場 屋根・外壁塗装</td><td>元請 △△工業／請負 ¥3,200,000（完了・採算が悪かった例）</td></tr>
+      </table>
+      <p class="muted" style="margin-top:8px">日額原価 ¥14,000／低採算ライン 15%／年度は1月開始。数字はすべてこの前提から実物と同じ式で計算しています。</p>
+    </div>
+  </div>
+</div>
+
+<footer>
+  このページはブラウザの中だけで動くデモです。データはどこにも送信されず、再読み込みすると元に戻ります。<br>
+  実物の説明は <a href="./intro.html">説明資料</a>／操作の詳しい手順は <a href="./manual.html">使い方ガイド</a> へ。
+</footer>
+
+<div id="callout"></div>
+<div id="toast"></div>
+
+<div id="modal"><div class="modal-box">
+  <div class="t">この請求書を発行しますか？</div>
+  <div class="d">発行すると番号が付き、内容が履歴に残ります。あとから直す場合は新しい版として記録されます。</div>
+  <div class="modal-actions">
+    <button class="bbtn bbtn-ghost" onclick="closeModal()">戻る</button>
+    <button class="bbtn bbtn-primary" onclick="doIssue()">発行する</button>
+  </div>
+</div></div>
+
+<script>
+"use strict";
+// ══════════════════════════════════════════════════════════════════════
+// 状態（すべて架空データ。計算式は liff/dashboard.html・billing.html と同じ考え方）
+// ══════════════════════════════════════════════════════════════════════
+const TODAY = "2026-09-02";           // デモの「今日」
+const THIS_YM = "2026-09";
+const TAX_RATE = 0.10;
+const fmt = n => "¥" + Math.round(n||0).toLocaleString("ja-JP");
+const man = n => { const v = Math.round((n||0)/10000); return (v>=0?"+":"") + v + "万"; };
+const fmtD = s => { if(!s) return ""; const p = String(s).split("-"); return (+p[1]) + "/" + (+p[2]); };
+const ymOf = s => String(s).slice(0,7);
+const ymLabel = ym => (+ym.slice(5,7)) + "月";
+
+let S = null;
+function initState() {
+  S = {
+    laborRate: 14000, lowMargin: 15,
+    primes: {
+      p1: { name:"△△工業", closing:31, offset:1, day:31 },   // 末日締め・翌月末
+      p2: { name:"□□建材", closing:25, offset:1, day:10 },   // 25日締め・翌月10日
+    },
+    sites: [
+      { id:"s1", name:"〇〇ビル改修工事", prime:"p1", contract:12000000, laborMd:72, active:true,
+        plans:{ sub:5200000, mat:1300000 },
+        months:[ {cat:"sub",ym:"2026-06",amt:1200000,paid:true},{cat:"sub",ym:"2026-07",amt:1200000,paid:true},
+                 {cat:"sub",ym:"2026-08",amt:1200000,paid:true},{cat:"sub",ym:"2026-09",amt:800000,paid:false},
+                 {cat:"sub",ym:"2026-10",amt:600000,paid:false},
+                 {cat:"mat",ym:"2026-06",amt:400000,paid:true},{cat:"mat",ym:"2026-07",amt:400000,paid:true},
+                 {cat:"mat",ym:"2026-09",amt:250000,paid:false},{cat:"mat",ym:"2026-10",amt:150000,paid:false} ] },
+      { id:"s2", name:"◇◇マンション大規模修繕", prime:"p2", contract:0, laborMd:41.5, active:true,
+        plans:{ sub:0, mat:60000 },
+        months:[ {cat:"mat",ym:"2026-07",amt:24000,paid:true},{cat:"mat",ym:"2026-09",amt:36000,paid:false} ] },
+      { id:"s3", name:"××工場 屋根・外壁塗装", prime:"p1", contract:3200000, laborMd:32, active:false,
+        plans:{ sub:2100000, mat:350000 },
+        months:[ {cat:"sub",ym:"2026-05",amt:1050000,paid:true},{cat:"sub",ym:"2026-06",amt:1050000,paid:true},
+                 {cat:"mat",ym:"2026-05",amt:350000,paid:true} ] },
+    ],
+    // 発行済みの請求（sub=税抜, total=税込, pe=締め日, due=入金予定日, paid=入金日）
+    invoices: [
+      { id:"i1", no:"2026-0001", site:"s1", sub:2400000, total:2640000, pe:"2026-05-31", due:"2026-06-30", paid:"2026-06-30", kind:"ukeoi" },
+      { id:"i2", no:"2026-0002", site:"s1", sub:2850000, total:3135000, pe:"2026-06-30", due:"2026-07-31", paid:"2026-07-31", kind:"ukeoi" },
+      { id:"i3", no:"2026-0003", site:"s1", sub:3000000, total:3300000, pe:"2026-07-31", due:"2026-08-31", paid:null,        kind:"ukeoi" },
+      { id:"i4", no:"2026-0004", site:"s2", sub:360000,  total:396000,  pe:"2026-06-25", due:"2026-07-10", paid:"2026-07-10", kind:"joyo" },
+      { id:"i5", no:"2026-0005", site:"s2", sub:378000,  total:415800,  pe:"2026-07-25", due:"2026-08-10", paid:"2026-08-10", kind:"joyo" },
+      { id:"i6", no:"2026-0006", site:"s3", sub:1600000, total:1760000, pe:"2026-04-30", due:"2026-05-31", paid:"2026-05-29", kind:"ukeoi" },
+      { id:"i7", no:"2026-0007", site:"s3", sub:1600000, total:1760000, pe:"2026-05-31", due:"2026-06-30", paid:"2026-06-30", kind:"ukeoi" },
+    ],
+    invSeq: 8,
+    leads: [
+      { id:"L1", name:"〇〇小学校 外壁改修", prime:"p1", amount:2000000, prob:"mid", start:"2026-11", status:"open" },
+      { id:"L2", name:"△△倉庫 屋根塗装",   prime:"p1", amount:700000,  prob:"high", start:"2026-10", status:"open" },
+    ],
+    // 8月の日報（◇◇マンション・請求前の集計）
+    ninku: { full:21, half:3 },
+    flags: { report:false, joyo:false, ukeoi:false, paidMark:false, won:false },
+  };
+}
+
+// 元請の入金サイトから入金予定日（dashboard.html dueDateOf と同じ考え方）
+function dueOf(pe, primeId) {
+  const p = S.primes[primeId];
+  const [y,m,d] = pe.split("-").map(Number);
+  const base = new Date(y, m-1 + p.offset, 1);
+  const by = base.getFullYear(), bm = base.getMonth();
+  const last = new Date(by, bm+1, 0).getDate();
+  const day = p.day >= 31 ? last : Math.min(p.day, last);
+  return by + "-" + String(bm+1).padStart(2,"0") + "-" + String(day).padStart(2,"0");
+}
+// 締め日 → 直近に締めた期間（billing.html M3.5-a と同じ「直近に締めた期間」）
+function periodOf(primeId) {
+  if (primeId === "p1") return { ps:"2026-08-01", pe:"2026-08-31", label:"8/1〜8/31" };   // 末日締め：9月頭は前月分
+  return { ps:"2026-07-26", pe:"2026-08-25", label:"7/26〜8/25" };                        // 25日締め
+}
+function siteOf(id){ return S.sites.find(s => s.id === id); }
+function primeName(siteId){ return S.primes[siteOf(siteId).prime].name; }
+function laborCost(site){ return site.laborMd * S.laborRate; }
+
+// ── 会社サマリー（dashboard.html buildSummary の簡約版・式は同じ） ──
+function summary() {
+  const inv = S.invoices;
+  const dues = inv.map(i => ({ i, due: i.due }));
+  const inThis = dues.filter(x => ymOf(x.due) === THIS_YM);
+  const inMonth = inThis.reduce((n,x) => n + x.i.total, 0);
+  const inPaid  = inThis.filter(x => x.i.paid).reduce((n,x) => n + x.i.total, 0);
+  const allMonths = S.sites.flatMap(s => s.months);
+  const outThis = allMonths.filter(m => m.ym === THIS_YM);
+  const outMonth = outThis.reduce((n,m) => n + m.amt, 0);
+  const outPaid  = outThis.filter(m => m.paid).reduce((n,m) => n + m.amt, 0);
+  const salesFY = inv.reduce((n,i) => n + i.sub, 0);
+  const paidFY  = allMonths.filter(m => m.paid).reduce((n,m) => n + m.amt, 0);
+  const laborFY = S.sites.reduce((n,s) => n + laborCost(s), 0);
+  const grossFY = salesFY - paidFY - laborFY;
+  const backlog = S.sites.reduce((n,s) => {
+    if (!s.contract) return n;
+    const billed = inv.filter(i => i.site === s.id && i.kind === "ukeoi").reduce((a,i) => a + i.sub, 0);
+    return n + Math.max(0, s.contract - billed);
+  }, 0);
+  const openLeads = S.leads.filter(l => l.status === "open");
+  const leadTotal = openLeads.reduce((n,l) => n + l.amount, 0);
+  const chart = ["2026-09","2026-10","2026-11"].map(ym => ({
+    ym,
+    cin:  dues.filter(x => ymOf(x.due) === ym).reduce((n,x) => n + x.i.total, 0),
+    cout: allMonths.filter(m => m.ym === ym).reduce((n,m) => n + m.amt, 0),
+  }));
+  return { inMonth, inPaid, outMonth, outPaid, salesFY, paidFY, laborFY, grossFY,
+           marginFY: salesFY ? grossFY/salesFY*100 : 0, backlog, leadTotal, chart };
+}
+
+// 現場ごとの集計
+function siteCalc(s) {
+  const issued = S.invoices.filter(i => i.site === s.id);
+  const billedA2 = issued.filter(i => i.kind === "ukeoi").reduce((n,i) => n + i.sub, 0);
+  const subTotal = issued.reduce((n,i) => n + i.sub, 0);
+  const billed = s.contract ? billedA2 : subTotal;
+  const paid = s.months.filter(m => m.paid).reduce((n,m) => n + m.amt, 0);
+  const planTotal = (s.plans.sub||0) + (s.plans.mat||0);
+  const labor = laborCost(s);
+  const marginNow = billed > 0 ? (billed - paid - labor) / billed * 100 : null;
+  const marginFinal = s.contract > 0 ? (s.contract - planTotal - labor) / s.contract * 100 : null;
+  const per = periodOf(s.prime);
+  const unbilled = s.active && !issued.some(i => i.pe === per.pe);
+  return { billedA2, subTotal, billed, paid, planTotal, labor, marginNow, marginFinal,
+           pct: s.contract ? Math.min(100, billedA2/s.contract*100) : 0,
+           backlog: s.contract ? Math.max(0, s.contract - billedA2) : 0, per, unbilled };
+}
+
+// 要対応（dashboard.html buildTodos と同じ4系統）
+function todos() {
+  const list = [];
+  S.sites.forEach(s => { const c = siteCalc(s);
+    if (c.unbilled) list.push({ kind:"unbilled", label:"請求漏れ", name:s.name, sub:c.per.label + " 締め分", siteId:s.id }); });
+  S.invoices.filter(i => !i.paid && i.due < TODAY).forEach(i => {
+    const days = Math.round((new Date(TODAY) - new Date(i.due)) / 86400000);
+    list.push({ kind:"overdue", label:"入金遅延", name:primeName(i.site), sub:fmtD(i.pe) + "締め分・" + fmtD(i.due) + "予定から" + days + "日", amount:i.total, invId:i.id }); });
+  S.sites.forEach(s => { const c = siteCalc(s);
+    if (c.marginNow != null && c.marginNow < S.lowMargin) list.push({ kind:"low", label:"低採算", name:s.name, sub:"目標 " + S.lowMargin + "% に対して " + c.marginNow.toFixed(1) + "%", siteId:s.id }); });
+  return list;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 共通UI
+// ══════════════════════════════════════════════════════════════════════
+let curApp = "line";
+function showApp(name) {
+  curApp = name;
+  ["line","bill","dash","map"].forEach(k => {
+    document.getElementById("app-" + k).classList.toggle("on", k === name);
+    document.getElementById("at-" + k).classList.toggle("on", k === name);
+  });
+  if (name === "dash") dRender();
+  if (name === "bill") bRender();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function demoToast(msg, err) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.className = err ? "err show" : "show";
+  clearTimeout(t._tm); t._tm = setTimeout(() => t.classList.remove("show"), 3200);
+}
+let calloutTm = null;
+function announce(html, jumpLabel, jumpFn) {
+  const el = document.getElementById("callout");
+  el.innerHTML = '<span class="x" onclick="hideCallout()">✕</span>' + html +
+    (jumpLabel ? '<span class="jump" onclick="hideCallout();(' + jumpFn + ')()">' + jumpLabel + ' ›</span>' : "");
+  el.classList.add("show");
+  clearTimeout(calloutTm); calloutTm = setTimeout(hideCallout, 9000);
+  const log = document.getElementById("changes");
+  if (log.querySelector(".muted")) log.innerHTML = "";
+  const d = document.createElement("div"); d.className = "chg"; d.innerHTML = html;
+  log.prepend(d);
+}
+function hideCallout(){ document.getElementById("callout").classList.remove("show"); }
+
+// ── ガイド ──
+const STEPS = [
+  { key:"report", app:"line", title:"日報を送ってみる", desc:"作業員・佐藤さんになって、8月20日の日報をボタンだけで送ります（約30秒）。" },
+  { key:"joyo",   app:"bill", title:"常用（人工）の請求をつくる", desc:"◇◇マンションの8/25締め分。日報で貯まった人工 × 単価が明細になり、端数調整で丸い金額にして発行します。" },
+  { key:"ukeoi",  app:"bill", title:"出来高（請負）の請求をつくる", desc:"〇〇ビルの8月分。今月進んだ金額を入れると、請負全体の進みぐあいが見えます。" },
+  { key:"dash",   app:"dash", title:"ダッシュボードで確認する", desc:"いま発行した請求が「今期の売上」「今月入る」に乗り、要対応の請求漏れ2件が消えています。" },
+  { key:"paidMark", app:"dash", title:"遅れている入金を消し込む", desc:"入金予定に「遅延」が最上段に出ています。「入金済」を1タップ。" },
+  { key:"won",    app:"dash", title:"見込み案件を受注にする", desc:"「受注した」を押すと、現場と請負金額が自動で作られ、「これから請求する分」が増えます。" },
+];
+function stepDone(key) {
+  if (key === "dash") return S.flags.joyo && S.flags.ukeoi && (S.flags._dashSeen || false);
+  return !!S.flags[key];
+}
+function curStep() { return STEPS.find(st => !stepDone(st.key)) || null; }
+function renderGuide() {
+  const cur = curStep();
+  document.getElementById("gsteps").innerHTML = STEPS.map((st, i) => {
+    const ok = stepDone(st.key), isCur = cur && cur.key === st.key;
+    return '<div class="gstep' + (ok ? " ok" : "") + (isCur ? " cur" : "") + '" onclick="showApp(\'' + st.app + '\')">' +
+      '<span class="no">' + (ok ? "✓" : (i+1)) + '</span>' +
+      '<span class="tx"><b>' + st.title + '</b><span>' + st.desc + '</span></span></div>';
+  }).join("");
+  const bar = document.getElementById("stepbar");
+  if (!cur) {
+    bar.className = "stepbar done-all";
+    bar.innerHTML = "<b>ひと通り体験できました 🎉</b> あとは自由に触ってください（現場カードの支払・元請タブ・つながり図など）。<span class='go' onclick=\"showApp('map')\">つながり図を見る ›</span>";
+  } else {
+    bar.className = "stepbar";
+    const idx = STEPS.indexOf(cur) + 1;
+    bar.innerHTML = "<b>ステップ " + idx + "/6：" + cur.title + "</b><br>" + cur.desc +
+      (curApp !== cur.app ? "<span class='go' onclick=\"showApp('" + cur.app + "')\">この画面へ移動 ›</span>" : "");
+  }
+}
+function resetDemo() {
+  initState(); chatLog = []; chatPhase = 0;
+  bScreen = "list"; bSel = null; dScreen = "home"; dTab = "money";
+  document.getElementById("changes").innerHTML = '<div class="muted">操作すると、ここに「どの数字がどう動いたか」が積み上がっていきます。</div>';
+  hideCallout(); renderChat(); bRender(); dRender(); renderGuide(); showApp("line");
+  demoToast("最初の状態に戻しました");
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 📱 日報（LINEトーク）
+// ══════════════════════════════════════════════════════════════════════
+let chatLog = [];      // {who:'me'|'bot', html} | {flex:...}
+let chatPhase = 0;     // 0=未開始 1=種類 2=現場 3=区分 4=異常 5=引継 6=完了
+function chatPush(item){ chatLog.push(item); renderChat(); }
+function renderChat() {
+  const el = document.getElementById("chat");
+  const parts = ['<div class="chat-date">8月20日（木）</div>'];
+  if (!chatLog.length) parts.push('<div class="bub bot">おつかれさまです！ 下のメニューの<b>「日報報告」</b>を押すと、今日の日報を送れます（ボタンを選ぶだけ・約1分）。</div>');
+  chatLog.forEach(m => parts.push(m.html));
+  el.innerHTML = parts.join("");
+  el.scrollTop = el.scrollHeight;
+  document.getElementById("rm-report").className = "btn6" + (chatPhase === 0 ? " hot" : " dis");
+}
+function fchip(label, fn, dis) {
+  return '<div class="fchip' + (dis ? " dis" : "") + '"' + (dis ? "" : ' onclick="' + fn + '"') + '>' + label + '</div>';
+}
+function chatStart() {
+  if (chatPhase !== 0) { demoToast("報告の途中です。カードのボタンで進めてください"); return; }
+  chatPhase = 1;
+  chatPush({ html:'<div class="bub me">日報報告</div>' });
+  chatPush({ html:'<div class="flexcard"><div class="t">報告の種類を選んでください</div><div class="fchips">' +
+    fchip("昨日と同じ","demoToast('デモでは「通常報告」で進めます')") + fchip("通常報告","chatPick(1)") + fchip("休み","demoToast('デモでは「通常報告」で進めます')") +
+    '</div><div class="fchips" style="margin-top:6px"><div class="fchip gray">✖ キャンセル</div></div></div>' });
+  renderGuide();
+}
+function chatPick(step) {
+  if (step === 1 && chatPhase === 1) {
+    chatPhase = 2;
+    chatPush({ html:'<div class="bub me">通常報告</div>' });
+    chatPush({ html:'<div class="flexcard"><div class="t">現場を選んでください</div><div class="fchips">' +
+      fchip("◇◇マンション大規模修繕","chatPick(2)") + fchip("〇〇ビル改修工事","demoToast('デモは ◇◇マンション で進めます（あとで請求とつながります）')") +
+      '</div></div>' });
+  } else if (step === 2 && chatPhase === 2) {
+    chatPhase = 3;
+    chatPush({ html:'<div class="bub me">◇◇マンション大規模修繕</div>' });
+    chatPush({ html:'<div class="flexcard"><div class="t">勤務区分を選んでください</div><div class="fchips">' +
+      fchip("終日","chatPick(3)") + fchip("半日","demoToast('デモでは「終日」で進めます')") + '</div></div>' });
+  } else if (step === 3 && chatPhase === 3) {
+    chatPhase = 4;
+    chatPush({ html:'<div class="bub me">終日</div>' });
+    chatPush({ html:'<div class="flexcard"><div class="t">異常はありましたか？</div><div class="fchips">' +
+      fchip("異常なし","chatPick(4)") + fchip("異常あり","demoToast('「異常あり」の内容は現場メモに自動転記されます（デモでは異常なしで進めます）')") + '</div></div>' });
+  } else if (step === 4 && chatPhase === 4) {
+    chatPhase = 5;
+    chatPush({ html:'<div class="bub me">異常なし</div>' });
+    chatPush({ html:'<div class="flexcard"><div class="t">引き継ぎはありますか？</div><div class="fchips">' +
+      fchip("なし","chatPick(5)") + fchip("あり（文字で送る）","demoToast('デモでは「なし」で進めます')") + '</div></div>' });
+  } else if (step === 5 && chatPhase === 5) {
+    chatPhase = 6;
+    S.ninku.full += 1;
+    siteOf("s2").laborMd += 1;
+    S.flags.report = true;
+    chatPush({ html:'<div class="bub me">なし</div>' });
+    chatPush({ html:'<div class="sumcard"><div class="h">✅ 日報を登録しました</div>' +
+      '<div class="r2"><span>現場</span><b>◇◇マンション大規模修繕</b></div>' +
+      '<div class="r2"><span>勤務</span><b>終日（1人工）</b></div>' +
+      '<div class="r2"><span>異常・引き継ぎ</span><b>なし</b></div></div>' });
+    chatPush({ html:'<div class="flexcard"><div class="t">おつかれさまでした！</div><div class="fchips">' +
+      fchip("今月の集計を見る","chatSummary()") + '</div></div>' });
+    announce("<b>日報が1件入りました。</b>◇◇マンションの8月の人工が <b>22.5 → 23.5人工</b> に。同時に人件費 ¥14,000（1人工×日額原価）が粗利の計算へ自動で入りました。", "次：この人工で請求をつくる", "function(){ showApp('bill') }");
+    renderGuide();
+  }
+  renderChat();
+}
+function chatSummary() {
+  chatPush({ html:'<div class="bub me">今月の集計</div>' });
+  chatPush({ html:'<div class="sumcard"><div class="h">📊 8月の集計（会社全体）</div>' +
+    '<div class="r2"><span>◇◇マンション大規模修繕</span><b>終日22・半日3（23.5人工）</b></div>' +
+    '<div class="r2"><span>〇〇ビル改修工事</span><b>終日18（18人工）</b></div>' +
+    '<div class="r2" style="margin-top:4px;color:#6b6a63"><span>※ 常用の請求はこの人工が根拠になります</span></div></div>' });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 🧾 請求
+// ══════════════════════════════════════════════════════════════════════
+let bScreen = "list";
+let bSel = null;   // { siteId, kind, per, ... }
+let bJoyo = { full:0, half:0, up:18000, hp:9000, mat:0 };
+let bUkeoi = { amt:0 };
+let bAdjust = [];  // {label, amount}
+let bLastIssued = null;
+
+function bGo(name) { bScreen = name; bRender(); }
+function bBack() {
+  const map = { site:"list", type:"site", joyo:"type", ukeoi:"type", cj:"joyo", cf:"ukeoi", done:"list", print:"done" };
+  bGo(map[bScreen] || "list");
+}
+function bRender() {
+  const titles = { list:"請求", site:"現場を選ぶ", type:"請求の種類", joyo:"常用（人工）", ukeoi:"出来高（請負）", cj:"内容の確認", cf:"内容の確認", done:"発行完了", print:"請求書（A4）" };
+  document.getElementById("b-title").textContent = titles[bScreen] || "請求";
+  document.getElementById("b-back").style.display = bScreen === "list" ? "none" : "inline-block";
+  const el = document.getElementById("b-body");
+  if (bScreen === "list")  el.innerHTML = bListHtml();
+  if (bScreen === "site")  el.innerHTML = bSiteHtml();
+  if (bScreen === "type")  el.innerHTML = bTypeHtml();
+  if (bScreen === "joyo")  { el.innerHTML = bJoyoHtml(); bJoyoCalc(); }
+  if (bScreen === "ukeoi") { el.innerHTML = bUkeoiHtml(); bUkeoiCalc(); }
+  if (bScreen === "cj")    el.innerHTML = bConfirmJoyoHtml();
+  if (bScreen === "cf")    el.innerHTML = bConfirmUkeoiHtml();
+  if (bScreen === "done")  el.innerHTML = bDoneHtml();
+  if (bScreen === "print") el.innerHTML = bPrintHtml();
+}
+function bListHtml() {
+  const rows = [...S.invoices].reverse().map(i => {
+    const s = siteOf(i.site);
+    return '<div class="c"><div class="inv-row">' +
+      '<div class="inv-main"><div class="inv-title">' + primeName(i.site) + '</div>' +
+      '<div class="inv-sub">' + s.name + '　No.' + i.no + '　' + fmtD(i.pe) + '締</div></div>' +
+      '<div style="text-align:right"><div class="inv-amt">' + fmt(i.total) + '</div>' +
+      '<span class="badge b-issued">発行済み</span></div></div></div>';
+  }).join("");
+  return '<div class="c"><div class="muted">利用者</div><div style="font-size:14px;font-weight:bold">田中 一郎（管理者）</div>' +
+    '<div class="muted" style="margin-top:6px">所属会社</div><div style="font-size:14px;font-weight:bold">架空建設株式会社</div></div>' +
+    '<div class="sec-label">請求一覧</div>' + rows +
+    '<button class="bbtn bbtn-primary" style="margin-top:6px" onclick="bGo(\'site\')">＋ 今月の請求をつくる</button>';
+}
+function bSiteHtml() {
+  const cards = S.sites.filter(s => s.active).map(s =>
+    '<div class="c site-card" onclick="bSelectSite(\'' + s.id + '\')">' +
+    '<div class="site-name">' + s.name + '</div>' +
+    '<div class="muted" style="margin-top:2px">元請：' + S.primes[s.prime].name + '</div></div>').join("");
+  return '<div class="note" style="margin-bottom:10px">請求する現場を選んでください（元請は現場に紐づいて自動で決まります）。</div>' + cards;
+}
+function bSelectSite(siteId) {
+  const s = siteOf(siteId);
+  const per = periodOf(s.prime);
+  // 二重発行ガード（実物と同じ：同現場・同締め期間は1枚まで）
+  const exists = S.invoices.find(i => i.site === siteId && i.pe === per.pe);
+  if (exists) { demoToast("この現場の" + fmtD(per.pe) + "締め分は発行済みです（No." + exists.no + "）。二重請求は作れません", true); return; }
+  bSel = { siteId, per };
+  bAdjust = [];
+  bGo("type");
+}
+function bTypeHtml() {
+  const s = siteOf(bSel.siteId);
+  return '<div class="c"><div class="ctx"><span class="prime">元請　' + S.primes[s.prime].name + '</span>' +
+    '<span class="site2">' + s.name + '</span></div>' +
+    '<span class="tpill">締め期間 ' + bSel.per.label + '（締め日から自動）</span></div>' +
+    '<div class="note" style="margin-bottom:12px">この現場の請求の種類を選んでください。</div>' +
+    '<button class="bbtn bbtn-primary" style="margin-bottom:10px" onclick="bChooseUkeoi()">出来高（請負）</button>' +
+    '<button class="bbtn bbtn-ghost" onclick="bChooseJoyo()">常用（人工）</button>';
+}
+function bChooseJoyo() {
+  const s = siteOf(bSel.siteId);
+  if (s.contract) { demoToast("デモでは、この現場は出来高（請負）で進めてください"); return; }
+  bJoyo = { full:0, half:0, up:18000, hp:9000, mat:0 };
+  bSel.kind = "joyo"; bGo("joyo");
+}
+function bChooseUkeoi() {
+  const s = siteOf(bSel.siteId);
+  if (!s.contract) { demoToast("この現場は請負金額が未登録です（常用で請求します）", true); return; }
+  bUkeoi = { amt:0 };
+  bSel.kind = "ukeoi"; bGo("ukeoi");
+}
+function num(id){ const v = parseInt(String(document.getElementById(id).value).replace(/[^0-9]/g,""),10); return isNaN(v) ? 0 : v; }
+function bJoyoHtml() {
+  const s = siteOf(bSel.siteId);
+  return '<div class="c"><div class="ctx"><span class="prime">元請　' + S.primes[s.prime].name + '</span>' +
+    '<span class="site2">' + s.name + '</span></div><span class="tpill">常用（人工）・' + bSel.per.label + '締め分</span></div>' +
+    '<div class="note" style="margin-bottom:10px">日報の集計では、この締め期間の人工は<b>終日22・半日3（23.5人工）</b>でした。' +
+    '<span style="display:block;margin-top:4px"><button class="btn g" style="margin-top:2px" onclick="bFillFromNippo()">デモ用：集計の値をそのまま入れる</button></span></div>' +
+    '<div class="c">' +
+    '<div class="kv"><span class="l">工種</span><span class="r">塗装（単価はマスタから自動）</span></div>' +
+    '<div class="jlabel">終日（1人工）</div>' +
+    '<div class="stepper"><button class="stbtn" onclick="bStep(\'jw-ff\',-1)">−</button><input type="text" inputmode="numeric" id="jw-ff" value="' + bJoyo.full + '" oninput="bJoyoCalc()"><button class="stbtn" onclick="bStep(\'jw-ff\',1)">＋</button></div>' +
+    '<div class="jlabel">半日（0.5人工）</div>' +
+    '<div class="stepper"><button class="stbtn" onclick="bStep(\'jw-fh\',-1)">−</button><input type="text" inputmode="numeric" id="jw-fh" value="' + bJoyo.half + '" oninput="bJoyoCalc()"><button class="stbtn" onclick="bStep(\'jw-fh\',1)">＋</button></div>' +
+    '<div class="grid2" style="margin-top:12px">' +
+    '<label class="fl2">終日の単価（円）<input type="text" inputmode="numeric" id="jw-up" value="18000" oninput="bJoyoCalc()"></label>' +
+    '<label class="fl2">半日の単価<input type="text" inputmode="numeric" id="jw-hp" value="9000" oninput="bJoyoCalc()"></label></div>' +
+    '<label class="fl2" style="margin-top:10px">材料費（あれば・円）<input type="text" inputmode="numeric" id="jw-mat" value="' + (bJoyo.mat||"") + '" placeholder="0" oninput="bJoyoCalc()"></label>' +
+    '<div class="total-box" style="margin-top:12px">' +
+    '<div class="total-row"><span class="lab">合計 <span id="jw-ninku">0.0</span>人工</span><span>税抜 <b id="jw-sub">¥0</b></span></div>' +
+    '<div class="total-row" style="margin-top:6px;padding-top:8px;border-top:1px solid var(--line)"><span class="lab">税込（10%）</span><span class="big" id="jw-total">¥0</span></div></div></div>' +
+    '<button class="bbtn bbtn-primary" onclick="bGoConfirmJoyo()">この内容で確認する</button>';
+}
+function bStep(id, d) {
+  const el = document.getElementById(id);
+  el.value = Math.max(0, num(id) + d);
+  bJoyoCalc();
+}
+function bFillFromNippo() {
+  document.getElementById("jw-ff").value = 22;
+  document.getElementById("jw-fh").value = 3;
+  document.getElementById("jw-mat").value = 12400;
+  bJoyoCalc();
+  demoToast("日報の集計（終日22・半日3）＋材料費を入れました");
+}
+function bJoyoCalc() {
+  if (bScreen !== "joyo") return;
+  bJoyo.full = num("jw-ff"); bJoyo.half = num("jw-fh");
+  bJoyo.up = num("jw-up"); bJoyo.hp = num("jw-hp"); bJoyo.mat = num("jw-mat");
+  const sub = bJoyo.full * bJoyo.up + bJoyo.half * bJoyo.hp + bJoyo.mat;
+  const nin = bJoyo.full + bJoyo.half * 0.5;
+  document.getElementById("jw-ninku").textContent = nin.toFixed(1);
+  document.getElementById("jw-sub").textContent = fmt(sub);
+  document.getElementById("jw-total").textContent = fmt(sub + Math.floor(sub * TAX_RATE));
+}
+function bJoyoLines() {
+  const lines = [];
+  if (bJoyo.full) lines.push({ desc:"塗装 常用（終日）", qty:bJoyo.full, unit:"人工", price:bJoyo.up, amount:bJoyo.full*bJoyo.up });
+  if (bJoyo.half) lines.push({ desc:"塗装 常用（半日）", qty:bJoyo.half, unit:"人工", price:bJoyo.hp, amount:bJoyo.half*bJoyo.hp });
+  if (bJoyo.mat)  lines.push({ desc:"材料費", qty:1, unit:"式", price:bJoyo.mat, amount:bJoyo.mat });
+  return lines;
+}
+function bGoConfirmJoyo() {
+  if (!bJoyo.full && !bJoyo.half) { demoToast("人工を入れてください", true); return; }
+  bGo("cj");
+}
+function bSubtotal() {
+  const base = bSel.kind === "joyo" ? bJoyoLines().reduce((n,l) => n + l.amount, 0) : bUkeoi.amt;
+  return base + bAdjust.reduce((n,a) => n + a.amount, 0);
+}
+function bAdjustHtml() {
+  const rows = bAdjust.map((a,i) =>
+    '<div class="line-item"><span>' + a.label + '</span><span style="margin-left:auto;font-weight:600" class="' + (a.amount<0?"neg":"") + '">' + (a.amount<0?"−":"") + fmt(Math.abs(a.amount)) + '</span>' +
+    '<span class="muted" style="cursor:pointer" onclick="bDelAdjust(' + i + ')">削除</span></div>').join("");
+  return rows + (bAdjust.length ? "" :
+    '<button class="bbtn bbtn-ghost" style="height:40px;font-size:12.5px" onclick="bRoundAdjust()">端数調整（値引き）— 万円未満を丸める</button>');
+}
+function bRoundAdjust() {
+  const cur = bSubtotal();
+  const target = Math.floor(cur / 10000) * 10000;   // 万円未満切捨て（実物の初期提案と同じ）
+  if (target === cur) { demoToast("すでに丸い金額です"); return; }
+  bAdjust.push({ label:"値引き", amount: target - cur });
+  bRender();
+  demoToast("値引き " + fmt(cur - target) + " を明細に追加しました（税抜 " + fmt(target) + " に）");
+}
+function bDelAdjust(i){ bAdjust.splice(i,1); bRender(); }
+function bConfirmJoyoHtml() {
+  const s = siteOf(bSel.siteId);
+  const lines = bJoyoLines().map(l =>
+    '<div class="line-item"><span>' + l.desc + '　' + l.qty + l.unit + ' × ' + fmt(l.price) + '</span><span style="margin-left:auto;font-weight:600">' + fmt(l.amount) + '</span></div>').join("");
+  const sub = bSubtotal(), tax = Math.floor(sub * TAX_RATE);
+  return '<div class="c"><div style="font-size:15px;font-weight:600">' + S.primes[s.prime].name + '</div>' +
+    '<div class="muted" style="margin-top:2px">' + s.name + '</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><span class="badge b-issued">常用・請負外請求書</span>' +
+    '<span class="badge b-draft">' + bSel.per.label + '締め</span><span class="badge b-draft">番号は発行時に自動</span></div></div>' +
+    '<div class="c">' + lines + bAdjustHtml() +
+    '<div class="sum" style="margin-top:10px"><div class="r"><span>税抜 合計</span><span>' + fmt(sub) + '</span></div>' +
+    '<div class="r"><span>消費税（10%）</span><span>' + fmt(tax) + '</span></div>' +
+    '<div class="r total"><span>税込 請求額</span><span class="big">' + fmt(sub+tax) + '</span></div></div></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1.4fr;gap:10px">' +
+    '<button class="bbtn bbtn-ghost" onclick="bBack()">修正する</button>' +
+    '<button class="bbtn bbtn-primary" onclick="openModal()">この内容で発行する</button></div>';
+}
+function bUkeoiHtml() {
+  const s = siteOf(bSel.siteId);
+  const c = siteCalc(s);
+  return '<div class="c"><div class="ctx"><span class="prime">元請　' + S.primes[s.prime].name + '</span>' +
+    '<span class="site2">' + s.name + '</span></div><span class="tpill">出来高（請負）・' + bSel.per.label + '締め分</span></div>' +
+    '<div class="note" style="margin-bottom:10px">前回までの請求は記録済みです。今月進んだぶんだけ入れてください。' +
+    '<span style="display:block;margin-top:4px"><button class="btn g" style="margin-top:2px" onclick="bFillUkeoi()">デモ用：例の金額 ¥1,500,000 を入れる</button></span></div>' +
+    '<div class="c"><div class="amt-box"><label>今月分の出来高（税抜・円）</label>' +
+    '<div class="amt-input"><span class="yen">¥</span><input type="text" inputmode="numeric" id="in-b" placeholder="0" oninput="bUkeoiCalc()"></div></div>' +
+    '<div style="margin-top:12px"><div class="prog-head"><span>工事全体の進みぐあい</span><span><span id="in-pct">0.0</span>%</span></div>' +
+    '<div class="prog-bar"><div class="prog-fill" id="in-bar" style="width:0%"></div></div>' +
+    '<div class="prog-foot"><span>当初請負 ' + fmt(s.contract) + '</span><span>残額 <span id="in-rem">' + fmt(s.contract - c.billedA2) + '</span></span></div></div>' +
+    '<div class="grid2" style="margin-top:12px">' +
+    '<div class="mini"><div class="k">前回まで（請求済）</div><div class="v">' + fmt(c.billedA2) + '</div></div>' +
+    '<div class="mini"><div class="k">消費税（10%）</div><div class="v" id="in-tax">¥0</div></div></div>' +
+    '<div class="total-box" style="margin-top:12px"><div class="total-row"><span class="lab">今月の請求額（税込）</span><span class="big" id="in-total">¥0</span></div></div></div>' +
+    '<button class="bbtn bbtn-primary" onclick="bGoConfirmUkeoi()">この内容で確認する</button>';
+}
+function bFillUkeoi(){ document.getElementById("in-b").value = 1500000; bUkeoiCalc(); }
+function bUkeoiCalc() {
+  if (bScreen !== "ukeoi") return;
+  const s = siteOf(bSel.siteId), c = siteCalc(s);
+  bUkeoi.amt = num("in-b");
+  const cum = c.billedA2 + bUkeoi.amt;
+  const pct = Math.min(100, cum / s.contract * 100);
+  document.getElementById("in-pct").textContent = pct.toFixed(1);
+  document.getElementById("in-bar").style.width = pct + "%";
+  document.getElementById("in-rem").textContent = fmt(Math.max(0, s.contract - cum));
+  const tax = Math.floor(bUkeoi.amt * TAX_RATE);
+  document.getElementById("in-tax").textContent = fmt(tax);
+  document.getElementById("in-total").textContent = fmt(bUkeoi.amt + tax);
+}
+function bGoConfirmUkeoi() {
+  if (!bUkeoi.amt) { demoToast("今月分の金額を入れてください", true); return; }
+  bGo("cf");
+}
+function bConfirmUkeoiHtml() {
+  const s = siteOf(bSel.siteId), c = siteCalc(s);
+  const sub = bSubtotal(), tax = Math.floor(sub * TAX_RATE);
+  return '<div class="c"><div style="font-size:15px;font-weight:600">' + S.primes[s.prime].name + '</div>' +
+    '<div class="muted" style="margin-top:2px">' + s.name + '</div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><span class="badge b-issued">請負請求書</span>' +
+    '<span class="badge b-draft">' + bSel.per.label + '締め</span><span class="badge b-draft">番号は発行時に自動</span></div></div>' +
+    '<div class="c"><div class="grid2">' +
+    '<div class="mini"><div class="k">前回まで（請求済）</div><div class="v">' + fmt(c.billedA2) + '</div></div>' +
+    '<div class="mini"><div class="k">今月分</div><div class="v">' + fmt(bUkeoi.amt) + '</div></div>' +
+    '<div class="mini"><div class="k">当初請負</div><div class="v">' + fmt(s.contract) + '</div></div>' +
+    '<div class="mini"><div class="k">請求残額</div><div class="v">' + fmt(Math.max(0, s.contract - c.billedA2 - bUkeoi.amt)) + '</div></div></div>' +
+    '<div class="line-item" style="margin-top:12px"><span>' + s.name + '　出来高（8月分）一式</span><span style="margin-left:auto;font-weight:600">' + fmt(bUkeoi.amt) + '</span></div>' +
+    bAdjustHtml() +
+    '<div class="sum" style="margin-top:10px"><div class="r"><span>税抜 合計</span><span>' + fmt(sub) + '</span></div>' +
+    '<div class="r"><span>消費税（10%）</span><span>' + fmt(tax) + '</span></div>' +
+    '<div class="r total"><span>税込 請求額</span><span class="big">' + fmt(sub+tax) + '</span></div></div></div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1.4fr;gap:10px">' +
+    '<button class="bbtn bbtn-ghost" onclick="bBack()">修正する</button>' +
+    '<button class="bbtn bbtn-primary" onclick="openModal()">この内容で発行する</button></div>';
+}
+function openModal(){ document.getElementById("modal").classList.add("open"); }
+function closeModal(){ document.getElementById("modal").classList.remove("open"); }
+function doIssue() {
+  closeModal();
+  const s = siteOf(bSel.siteId);
+  const sub = bSubtotal(), tax = Math.floor(sub * TAX_RATE), total = sub + tax;
+  const no = "2026-" + String(S.invSeq++).padStart(4, "0");
+  const lines = bSel.kind === "joyo"
+    ? bJoyoLines().concat(bAdjust.map(a => ({ desc:a.label, qty:1, unit:"式", price:a.amount, amount:a.amount })))
+    : [{ desc:s.name + "　出来高（8月分）", qty:1, unit:"式", price:bUkeoi.amt, amount:bUkeoi.amt }]
+        .concat(bAdjust.map(a => ({ desc:a.label, qty:1, unit:"式", price:a.amount, amount:a.amount })));
+  const inv = { id:"n"+no, no, site:bSel.siteId, sub, total, pe:bSel.per.pe,
+                due: dueOf(bSel.per.pe, s.prime), paid:null, kind:bSel.kind, lines };
+  S.invoices.push(inv);
+  bLastIssued = inv;
+  S.flags[bSel.kind] = true;
+  const dueTxt = fmtD(inv.due);
+  if (bSel.kind === "joyo") {
+    announce("<b>請求書 No." + no + " を発行しました（" + fmt(total) + "）。</b>ダッシュボードの「今期の売上」に " + fmt(sub) + " が乗り、入金予定 <b>" + dueTxt + "</b>（□□建材の入金サイトから自動計算）が「今月入る」に加わりました。要対応の請求漏れも1件消えています。",
+      "ダッシュボードで見る", "function(){ showApp('dash'); dGo('home') }");
+  } else {
+    announce("<b>請求書 No." + no + " を発行しました（" + fmt(total) + "）。</b>「今期の売上」＋" + fmt(sub) + "、「これから請求する分」−" + fmt(sub) + "。請負の進みぐあいは " + siteCalc(s).pct.toFixed(0) + "% になり、入金予定 <b>" + dueTxt + "</b> が加わりました。",
+      "ダッシュボードで見る", "function(){ showApp('dash'); dGo('home') }");
+  }
+  renderGuide();
+  bGo("done");
+}
+function bDoneHtml() {
+  const i = bLastIssued;
+  const s = siteOf(i.site);
+  return '<div style="text-align:center;padding:18px 10px 6px"><div class="done-check">✓</div>' +
+    '<div style="font-size:17px;font-weight:600">発行しました</div>' +
+    '<div class="muted" style="margin-top:4px">No.' + i.no + '</div></div>' +
+    '<div class="c" style="margin-top:6px"><div class="muted">' + S.primes[s.prime].name + '／' + s.name + '</div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px"><span class="muted">税込</span>' +
+    '<span style="font-size:20px;font-weight:600">' + fmt(i.total) + '</span></div>' +
+    '<div class="kv" style="margin-top:6px"><span class="l">入金予定日（自動計算）</span><span class="r">' + fmtD(i.due) + '</span></div></div>' +
+    '<button class="bbtn bbtn-ghost" style="margin-bottom:10px" onclick="bGo(\'print\')">📄 請求書を表示（A4イメージ）</button>' +
+    '<button class="bbtn bbtn-primary" style="margin-bottom:10px" onclick="showApp(\'dash\');dGo(\'home\')">📊 ダッシュボードで反映を見る</button>' +
+    '<button class="bbtn bbtn-ghost" onclick="bGo(\'list\')">請求一覧へもどる</button>';
+}
+function bPrintHtml() {
+  const i = bLastIssued;
+  const s = siteOf(i.site);
+  const rows = (i.lines || []).map(l => {
+    const negCls = l.amount < 0 ? ' style="color:#c0392b"' : "";
+    const amt = (l.amount < 0 ? "−" : "") + fmt(Math.abs(l.amount)).slice(1);
+    return "<tr><td>" + l.desc + '</td><td class="c">' + (l.qty||1) + '</td><td class="c">' + (l.unit||"式") + '</td>' +
+      '<td class="r">' + (l.price != null ? Math.abs(l.price).toLocaleString("ja-JP") : "") + '</td><td class="r"' + negCls + '>' + amt + "</td></tr>";
+  }).join("");
+  const tax = i.total - i.sub;
+  return '<div class="sheet"><div class="pv-title">請　求　書</div>' +
+    '<div class="pv-head"><div class="pv-to">' +
+    '<div class="pv-toname">' + S.primes[s.prime].name + '　御中</div>' +
+    '<div class="pv-sub2">現場：' + s.name + '</div>' +
+    '<div style="margin-top:10px;font-size:10.5px">下記のとおりご請求申し上げます。</div>' +
+    '<div class="pv-amount"><span class="lab">ご請求金額</span><span class="val">' + fmt(i.total).slice(1) + '</span><span style="font-size:10px">円（税込）</span></div></div>' +
+    '<div class="pv-from"><div>No.' + i.no + '</div><div>2026年9月2日</div>' +
+    '<div class="cname">架空建設株式会社</div><div>代表　田中 一郎</div><div>登録番号 T0000000000000</div>' +
+    '<div class="pv-seal">印</div></div></div>' +
+    '<table class="pv-table"><thead><tr><th>摘要</th><th>数量</th><th>単位</th><th class="r">単価</th><th class="r">金額</th></tr></thead>' +
+    '<tbody>' + rows + '</tbody><tfoot>' +
+    '<tr><td colspan="4" class="r">小計</td><td class="r">' + fmt(i.sub).slice(1) + '</td></tr>' +
+    '<tr><td colspan="4" class="r">消費税（10%）</td><td class="r">' + fmt(tax).slice(1) + '</td></tr>' +
+    '<tr class="pv-grand"><td colspan="4" class="r">合計</td><td class="r">' + fmt(i.total).slice(1) + '</td></tr>' +
+    '</tfoot></table>' +
+    '<div class="pv-bank">お振込先：〇〇銀行 △△支店　普通 1234567　カ）カクウケンセツ</div></div>' +
+    '<div class="muted" style="text-align:center;margin-top:8px">実物はこのまま印刷／PDF保存できます（値引き行もそのまま印字されます）。</div>' +
+    '<button class="bbtn bbtn-ghost" style="margin-top:10px" onclick="bGo(\'done\')">もどる</button>';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 📊 ダッシュボード
+// ══════════════════════════════════════════════════════════════════════
+let dScreen = "home", dTab = "money";
+function dGo(name) {
+  dScreen = name;
+  if (name === "home" && S.flags.joyo && S.flags.ukeoi) { S.flags._dashSeen = true; renderGuide(); }
+  dRender();
+}
+function dRender() {
+  const titles = { home:"ダッシュボード", payin:"入金予定", todo:"要対応", leads:"見込み案件", settings:"ダッシュボードの設定" };
+  document.getElementById("d-title").textContent = titles[dScreen];
+  document.getElementById("d-back").style.display = dScreen === "home" ? "none" : "inline-block";
+  document.getElementById("d-set").style.display = dScreen === "home" ? "inline-block" : "none";
+  document.getElementById("d-ybar").style.display = dScreen === "home" ? "flex" : "none";
+  const el = document.getElementById("d-body");
+  if (dScreen === "home")  el.innerHTML = dHomeHtml();
+  if (dScreen === "payin") el.innerHTML = dPayinHtml();
+  if (dScreen === "todo")  el.innerHTML = dTodoHtml();
+  if (dScreen === "leads") el.innerHTML = dLeadsHtml();
+  if (dScreen === "settings") el.innerHTML = dSettingsHtml();
+}
+function dSetTab(t){ dTab = t; dRender(); }
+function dHomeHtml() {
+  const sum = summary();
+  const td = todos();
+  const gross = "粗利 " + fmt(sum.grossFY) + "（" + sum.marginFY.toFixed(1) + "%）";
+  const tiles = '<div class="c"><div class="split">' +
+    '<div class="tile in" onclick="dGo(\'payin\')"><div class="k">今月 入る</div><div class="v">' + fmt(sum.inMonth) + '</div><div class="n">入金済み ' + fmt(sum.inPaid) + '</div></div>' +
+    '<div class="tile" onclick="dSetTab(\'sites\')"><div class="k">今月 出る</div><div class="v">' + fmt(sum.outMonth) + '</div><div class="n">支払済み ' + fmt(sum.outPaid) + '</div></div></div>' +
+    '<div class="split" style="margin-top:7px">' +
+    '<div class="tile" onclick="dSetTab(\'sites\')"><div class="k">今期の売上</div><div class="v">' + fmt(sum.salesFY) + '</div><div class="n">' + gross + '</div></div>' +
+    '<div class="tile" onclick="dGo(\'leads\')"><div class="k">これから請求する分</div><div class="v">' + fmt(sum.backlog) + '</div><div class="n">＋見込み ' + fmt(sum.leadTotal) + '</div></div></div></div>';
+  const todoCard = td.length
+    ? '<div class="c" style="border:1px solid #f0c8c2"><div class="c-t"><b style="color:var(--warn)">要対応 ' + td.length + '件</b><span class="lnk" onclick="dGo(\'todo\')">すべて見る ›</span></div>' +
+      td.slice(0,3).map(t => '<div class="row"><span class="pill ' + (t.kind==="low"?"p-cau":"p-warn") + '">' + t.label + '</span><span class="nm">' + t.name + '</span>' +
+        '<span class="' + (t.amount!=null?"am":"mt") + '">' + (t.amount!=null?fmt(t.amount):t.sub) + '</span></div>').join("") +
+      (td.length > 3 ? '<div class="row"><span class="mt">ほか ' + (td.length-3) + '件</span></div>' : "") + '</div>'
+    : '<div class="c"><div class="c-t"><b style="color:var(--ok-ink)">要対応はありません</b></div><div class="note">請求漏れ・入金遅延・低採算の現場は見つかりませんでした。</div></div>';
+  const tabs = '<div class="dtabs">' +
+    '<div class="dtab' + (dTab==="money"?" on":"") + '" onclick="dSetTab(\'money\')">お金</div>' +
+    '<div class="dtab' + (dTab==="sites"?" on":"") + '" onclick="dSetTab(\'sites\')">現場</div>' +
+    '<div class="dtab' + (dTab==="primes"?" on":"") + '" onclick="dSetTab(\'primes\')">元請</div></div>';
+  const body = dTab === "money" ? dMoneyHtml(sum) : dTab === "sites" ? dSitesHtml() : dPrimesHtml();
+  return tiles + todoCard + tabs + body;
+}
+function dMoneyHtml(sum) {
+  const max = Math.max(1, ...sum.chart.map(c => Math.max(c.cin, c.cout)));
+  const chart = '<div class="c"><div class="c-t"><b>入金と支払（3ヶ月）</b><span>上=入金／下=支払</span></div><div class="chart">' +
+    sum.chart.map(c => {
+      const diff = c.cin - c.cout;
+      return '<div class="col"><div class="amt" style="color:' + (diff>=0?"var(--ok-ink)":"var(--warn)") + '">' + man(diff) + '</div>' +
+        '<div class="stack"><i class="cin" style="height:' + Math.round(c.cin/max*46) + 'px"></i><i class="cout" style="height:' + Math.round(c.cout/max*46) + 'px"></i></div>' +
+        '<div class="lab">' + ymLabel(c.ym) + '</div></div>';
+    }).join("") + '</div>' +
+    (sum.chart.some(c => c.cin - c.cout < 0) ? '<div class="note" style="margin-top:8px">支払が入金を上回る月があります。請求の前倒しや支払時期の相談を検討してください。</div>' : "") + '</div>';
+  const dues = S.invoices.filter(i => !i.paid).sort((a,b) => a.due < b.due ? -1 : 1).slice(0,4);
+  const payin = '<div class="c"><div class="c-t"><b>近い入金予定</b><span class="lnk" onclick="dGo(\'payin\')">すべて見る ›</span></div>' +
+    (dues.length ? dues.map(i => '<div class="row">' + (i.due < TODAY ? '<span class="pill p-warn">遅延</span>' : "") +
+      '<span class="nm">' + primeName(i.site) + '</span><span class="mt">' + fmtD(i.due) + '入金・' + fmtD(i.pe) + '締め</span>' +
+      '<span class="am">' + fmt(i.total) + '</span></div>').join("")
+      : '<div class="row"><span class="mt">未入金の請求はありません</span></div>') + '</div>';
+  const cats = [["sub","外注費"],["mat","材料費"]].map(([key,label]) => {
+    const ms = S.sites.flatMap(s => s.months).filter(m => m.cat === key && m.ym === THIS_YM);
+    return { label, total: ms.reduce((n,m)=>n+m.amt,0), paid: ms.filter(m=>m.paid).reduce((n,m)=>n+m.amt,0) };
+  }).filter(x => x.total > 0);
+  const pay = '<div class="c"><div class="c-t"><b>今月の支払</b><span class="lnk" onclick="dSetTab(\'sites\')">現場ごとに見る ›</span></div>' +
+    (cats.length ? cats.map(x => '<div class="row"><span class="nm">' + x.label + '</span><span class="mt">済 ' + fmt(x.paid) + '</span><span class="am">' + fmt(x.total) + '</span></div>').join("")
+      : '<div class="row"><span class="mt">今月の支払予定は登録されていません</span></div>') +
+    '<div class="note" style="margin-top:7px">※ 人件費（日報×日額原価 ' + fmt(S.laborRate) + '）は今期 ' + fmt(summary().laborFY) + '。粗利には含めていますが、この「支払」欄には出していません。</div></div>';
+  return chart + payin + pay;
+}
+function dSitesHtml() {
+  const rows = [...S.sites].sort((a,b) => {
+    const ma = siteCalc(a).marginNow ?? 999, mb = siteCalc(b).marginNow ?? 999;
+    return ma - mb;
+  });
+  return '<div class="c"><div class="c-t"><b>現場 ' + rows.length + '件</b><span class="lnk">採算の悪い順 ▼</span></div>' +
+    rows.map(dSiteHtml).join("") + '</div>';
+}
+function dSiteHtml(s) {
+  const c = siteCalc(s);
+  const badge = c.unbilled ? '<span class="pill p-warn">⚠ 未請求</span>' : (!s.active ? '<span class="pill p-mut">完了</span>' : "");
+  const low = c.marginNow != null && c.marginNow < S.lowMargin;
+  const mg = c.marginNow != null ? '<span class="pill ' + (low ? "p-cau" : "p-ok") + '">' + c.marginNow.toFixed(1) + '%</span>' : '<span class="mt">請求なし</span>';
+  const contract = s.contract
+    ? '<div class="kv"><span class="l">請負金額</span><span class="r">' + fmt(s.contract) + '</span></div>' +
+      '<div class="bar"><i class="b-done" style="width:' + c.pct + '%"></i><i class="b-rest" style="width:' + (100-c.pct) + '%"></i></div>' +
+      '<div class="lg" style="margin-bottom:6px"><span><i class="b-done"></i>請求済み ' + fmt(c.billedA2) + '（' + c.pct.toFixed(0) + '%）</span><span><i class="b-rest"></i>これから ' + fmt(c.backlog) + '</span></div>'
+    : '<div class="kv"><span class="l">請求累計（税抜）</span><span class="r">' + fmt(c.subTotal) + '</span></div>' +
+      '<div class="lg" style="margin-bottom:4px">請負金額が未登録の現場（常用）</div>';
+  const margins = '<div class="split" style="margin-top:7px">' +
+    '<div class="tile" style="cursor:default"><div class="k">いま時点の利益率</div><div class="v" style="color:' + (c.marginNow==null?"#b3b1a8":(low?"#a8781a":"var(--ok-ink)")) + '">' + (c.marginNow!=null?c.marginNow.toFixed(1)+"%":"—") + '</div><div class="n">(請求済−支払済−人件費)÷請求済</div></div>' +
+    '<div class="tile" style="cursor:default"><div class="k">最終見込み</div><div class="v">' + (c.marginFinal!=null?c.marginFinal.toFixed(1)+"%":"—") + '</div><div class="n">(請負−支払予定−人件費)÷請負</div></div></div>';
+  const payRows = s.months.map((m,idx) =>
+    '<div class="row" style="padding:5px 0"><span class="mt">' + m.ym.replace("-","/") + '</span>' +
+    '<span class="nm" style="font-weight:normal">' + (m.cat==="sub"?"外注費":"材料費") + '　' + fmt(m.amt) + '</span>' +
+    '<span class="pill ' + (m.paid?"p-ok":"p-mut") + '" style="cursor:pointer" onclick="dTogglePaid(\'' + s.id + '\',' + idx + ')">' + (m.paid?"済":"予定") + '</span></div>').join("");
+  const status = c.unbilled ? '<div class="note" style="margin-top:7px">⚠ 直近の締め分（' + c.per.label + '）の請求がまだありません。</div>' : "";
+  return '<div class="site" id="dsite-' + s.id + '"><div class="srow" onclick="dTgl(\'' + s.id + '\')">' +
+    '<span class="tg">▶</span><span class="nm">' + s.name + '</span>' + badge + mg + '</div>' +
+    '<div class="sbody"><div class="lg" style="margin-bottom:5px">元請: ' + S.primes[s.prime].name + '／人件費 ' + fmt(c.labor) + '（' + s.laborMd + '人工）</div>' +
+    contract + margins +
+    '<div class="c-t" style="margin-top:10px"><b>支払（ざっくり・税抜）</b><span>予定計 ' + fmt(c.planTotal) + '</span></div>' +
+    (payRows || '<div class="lg">支払は未登録です</div>') +
+    '<div class="lg" style="margin-top:4px">「済」「予定」をタップすると切り替わります（今月出る・粗利に反映）</div>' +
+    status +
+    '<div style="margin-top:8px"><button class="btn g" onclick="showApp(\'bill\')">請求を開く</button></div></div></div>';
+}
+function dTgl(id) { const el = document.getElementById("dsite-" + id); if (el) el.classList.toggle("open"); }
+function dTogglePaid(siteId, idx) {
+  const s = siteOf(siteId);
+  const m = s.months[idx];
+  m.paid = !m.paid;
+  dRender();
+  const el = document.getElementById("dsite-" + siteId); if (el) el.classList.add("open");
+  if (m.paid) announce("<b>" + (m.cat==="sub"?"外注費":"材料費") + " " + fmt(m.amt) + " を支払済みにしました。</b>「今月出る」の支払済みと、" + s.name + " の「いま時点の利益率」・会社の粗利が動きました。");
+  else demoToast("「予定」に戻しました");
+}
+function dPrimesHtml() {
+  const groups = {};
+  S.invoices.forEach(i => {
+    const pid = siteOf(i.site).prime;
+    (groups[pid] = groups[pid] || { sales:0, unpaid:0, overdue:0, sites:new Set() });
+    groups[pid].sales += i.sub;
+    if (!i.paid) { groups[pid].unpaid += i.total; if (i.due < TODAY) groups[pid].overdue += i.total; }
+    groups[pid].sites.add(i.site);
+  });
+  const list = Object.entries(groups).sort((a,b) => b[1].sales - a[1].sales);
+  const total = list.reduce((n,[,g]) => n + g.sales, 0) || 1;
+  return list.map(([pid,g]) => {
+    const p = S.primes[pid];
+    const share = g.sales / total * 100;
+    const terms = (p.closing < 28 ? p.closing + "日締め" : "末日締め") + "・" + (p.offset === 0 ? "当月" : p.offset + "ヶ月後") + (p.day >= 31 ? "末日" : p.day + "日");
+    return '<div class="c"><div class="c-t"><b>' + p.name + '</b><span>現場' + g.sites.size + '件</span></div>' +
+      '<div class="kv"><span class="l">今期の売上</span><span class="r">' + fmt(g.sales) + '（' + share.toFixed(0) + '%）</span></div>' +
+      '<div class="bar"><i class="b-done" style="width:' + share + '%"></i></div>' +
+      '<div class="kv"><span class="l">未入金</span><span class="r"' + (g.overdue?' style="color:var(--warn)"':"") + '>' + fmt(g.unpaid) + (g.overdue?'（うち遅延 ' + fmt(g.overdue) + '）':"") + '</span></div>' +
+      '<div class="kv"><span class="l">締め／入金</span><span class="r">' + terms + '</span></div>' +
+      (share >= 60 ? '<div class="note" style="margin-top:6px">1社への偏りが大きめです（' + share.toFixed(0) + '%）。その元請の支払が止まると資金繰りに直結します。</div>' : "") + '</div>';
+  }).join("");
+}
+function dPayinHtml() {
+  const rows = S.invoices.map(i => ({ i, due:i.due }));
+  const overdue = rows.filter(x => !x.i.paid && x.due < TODAY).sort((a,b) => a.due < b.due ? -1 : 1);
+  const rest = rows.filter(x => !(!x.i.paid && x.due < TODAY)).sort((a,b) => a.due < b.due ? -1 : 1);
+  const unpaidTotal = rows.filter(x => !x.i.paid).reduce((n,x) => n + x.i.total, 0);
+  const sum = summary();
+  const byM = {};
+  rest.forEach(x => { (byM[ymOf(x.due)] = byM[ymOf(x.due)] || []).push(x); });
+  const card = x => {
+    const pill = x.i.paid ? '<span class="pill p-ok">入金済</span>' : (x.due < TODAY ? '<span class="pill p-warn">遅延</span>' : '<span class="pill p-mut">予定</span>');
+    return '<div class="row">' + pill + '<span class="nm">' + primeName(x.i.site) + '</span>' +
+      '<span class="mt">' + (x.i.paid ? fmtD(x.i.paid) + "入金" : fmtD(x.due)) + '</span><span class="am">' + fmt(x.i.total) + '</span>' +
+      (x.i.paid ? "" : '<button class="btn" style="margin-top:0;padding:5px 9px" onclick="dMarkPaid(\'' + x.i.id + '\')">入金済</button>') + '</div>';
+  };
+  return '<div class="c"><div class="kv"><span class="l">今月 入る</span><span class="r">' + fmt(sum.inMonth) + '</span></div>' +
+    '<div class="kv"><span class="l">未入金 合計</span><span class="r">' + fmt(unpaidTotal) + '</span></div></div>' +
+    (overdue.length ? '<div class="sec">遅延 ' + overdue.length + '件</div><div class="c" style="border:1px solid #f0c8c2">' + overdue.map(card).join("") + '</div>' : "") +
+    Object.keys(byM).sort().map(m => '<div class="sec">' + m.replace("-","年") + '月</div><div class="c">' + byM[m].map(card).join("") + '</div>').join("") +
+    '<div class="note">入金予定日は「元請の締め日＋入金サイト」から自動計算しています。実際の入金がずれても「入金済」を押した日で記録します。</div>';
+}
+function dMarkPaid(invId) {
+  const i = S.invoices.find(x => x.id === invId);
+  const wasOverdue = i.due < TODAY;
+  i.paid = TODAY;
+  if (wasOverdue) S.flags.paidMark = true;
+  dRender(); renderGuide();
+  announce("<b>" + primeName(i.site) + " " + fmt(i.total) + " を入金済みにしました。</b>" +
+    (wasOverdue ? "要対応の「入金遅延」が消えました。" : "「今月入る」の入金済みが増えました。"),
+    "ホームで確認する", "function(){ dGo('home') }");
+}
+function dTodoHtml() {
+  const td = todos();
+  if (!td.length) return '<div class="c"><div class="empty">要対応はありません。<br>請求漏れ・入金遅延・低採算の現場は見つかりませんでした。</div></div>';
+  return td.map(t => {
+    let act = "";
+    if (t.kind === "unbilled") act = '<button class="btn" onclick="showApp(\'bill\');bGo(\'site\')">請求をつくる</button>';
+    if (t.kind === "overdue")  act = '<button class="btn" onclick="dMarkPaid(\'' + t.invId + '\')">入金済みにする</button>';
+    if (t.kind === "low")      act = '<button class="btn g" onclick="dGo(\'home\');dSetTab(\'sites\')">現場の支払を見る</button>';
+    return '<div class="c"><div class="c-t"><b style="color:' + (t.kind==="low"?"#a8781a":"var(--warn)") + '">' + t.label + '</b><span>' + t.sub + '</span></div>' +
+      '<div class="row" style="border-bottom:none"><span class="nm">' + t.name + '</span>' + (t.amount!=null?'<span class="am">' + fmt(t.amount) + '</span>':"") + '</div>' +
+      '<div>' + act + '</div></div>';
+  }).join("");
+}
+function dLeadsHtml() {
+  const open = S.leads.filter(l => l.status === "open");
+  const total = open.reduce((n,l) => n + l.amount, 0);
+  const sum = summary();
+  const all = sum.backlog + total;
+  const pct = all > 0 ? sum.backlog / all * 100 : 0;
+  const avgMonth = sum.salesFY / 9;   // 1月開始・9月まで経過
+  const monthsOfWork = avgMonth > 0 ? all / avgMonth : 0;
+  const probPill = p => p === "high" ? '<span class="pill p-ok">高</span>' : p === "mid" ? '<span class="pill p-cau">中</span>' : '<span class="pill p-mut">低</span>';
+  return '<div class="c"><div class="c-t"><b>いま持っている仕事</b><span>月平均の売上 ' + fmt(avgMonth) + '</span></div>' +
+    '<div class="bar" style="height:12px"><i class="b-rest" style="width:' + pct + '%"></i><i class="b-plan" style="width:' + (100-pct) + '%"></i></div>' +
+    '<div class="lg" style="margin-bottom:6px"><span><i class="b-rest"></i>これから請求 ' + fmt(sum.backlog) + '</span><span><i class="b-plan"></i>見込み ' + fmt(total) + '</span></div>' +
+    '<div class="kv"><span class="l">合計</span><span class="r">' + fmt(all) + '（約 ' + monthsOfWork.toFixed(1) + 'ヶ月分）</span></div></div>' +
+    '<div class="c"><div class="c-t"><b>案件 ' + open.length + '件</b><span class="lnk" onclick="demoToast(\'実物では案件名・元請・金額・確度を1分で登録できます\')">＋ 追加</span></div>' +
+    (open.length ? open.map(l => '<div class="row">' + probPill(l.prob) + '<span class="nm">' + l.name + '</span>' +
+      '<span class="mt">' + l.start.replace("-","/") + '</span><span class="am">' + fmt(l.amount) + '</span>' +
+      '<button class="btn" style="margin-top:0;padding:5px 9px" onclick="dWinLead(\'' + l.id + '\')">受注した</button></div>').join("")
+      : '<div class="empty">見込み案件はまだありません。</div>') + '</div>' +
+    (S.leads.some(l => l.status !== "open") ? '<div class="c"><div class="c-t"><b>決着した案件</b></div>' +
+      S.leads.filter(l => l.status !== "open").map(l => '<div class="row"><span class="pill p-ok">受注</span><span class="nm">' + l.name + '</span><span class="am">' + fmt(l.amount) + '</span></div>').join("") + '</div>' : "") +
+    '<div class="note">「受注した」を押すと現場と請負金額が自動で作られ、二重入力になりません。</div>';
+}
+function dWinLead(id) {
+  const l = S.leads.find(x => x.id === id);
+  l.status = "won";
+  S.sites.push({ id:"s_" + id, name:l.name, prime:l.prime, contract:l.amount, laborMd:0, active:true,
+                 plans:{ sub:0, mat:0 }, months:[] });
+  S.flags.won = true;
+  dRender(); renderGuide();
+  announce("<b>「" + l.name + "」を受注にしました。</b>現場と請負金額 " + fmt(l.amount) + " が自動で作られ、「これから請求する分」が " + fmt(summary().backlog) + " に増えました。現場タブにも新しい現場が出ています。",
+    "現場タブで見る", "function(){ dGo('home'); dSetTab('sites') }");
+}
+function dSettingsHtml() {
+  return '<div class="note" style="margin-bottom:10px">実物では社長がここを自分で変えられます（デモでは固定表示）。この設定が、粗利・入金予定・警告の計算のもとになります。</div>' +
+    '<div class="c"><div class="kv"><span class="l">会計年度の開始月</span><span class="r">1月 開始</span></div></div>' +
+    '<div class="c"><div class="kv"><span class="l">低採算とみなすライン</span><span class="r">15% 未満で警告</span></div>' +
+    '<div class="note" style="margin-top:7px">現場ごとに違う目標があるときは、現場カードの「目標の利益率」で上書きできます。</div></div>' +
+    '<div class="c"><div class="kv"><span class="l">仕事量が少ないと知らせるライン</span><span class="r">3ヶ月</span></div></div>' +
+    '<div class="c"><div class="kv"><span class="l">人工の原価（1人1日）</span><span class="r">' + fmt(S.laborRate) + '</span></div>' +
+    '<div class="note" style="margin-top:7px">日報の人工（終日=1・半日=0.5）× この単価で人件費を自動計算し、粗利に含めます。</div></div>' +
+    '<div class="c"><div class="c-t"><b>元請の入金サイト</b><span>締めの◯ヶ月後の◯日</span></div>' +
+    '<div class="kv"><span class="l">△△工業</span><span class="r">末日締め・1ヶ月後 末日</span></div>' +
+    '<div class="kv"><span class="l">□□建材</span><span class="r">25日締め・1ヶ月後 10日</span></div>' +
+    '<div class="note" style="margin-top:7px">この設定から入金予定日を自動計算しています（例：8/31締め → 9/30入金）。</div></div>';
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 起動
+// ══════════════════════════════════════════════════════════════════════
+initState();
+renderChat();
+bRender();
+dRender();
+renderGuide();
+</script>
+</body>
+</html>
