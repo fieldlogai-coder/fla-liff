@@ -646,7 +646,7 @@ function chatPick(step) {
     chatPhase = 4;
     chatPush({ html:'<div class="bub me">終日</div>' });
     chatPush({ html:'<div class="flexcard"><div class="t">異常はありましたか？</div><div class="fchips">' +
-      fchip("異常なし","chatPick(4)") + fchip("異常あり","demoToast('「異常あり」の内容は現場メモに自動転記されます（デモでは異常なしで進めます）')") + '</div></div>' });
+      fchip("異常なし","chatPick(4)") + fchip("異常あり","demoToast('「異常あり」は内容＋📷写真をそのまま送れて、現場メモに自動転記されます（デモでは異常なしで進めます）')") + '</div></div>' });
   } else if (step === 4 && chatPhase === 4) {
     chatPhase = 5;
     chatPush({ html:'<div class="bub me">異常なし</div>' });
