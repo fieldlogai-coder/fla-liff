@@ -32,9 +32,11 @@
   .link span{font-size:12.5px;color:var(--sub);line-height:1.6;display:block;}
   .link.hot{border-left-color:#e0a020;}
   .app{display:flex;align-items:center;gap:10px;background:#fff;border-radius:var(--r-sm);padding:10px 14px;margin-bottom:7px;
-       text-decoration:none;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.05);font-size:13.5px;}
-  .app b{flex:1;}
-  .app span{font-size:11.5px;color:var(--sub);white-space:nowrap;}
+       color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.05);font-size:13.5px;}
+  .app .am{flex:1;display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink);min-width:0;}
+  .app .am b{flex:1;}
+  .app .am span{font-size:11.5px;color:var(--sub);white-space:nowrap;}
+  .app .ad{flex-shrink:0;font-size:11.5px;color:var(--acc);font-weight:700;text-decoration:none;border:1px solid var(--acc);border-radius:999px;padding:3px 10px;white-space:nowrap;}
   .note{background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:10px 12px;font-size:12.5px;line-height:1.65;margin-bottom:10px;}
   .start{display:flex;gap:20px;flex-wrap:wrap;align-items:center;background:#fff;border-radius:var(--r);padding:16px 18px;box-shadow:0 1px 4px rgba(0,0,0,.06);}
   .start .qr{width:168px;height:168px;flex-shrink:0;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;margin:0 auto;}
@@ -91,11 +93,14 @@
   </div>
 
   <h2>アプリ本体（利用中の会社の方向け）</h2>
-  <div class="note">下のリンクは<b>LINEの中でのみ開けます</b>（登録済みの方だけが使えます）。日報・休み報告は、URLではなくLINEトーク下部のメニューから操作します。</div>
-  <a class="app" href="https://liff.line.me/2009694631-JZQ5AgVq"><b>📊 ダッシュボード</b><span>社長・事務（請求権限あり）</span></a>
-  <a class="app" href="https://liff.line.me/2009694631-7HvWrIGj"><b>🧾 請求</b><span>社長・事務（請求権限あり）</span></a>
-  <a class="app" href="https://liff.line.me/2009694631-Q9UpokY1"><b>📷 現場メモ</b><span>全員</span></a>
-  <a class="app" href="https://liff.line.me/2009694631-cnI1l3gj"><b>⚙️ 設定・確認</b><span>全員</span></a>
+  <div class="note">左側のリンクは<b>登録済みの方がLINEで開く</b>ためのものです（未登録の方は開けません）。
+    <b>まだ登録していない方は、右の「画面例」からほぼ同じ画面のデモを操作できます</b>（架空データ・登録不要）。
+    日報・休み報告は、URLではなくLINEトーク下部のメニューから操作します。</div>
+  <div class="app"><a class="am" href="https://liff.line.me/2009694631-JZQ5AgVq"><b>📊 ダッシュボード</b><span>社長・事務（請求権限あり）</span></a><a class="ad" href="./demo.html#dash">画面例</a></div>
+  <div class="app"><a class="am" href="https://liff.line.me/2009694631-7HvWrIGj"><b>🧾 請求</b><span>社長・事務（請求権限あり）</span></a><a class="ad" href="./demo.html#bill">画面例</a></div>
+  <div class="app"><a class="am" href="https://liff.line.me/2009694631-Q9UpokY1"><b>📷 現場メモ</b><span>全員</span></a></div>
+  <div class="app"><a class="am" href="https://liff.line.me/2009694631-cnI1l3gj"><b>⚙️ 設定・確認</b><span>全員</span></a></div>
+  <div class="app" style="box-shadow:none;background:transparent;padding-top:2px"><a class="am" href="./demo.html#line" style="color:var(--sub);font-size:12.5px">📱 日報（LINEトーク）の画面例もデモで見られます →</a><a class="ad" href="./demo.html#line">画面例</a></div>
 
   <footer>
     FIELDLOG 資料室 — このページのURL：<b>https://fieldlogai-coder.github.io/fla-liff/</b><br>

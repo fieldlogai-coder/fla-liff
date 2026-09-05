@@ -1218,6 +1218,9 @@ renderChat();
 bRender();
 dRender();
 renderGuide();
+// 資料室などから #dash / #bill / #line / #map で該当画面を直接開ける
+const hashApp = { "#dash": "dash", "#bill": "bill", "#line": "line", "#nippo": "line", "#map": "map" }[location.hash];
+if (hashApp) showApp(hashApp);
 </script>
 </body>
 </html>
