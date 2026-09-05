@@ -135,7 +135,7 @@
 
 <div id="toast"></div>
 
-<script src="./fla-core.js?v=2026-08-23"></script>
+<script src="./fla-core.js?v=2026-09-05"></script>
 <script>
 // ── 設定 ───────────────────────────────────────────────────────────────
 // LIFF ID（2026-08-23 発行・チャネル「FLA現場メモ」／サイズFull／scope: openid+profile）
@@ -172,7 +172,11 @@ const man = (n) => { const v = Math.round((n||0)/10000); return (v>=0?"+":"") + 
     await FLA.ensureToken();
     await boot();
   } catch (e) {
-    document.getElementById("loading").textContent = "初期化に失敗しました。もう一度開いてください。";
+    if (e && e.code === "NOT_REGISTERED") {
+      document.getElementById("loading").innerHTML = FLA.notRegisteredHtml();
+    } else {
+      document.getElementById("loading").textContent = "初期化に失敗しました（" + (e?.message ?? e) + "）。もう一度開いてください。";
+    }
   }
 })();
 

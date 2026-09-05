@@ -367,7 +367,7 @@
 <!-- hidden file input -->
 <input type="file" id="file-input" accept="image/*" style="display:none" onchange="onFileSelected(event)" />
 
-<script src="./fla-core.js?v=2026-07-24"></script>
+<script src="./fla-core.js?v=2026-09-05"></script>
 <script>
 // ── 設定 ───────────────────────────────────────────────────────────────
 const LIFF_ID        = "2009694631-Q9UpokY1";
@@ -398,8 +398,12 @@ let currentScreen = "sites";
     await FLA.ensureToken();   // 認証経路を先に確立（失敗ならここで止める）
     await loadSites();
   } catch (e) {
-    showToast("初期化に失敗しました: " + e.message);
-    hideLoading();
+    if (e && e.code === "NOT_REGISTERED") {
+      document.getElementById("loading").innerHTML = FLA.notRegisteredHtml();
+    } else {
+      showToast("初期化に失敗しました: " + e.message);
+      hideLoading();
+    }
   }
 })();
 

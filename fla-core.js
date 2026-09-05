@@ -24,7 +24,18 @@
       headers: { "Authorization": `Bearer ${SUPA_ANON}`, "Content-Type": "application/json" },
       body: JSON.stringify({ id_token: idToken }),
     });
-    if (!res.ok) throw new Error(`認証に失敗しました (HTTP ${res.status})`);
+    if (!res.ok) {
+      let detail = "";
+      try { detail = (await res.json()).error || ""; } catch (_e) { /* 本文なし */ }
+      // 未登録ユーザーは auth-session が 401 "worker not registered" を返す。
+      // 各LIFFの初期化catchで FLA.notRegisteredHtml() の案内を出す（「初期化に失敗」と誤解させない）。
+      if (res.status === 401 && detail === "worker not registered") {
+        const err = new Error("この画面は利用登録済みの方専用です");
+        err.code = "NOT_REGISTERED";
+        throw err;
+      }
+      throw new Error(`認証に失敗しました (HTTP ${res.status}${detail ? "・" + detail : ""})`);
+    }
     const data = await res.json();
     flaToken = data.access_token;
     flaTokenExp = Date.now() + ((data.expires_in ?? 3600) * 1000);
@@ -86,6 +97,18 @@
     return { periodStart: iso(sy, sm, cd + 1), periodEnd: iso(ey, em, cd) };
   }
 
+  // 未登録ユーザー向けの案内（各LIFFの初期化catchで #loading に流し込んで使う）
+  function notRegisteredHtml() {
+    return '<div style="max-width:420px;margin:0 auto;padding:0 16px;text-align:left;font-size:14px;line-height:1.9;color:#1f1e1c">' +
+      '<div style="font-size:16px;font-weight:bold;margin-bottom:8px">この画面は、利用登録済みの方専用です</div>' +
+      '<div>お使いのLINEアカウントは、まだFIELDLOGに登録されていません。</div>' +
+      '<div style="background:#f4f3ed;border-radius:10px;padding:10px 14px;margin:10px 0">' +
+      '<b>登録のしかた</b>：FIELDLOGのトークに「<b>合言葉</b>」→「<b>お名前</b>」の順に送信（合言葉は会社の担当者にご確認ください）</div>' +
+      '<div>どんな画面か見てみたい方は：<br>' +
+      '<a href="https://fieldlogai-coder.github.io/fla-liff/demo.html" style="color:#1d9e75;font-weight:bold">🖐 さわれるデモ（登録不要・架空データ）</a><br>' +
+      '<a href="https://fieldlogai-coder.github.io/fla-liff/" style="color:#1d9e75;font-weight:bold">📚 資料室（説明資料・使い方）</a></div></div>';
+  }
+
   // HTML エスケープ（属性・テキスト共用。' も含める）
   function esc(s) {
     return String(s)
@@ -93,5 +116,5 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  global.FLA = { SUPA_URL, SUPA_ANON, AUTH_FN, ensureToken, rest, esc, billingPeriod };
+  global.FLA = { SUPA_URL, SUPA_ANON, AUTH_FN, ensureToken, rest, esc, billingPeriod, notRegisteredHtml };
 })(window);

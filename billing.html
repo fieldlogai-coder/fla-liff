@@ -605,7 +605,7 @@
 
 <div id="toast"></div>
 
-<script src="./fla-core.js?v=2026-07-24"></script>
+<script src="./fla-core.js?v=2026-09-05"></script>
 <script>
 // ── 設定 ───────────────────────────────────────────────────────────────
 const LIFF_ID   = "2009694631-7HvWrIGj";
@@ -636,8 +636,12 @@ const rDel  = (p)        => FLA.rest(p, { method:"DELETE" });
     await FLA.ensureToken();
     await boot();
   } catch (e) {
-    toast("初期化に失敗しました: " + e.message, true);
-    hideLoading();
+    if (e && e.code === "NOT_REGISTERED") {
+      document.getElementById("loading").innerHTML = FLA.notRegisteredHtml();
+    } else {
+      toast("初期化に失敗しました: " + e.message, true);
+      hideLoading();
+    }
   }
 })();
 

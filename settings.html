@@ -323,7 +323,7 @@
 
 <div id="toast"></div>
 
-<script src="./fla-core.js?v=2026-07-24"></script>
+<script src="./fla-core.js?v=2026-09-05"></script>
 <script>
 // ── 定数 ─────────────────────────────────────────────────────────────
 const LIFF_ID      = "2009694631-cnI1l3gj";
@@ -356,8 +356,12 @@ let pWorkerId  = null;   // pending worker id (編集用)
     await FLA.ensureToken();   // 認証経路を先に確立（失敗ならここで止める）
     await boot();
   } catch (e) {
-    toast("初期化失敗: " + e.message, true);
-    hide();
+    if (e && e.code === "NOT_REGISTERED") {
+      document.getElementById("loading").innerHTML = FLA.notRegisteredHtml();
+    } else {
+      toast("初期化失敗: " + e.message, true);
+      hide();
+    }
   }
 })();
 
