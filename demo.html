@@ -240,6 +240,14 @@
     #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:80px;background:#333;color:#fff;font-size:13px;padding:10px 16px;border-radius:var(--r-sm);opacity:0;transition:opacity .2s;pointer-events:none;z-index:310;max-width:90%;text-align:center;}
     #toast.show{opacity:.94;} #toast.err{background:var(--warn);}
 
+    /* スポットライト（次に押すボタンを脈打つ光で示す） */
+    @keyframes spotPulse{
+      0%{box-shadow:0 0 0 0 rgba(255,150,10,.85);}
+      70%{box-shadow:0 0 0 14px rgba(255,150,10,0);}
+      100%{box-shadow:0 0 0 0 rgba(255,150,10,0);}
+    }
+    .spot{animation:spotPulse 1.4s ease-out infinite;outline:3px solid #ff9a0a;outline-offset:1px;position:relative;z-index:5;}
+
     /* 発行モーダル */
     #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:320;align-items:center;justify-content:center;padding:20px;}
     #modal.open{display:flex;}
@@ -567,7 +575,7 @@ function hideCallout(){ document.getElementById("callout").classList.remove("sho
 const STEPS = [
   { key:"report", app:"line", title:"日報を送ってみる", desc:"作業員・佐藤さんになって、8月20日の日報をボタンだけで送ります（約30秒）。" },
   { key:"joyo",   app:"bill", title:"常用（人工）の請求をつくる", desc:"◇◇マンションの8/25締め分。日報で貯まった人工 × 単価が明細になり、端数調整で丸い金額にして発行します。" },
-  { key:"ukeoi",  app:"bill", title:"出来高（請負）の請求をつくる", desc:"〇〇ビルの8月分。今月進んだ金額を入れると、請負全体の進みぐあいが見えます。" },
+  { key:"ukeoi",  app:"bill", title:"出来高（請負）の請求をつくる", desc:"〇〇ビルの8月分。金額でも進捗率（%）でも入力でき、請負全体の進みぐあいが見えます。" },
   { key:"dash",   app:"dash", title:"ダッシュボードで確認する", desc:"いま発行した請求が「今期の売上」「今月入る」に乗り、要対応の請求漏れ2件が消えています。" },
   { key:"paidMark", app:"dash", title:"遅れている入金を消し込む", desc:"入金予定に「遅延」が最上段に出ています。「入金済」を1タップ。" },
   { key:"won",    app:"dash", title:"見込み案件を受注にする", desc:"「受注した」を押すと、現場と請負金額が自動で作られ、「これから請求する分」が増えます。" },
@@ -595,6 +603,7 @@ function renderGuide() {
     bar.innerHTML = "<b>ステップ " + idx + "/6：" + cur.title + "</b><br>" + cur.desc +
       "<span class='go' onclick=\"stepGo('" + cur.key + "')\">▶ やってみる（操作する画面へ） ›</span>";
   }
+  spotlight();
 }
 // ステップの「やってみる」: アプリ切替だけでなく、その操作を始める画面まで直行させる
 function stepGo(key) {
@@ -603,6 +612,61 @@ function stepGo(key) {
   else if (key === "dash") { showApp("dash"); dGo("home"); }
   else if (key === "paidMark") { showApp("dash"); dGo("payin"); }
   else if (key === "won") { showApp("dash"); dGo("leads"); }
+}
+
+// ── スポットライト ─────────────────────────────────────────────────────
+// いまのステップで「次に押すボタン」を1つだけ選び、.spot（脈打つ光）を付ける。
+// 別のアプリにいるときは上部タブを光らせて誘導する。
+function findIn(rootSel, text) {
+  return [...document.querySelectorAll(rootSel)].find((el) => el.textContent.trim().includes(text)) || null;
+}
+function spotTarget() {
+  const cur = curStep();
+  if (!cur) return null;
+  const appOf = { report: "line", joyo: "bill", ukeoi: "bill", dash: "dash", paidMark: "dash", won: "dash" }[cur.key];
+  if (curApp !== appOf) return document.getElementById("at-" + appOf);
+
+  if (cur.key === "report") {
+    if (chatPhase === 0) return document.getElementById("rm-report");
+    const want = { 1: "通常報告", 2: "◇◇マンション大規模修繕", 3: "終日", 4: "異常なし", 5: "なし" }[chatPhase];
+    if (!want) return null;
+    const chips = [...document.querySelectorAll("#chat .fchip")].filter((c) => !c.classList.contains("gray"));
+    for (let i = chips.length - 1; i >= 0; i--) { if (chips[i].textContent.trim() === want) return chips[i]; }
+    return null;
+  }
+  if (cur.key === "joyo" || cur.key === "ukeoi") {
+    if (document.getElementById("modal").classList.contains("open")) {
+      return document.querySelector("#modal .bbtn-primary");
+    }
+    const B = "#b-body button, #b-body .site-card, #b-body .btn";
+    if (bScreen === "list") return findIn(B, "今月の請求をつくる");
+    if (bScreen === "site") return findIn(B, cur.key === "joyo" ? "◇◇マンション" : "〇〇ビル");
+    if (bScreen === "type") return findIn(B, cur.key === "joyo" ? "常用（人工）" : "出来高（請負）");
+    if (bScreen === "joyo") return (bJoyo.full || bJoyo.half) ? findIn(B, "この内容で確認する") : findIn(B, "集計の値をそのまま入れる");
+    if (bScreen === "ukeoi") return bUkeoi.amt ? findIn(B, "この内容で確認する") : findIn(B, "例の金額");
+    if (bScreen === "cj") return bAdjust.length ? findIn(B, "この内容で発行する") : findIn(B, "端数調整");
+    if (bScreen === "cf") return findIn(B, "この内容で発行する");
+    if (bScreen === "done") return findIn(B, "請求一覧へもどる");
+    return null;
+  }
+  if (cur.key === "paidMark") {
+    if (dScreen === "payin") return findIn("#d-body .btn", "入金済");
+    if (dScreen === "home") { const t = findIn("#d-body .tile", "今月 入る"); return t ? t.closest(".tile") : null; }
+    return null;
+  }
+  if (cur.key === "won") {
+    if (dScreen === "leads") return findIn("#d-body .btn", "受注した");
+    if (dScreen === "home") { const t = findIn("#d-body .tile", "これから請求する分"); return t ? t.closest(".tile") : null; }
+    return null;
+  }
+  return null;   // dash: ホームを見た時点で自動達成
+}
+function spotlight() {
+  document.querySelectorAll(".spot").forEach((el) => el.classList.remove("spot"));
+  try {
+    const t = spotTarget();
+    if (t) t.classList.add("spot");
+  } catch (_e) { /* 誘導の失敗はデモ本体に影響させない */ }
 }
 function resetDemo() {
   initState(); chatLog = []; chatPhase = 0;
@@ -626,6 +690,7 @@ function renderChat() {
   el.innerHTML = parts.join("");
   el.scrollTop = el.scrollHeight;
   document.getElementById("rm-report").className = "btn6" + (chatPhase === 0 ? " hot" : " dis");
+  spotlight();
 }
 function fchip(label, fn, dis) {
   return '<div class="fchip' + (dis ? " dis" : "") + '"' + (dis ? "" : ' onclick="' + fn + '"') + '>' + label + '</div>';
@@ -715,6 +780,7 @@ function bRender() {
   if (bScreen === "cf")    el.innerHTML = bConfirmUkeoiHtml();
   if (bScreen === "done")  el.innerHTML = bDoneHtml();
   if (bScreen === "print") el.innerHTML = bPrintHtml();
+  spotlight();
 }
 function bListHtml() {
   const rows = [...S.invoices].reverse().map(i => {
@@ -811,6 +877,7 @@ function bJoyoCalc() {
   document.getElementById("jw-ninku").textContent = nin.toFixed(1);
   document.getElementById("jw-sub").textContent = fmt(sub);
   document.getElementById("jw-total").textContent = fmt(sub + Math.floor(sub * TAX_RATE));
+  spotlight();
 }
 function bJoyoLines() {
   const lines = [];
@@ -868,7 +935,11 @@ function bUkeoiHtml() {
     '<div class="note" style="margin-bottom:10px">前回までの請求は記録済みです。今月進んだぶんだけ入れてください。' +
     '<span style="display:block;margin-top:4px"><button class="btn g" style="margin-top:2px" onclick="bFillUkeoi()">デモ用：例の金額 ¥1,500,000 を入れる</button></span></div>' +
     '<div class="c"><div class="amt-box"><label>今月分の出来高（税抜・円）</label>' +
-    '<div class="amt-input"><span class="yen">¥</span><input type="text" inputmode="numeric" id="in-b" placeholder="0" oninput="bUkeoiCalc()"></div></div>' +
+    '<div class="amt-input"><span class="yen">¥</span><input type="text" inputmode="numeric" id="in-b" placeholder="0" oninput="bUkeoiCalc()"></div>' +
+    '<div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--sub)">' +
+    '<span>または 進捗率で</span>' +
+    '<input type="text" inputmode="decimal" id="in-pw" placeholder="70" oninput="bUkeoiPct()" style="width:84px;height:40px;text-align:center;border:1px solid var(--line);border-radius:var(--r-sm);font-size:16px;font-weight:600;font-family:inherit;background:#fff;color:var(--ink)">' +
+    '<span>% → 今月分を自動計算</span></div></div>' +
     '<div style="margin-top:12px"><div class="prog-head"><span>工事全体の進みぐあい</span><span><span id="in-pct">0.0</span>%</span></div>' +
     '<div class="prog-bar"><div class="prog-fill" id="in-bar" style="width:0%"></div></div>' +
     '<div class="prog-foot"><span>当初請負 ' + fmt(s.contract) + '</span><span>残額 <span id="in-rem">' + fmt(s.contract - c.billedA2) + '</span></span></div></div>' +
@@ -891,6 +962,28 @@ function bUkeoiCalc() {
   const tax = Math.floor(bUkeoi.amt * TAX_RATE);
   document.getElementById("in-tax").textContent = fmt(tax);
   document.getElementById("in-total").textContent = fmt(bUkeoi.amt + tax);
+  // 進捗率欄を追従（入力中は触らない）— 実物 billing.html と同じ双方向入力
+  const pwEl = document.getElementById("in-pw");
+  if (pwEl && document.activeElement !== pwEl) pwEl.value = bUkeoi.amt ? pct.toFixed(1) : "";
+  spotlight();
+}
+// 進捗率で入力 → 今月分の金額へ逆算（実物と同じ式：請負×% − 請求済み累計）
+function bUkeoiPct() {
+  if (bScreen !== "ukeoi") return;
+  const s = siteOf(bSel.siteId), c = siteCalc(s);
+  const el = document.getElementById("in-pw");
+  const cleaned = (el.value || "").replace(/[^0-9.]/g, "");
+  if (cleaned !== el.value) el.value = cleaned;
+  const pct = parseFloat(cleaned);
+  const bEl = document.getElementById("in-b");
+  if (isNaN(pct)) { bEl.value = ""; bUkeoiCalc(); return; }
+  let B = Math.round(s.contract * pct / 100) - c.billedA2;
+  if (B < 0) {
+    B = 0;
+    demoToast("請求済みの進捗（" + (c.billedA2 / s.contract * 100).toFixed(1) + "%）より小さい率のため0円になります");
+  }
+  bEl.value = B;
+  bUkeoiCalc();
 }
 function bGoConfirmUkeoi() {
   if (!bUkeoi.amt) { demoToast("今月分の金額を入れてください", true); return; }
@@ -917,8 +1010,8 @@ function bConfirmUkeoiHtml() {
     '<button class="bbtn bbtn-ghost" onclick="bBack()">修正する</button>' +
     '<button class="bbtn bbtn-primary" onclick="openModal()">この内容で発行する</button></div>';
 }
-function openModal(){ document.getElementById("modal").classList.add("open"); }
-function closeModal(){ document.getElementById("modal").classList.remove("open"); }
+function openModal(){ document.getElementById("modal").classList.add("open"); spotlight(); }
+function closeModal(){ document.getElementById("modal").classList.remove("open"); spotlight(); }
 function doIssue() {
   closeModal();
   const s = siteOf(bSel.siteId);
@@ -1009,6 +1102,7 @@ function dRender() {
   if (dScreen === "todo")  el.innerHTML = dTodoHtml();
   if (dScreen === "leads") el.innerHTML = dLeadsHtml();
   if (dScreen === "settings") el.innerHTML = dSettingsHtml();
+  spotlight();
 }
 function dSetTab(t){ dTab = t; dRender(); }
 function dHomeHtml() {

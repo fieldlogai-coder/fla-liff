@@ -51,6 +51,9 @@
     .amt-input .yen{font-size:22px;font-weight:500;}
     .amt-input input{flex:1;font-size:30px;font-weight:600;border:none;background:transparent;width:100%;font-family:inherit;color:var(--ink);border-bottom:2px solid var(--line);padding-bottom:2px;}
     .amt-input input:focus{outline:none;border-bottom-color:var(--acc);}
+    .pctrow{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--sub);}
+    .pctrow input{width:92px;height:42px;text-align:center;border:1px solid var(--line);border-radius:var(--r-sm);font-size:17px;font-weight:600;font-family:inherit;background:var(--card);color:var(--ink);}
+    .pctrow input:focus{outline:none;border-color:var(--acc);}
     .prog-wrap{margin-top:14px;}
     .prog-head{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-bottom:6px;}
     .prog-bar{height:10px;background:#eceae2;border-radius:999px;overflow:hidden;}
@@ -313,6 +316,12 @@
         <span class="yen">¥</span>
         <input type="text" inputmode="numeric" id="in-b" placeholder="0" oninput="onBInput()" />
       </div>
+      <div class="pctrow">
+        <span>または 進捗率で</span>
+        <input type="text" inputmode="decimal" id="in-pw" placeholder="70" oninput="onPctInput()" />
+        <span>% まで進んだ → 今月分を自動計算</span>
+      </div>
+      <div class="muted" id="in-pw-hint" style="margin-top:4px"></div>
     </div>
 
     <div class="prog-wrap">
@@ -1117,6 +1126,35 @@ function recalc(B) {
   const remEl = document.getElementById("in-rem");
   remEl.textContent = fmt(rem);
   remEl.parentElement.classList.toggle("neg", rem < 0);
+
+  // 進捗率欄を追従させる（ユーザーが進捗率欄を入力中のときは触らない＝カーソル飛び防止）
+  const pwEl = document.getElementById("in-pw");
+  if (pwEl && document.activeElement !== pwEl) {
+    pwEl.value = amount ? (Math.round(pct * 10) / 10).toFixed(1) : "";
+    document.getElementById("in-pw-hint").textContent = "";
+  }
+}
+
+// 進捗率で入力 → 今月分の金額へ逆算（累計目標 = 請負 × % − 既請求。金額が正のまま＝計算・保存は従来どおり金額ベース）
+function onPctInput() {
+  const el = document.getElementById("in-pw");
+  const cleaned = (el.value || "").replace(/[^0-9.]/g, "");
+  if (cleaned !== el.value) el.value = cleaned;
+  const hint = document.getElementById("in-pw-hint");
+  const bEl = document.getElementById("in-b");
+  const pct = parseFloat(cleaned);
+  if (isNaN(pct)) { bEl.value = ""; hint.textContent = ""; recalc(0); return; }
+  const A = sel.contract.contract_amount;
+  const donePct = A ? sel.C / A * 100 : 0;
+  let B = Math.round(A * pct / 100) - sel.C;
+  if (B < 0) {
+    B = 0;
+    hint.textContent = `※ 請求済みの進捗（${donePct.toFixed(1)}%）より小さい率のため、今月分は0円になります`;
+  } else {
+    hint.textContent = "";
+  }
+  bEl.value = B ? B.toLocaleString("ja-JP") : "0";
+  recalc(B);
 }
 
 function onBInput() {
