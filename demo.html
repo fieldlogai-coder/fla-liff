@@ -258,9 +258,9 @@
     .tile .delta{font-size:10px;font-weight:bold;color:#c77700;margin-top:2px;}
 
     /* 発行モーダル */
-    #modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:320;align-items:center;justify-content:center;padding:20px;}
+    #modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:320;align-items:center;justify-content:center;padding:20px;}
     #modal.open{display:flex;}
-    .modal-box{background:var(--card);border-radius:var(--r);padding:18px;width:100%;max-width:320px;}
+    .modal-box{background:#ffffff;border-radius:var(--r);padding:18px;width:100%;max-width:320px;box-shadow:0 10px 40px rgba(0,0,0,.35);}
     .modal-box .t{font-size:15px;font-weight:600;margin-bottom:6px;}
     .modal-box .d{font-size:12.5px;color:var(--sub);line-height:1.6;margin-bottom:14px;}
     .modal-actions{display:grid;grid-template-columns:1fr 1.2fr;gap:10px;}
@@ -316,7 +316,7 @@
         <div class="ph-head"><div class="top">
           <span class="hbtn" id="b-back" style="display:none" onclick="bBack()">◀ 戻る</span>
           <h4 id="b-title">請求</h4>
-          <span style="font-size:11px;opacity:.85">9月2日・田中社長</span>
+          <span style="font-size:11px;opacity:.85"><span id="b-date">9月2日</span>・田中社長</span>
         </div></div>
         <div class="ph-body" id="b-body"></div>
       </div>
@@ -331,7 +331,7 @@
             <h4 id="d-title">ダッシュボード</h4>
             <span class="hbtn" id="d-set" onclick="dGo('settings')">設定</span>
           </div>
-          <div class="ybar" id="d-ybar"><span class="ysel">2026年 ▼</span><span>架空建設株式会社／9月2日</span></div>
+          <div class="ybar" id="d-ybar"><span class="ysel">2026年 ▼</span><span>架空建設株式会社／<span id="d-date">9月2日</span></span></div>
         </div>
         <div class="ph-body" id="d-body"></div>
       </div>
@@ -377,7 +377,7 @@
     </div>
     <div class="gcard">
       <h3>このデモの設定（架空）</h3>
-      <p style="margin-bottom:4px"><b>架空建設株式会社</b>（塗装業・4人）— 今日は <b>2026年9月2日</b> という想定です。</p>
+      <p style="margin-bottom:4px"><b>架空建設株式会社</b>（塗装業・4人）— デモは <b>2026年9月2日</b> から始まり、ステップ5で <b>9月10日</b> まで時間が進みます（日報の場面だけ8月20日）。</p>
       <table class="maptable">
         <tr><th>現場</th><th>内容</th></tr>
         <tr><td>〇〇ビル改修工事</td><td>元請 △△工業／<b>請負</b> ¥12,000,000（末日締め・翌月末入金）</td></tr>
@@ -411,7 +411,9 @@
 // ══════════════════════════════════════════════════════════════════════
 // 状態（すべて架空データ。計算式は liff/dashboard.html・billing.html と同じ考え方）
 // ══════════════════════════════════════════════════════════════════════
-const TODAY = "2026-09-02";           // デモの「今日」
+let TODAY = "2026-09-02";             // デモの「今日」（ステップ5で 9/10 へ進む）
+const todayLabel = () => (+TODAY.slice(5, 7)) + "月" + (+TODAY.slice(8, 10)) + "日";
+const todayLong  = () => "2026年" + todayLabel();
 const THIS_YM = "2026-09";
 const TAX_RATE = 0.10;
 const fmt = n => "¥" + Math.round(n||0).toLocaleString("ja-JP");
@@ -461,7 +463,8 @@ function initState() {
     ],
     // 8月の日報（◇◇マンション・請求前の集計）
     ninku: { full:21, half:3 },
-    flags: { report:false, joyo:false, ukeoi:false, paidMark:false, won:false },
+    flags: { report:false, joyo:false, ukeoi:false, timeAdv:false, paidMark:false, won:false },
+    lastAction: null,   // 直前の操作（ダッシュボードで「何の操作で数字が変わったか」を示す）
   };
 }
 
@@ -587,16 +590,42 @@ function hideCallout(){ document.getElementById("callout").classList.remove("sho
 
 // ── ガイド ──
 const STEPS = [
-  { key:"report", app:"line", title:"日報を送ってみる", desc:"作業員・佐藤さんになって、8月20日の日報をボタンだけで送ります（約30秒）。" },
-  { key:"joyo",   app:"bill", title:"常用（人工）の請求をつくる", desc:"◇◇マンションの8/25締め分。日報で貯まった人工 × 単価が明細になり、端数調整で丸い金額にして発行。発行した請求は一覧の一番上に🆕印で出ます。" },
-  { key:"ukeoi",  app:"bill", title:"出来高（請負）の請求をつくる", desc:"〇〇ビルの8月分。金額でも進捗率（%）でも入力できます。こちらも発行すると🆕印が付きます。" },
-  { key:"dash",   app:"dash", title:"ダッシュボードで確認する", desc:"数字が変わったタイルに「▲ +いくら変わったか」が出ます。入金予定を開くと、いま発行した2枚が🆕印で並んでいます。" },
-  { key:"paidMark", app:"dash", title:"遅れている入金を消し込む", desc:"入金予定の赤い「遅延」枠に □□建材 ¥415,800 が出ています。「入金済」を押すと、月別の欄へ緑の✅印で移ります（＝回収済みの記録）。" },
-  { key:"won",    app:"dash", title:"見込み案件を受注にする", desc:"△△倉庫の「受注した」を押すと、現場タブに🆕の新しい現場（請負¥700,000登録済み）ができ、「これから請求する分」が増えます。" },
+  { key:"report", app:"line", title:"【8月20日】日報を送る",
+    desc:"作業員・佐藤さんの1日。◇◇マンションでの作業をボタンだけで報告します（約30秒）。この人工が、あとの請求の根拠になります。" },
+  { key:"joyo",   app:"bill", title:"【9月2日】常用（人工）の請求を発行",
+    desc:"◇◇マンションは「25日締め」。8/25で締まった分（7/26〜8/25）を今日発行します。□□建材のルールは「翌月10日入金」なので、発行すると入金予定日は自動で 9月10日 になります。" },
+  { key:"ukeoi",  app:"bill", title:"【9月2日】出来高（請負）の請求を発行",
+    desc:"〇〇ビルは「末日締め」。8月分を、金額でも進捗率（%）でも入力して発行します。△△工業は「翌月末入金」なので、入金予定日は 9月30日 になります。" },
+  { key:"dash",   app:"dash", title:"【9月2日】ダッシュボードで確認",
+    desc:"いま発行した2枚が「今期の売上」「今月入る」に乗ります。変わったタイルには ▲▼ の金額と「どの操作で変わったか」が出ます。入金予定には2枚が🆕印で並びます。" },
+  { key:"timeAdv", app:"dash", title:"【⏩ 時間を進める】9月10日へ",
+    desc:"◇◇マンション分の入金予定日（9月10日）まで日付を進めます。「やってみる」を押すと、デモの今日が 9月10日 になります。" },
+  { key:"paidMark", app:"dash", title:"【9月10日】入金を消し込む",
+    desc:"入金予定を開くと、さっき発行した◇◇マンション分 ¥473,000 が「📅 今日予定」になっています。通帳で確認できた、という想定で「入金済」を押します。8/31予定のまま10日遅れている △△工業 ¥3,300,000（〇〇ビル7月分・赤い遅延枠）も同じ操作で消し込めます。" },
+  { key:"won",    app:"dash", title:"【9月10日】見込み案件を受注にする",
+    desc:"見積を出していた△△倉庫が決まりました。「受注した」を押すと、現場タブに🆕の新しい現場（請負¥700,000登録済み）ができ、「これから請求する分」が増えます。" },
 ];
 function stepDone(key) {
   if (key === "dash") return S.flags.joyo && S.flags.ukeoi && (S.flags._dashSeen || false);
   return !!S.flags[key];
+}
+// ⏩ デモの「今日」を 9月10日 へ進める（自分で発行した請求の入金予定日が来る、という体験のため）
+function advanceTime() {
+  if (S.flags.timeAdv) { demoToast("すでに9月10日です"); return; }
+  if (!S.flags.joyo || !S.flags.ukeoi) { demoToast("先にステップ2・3で請求を2枚発行してから、時間を進めます"); return; }
+  snapTiles();
+  TODAY = "2026-09-10";
+  S.flags.timeAdv = true;
+  S.lastAction = "日付を 9月10日 に進めた";
+  updateDateLabels();
+  bRender(); dRender(); renderGuide();
+  announce("<b>⏩ 9月10日になりました。</b>さっき発行した◇◇マンション分 ¥473,000 は「8/25締め → 翌月10日入金」のルールで、<b>今日が入金予定日</b>です。△△工業の8/31予定分（〇〇ビル7月分 ¥3,300,000）は10日遅れのまま赤い枠に残っています。入金予定画面で確認しましょう。",
+    "入金予定を見る", "function(){ showApp('dash'); dGo('payin') }");
+}
+function updateDateLabels() {
+  const b = document.getElementById("b-date"), d = document.getElementById("d-date");
+  if (b) b.textContent = todayLabel();
+  if (d) d.textContent = todayLabel();
 }
 function curStep() { return STEPS.find(st => !stepDone(st.key)) || null; }
 function renderGuide() {
@@ -614,8 +643,9 @@ function renderGuide() {
   } else {
     bar.className = "stepbar";
     const idx = STEPS.indexOf(cur) + 1;
-    bar.innerHTML = "<b>ステップ " + idx + "/6：" + cur.title + "</b><br>" + cur.desc +
-      "<span class='go' onclick=\"stepGo('" + cur.key + "')\">▶ やってみる（操作する画面へ） ›</span>";
+    bar.innerHTML = "<b>ステップ " + idx + "/" + STEPS.length + "：" + cur.title + "</b><br>" + cur.desc +
+      "<span class='go' onclick=\"stepGo('" + cur.key + "')\">" +
+      (cur.key === "timeAdv" ? "⏩ やってみる（9月10日へ進める） ›" : "▶ やってみる（操作する画面へ） ›") + "</span>";
   }
   spotlight();
 }
@@ -624,6 +654,7 @@ function stepGo(key) {
   if (key === "report") { showApp("line"); }
   else if (key === "joyo" || key === "ukeoi") { showApp("bill"); bGo("site"); }
   else if (key === "dash") { showApp("dash"); dGo("home"); }
+  else if (key === "timeAdv") { advanceTime(); }
   else if (key === "paidMark") { showApp("dash"); dGo("payin"); }
   else if (key === "won") { showApp("dash"); dGo("leads"); }
 }
@@ -637,6 +668,7 @@ function findIn(rootSel, text) {
 function spotTarget() {
   const cur = curStep();
   if (!cur) return null;
+  if (cur.key === "timeAdv") return document.querySelector("#stepbar .go");   // 時間を進めるボタン自体を光らせる
   const appOf = { report: "line", joyo: "bill", ukeoi: "bill", dash: "dash", paidMark: "dash", won: "dash" }[cur.key];
   if (curApp !== appOf) return document.getElementById("at-" + appOf);
 
@@ -664,7 +696,10 @@ function spotTarget() {
     return null;
   }
   if (cur.key === "paidMark") {
-    if (dScreen === "payin") return findIn("#d-body .btn", "入金済");
+    if (dScreen === "payin") {
+      // まずは自分で発行した🆕の請求（今日が予定日）を、なければ遅延分を
+      return document.querySelector("#d-body .row.hl-new .btn") || findIn("#d-body .btn", "入金済");
+    }
     if (dScreen === "home") { const t = findIn("#d-body .tile", "今月 入る"); return t ? t.closest(".tile") : null; }
     return null;
   }
@@ -684,6 +719,7 @@ function spotlight() {
 }
 function resetDemo() {
   initState(); chatLog = []; chatPhase = 0;
+  TODAY = "2026-09-02"; updateDateLabels();
   bScreen = "list"; bSel = null; dScreen = "home"; dTab = "money";
   document.getElementById("changes").innerHTML = '<div class="muted">操作すると、ここに「どの数字がどう動いたか」が積み上がっていきます。</div>';
   hideCallout(); renderChat(); bRender(); dRender(); renderGuide(); showApp("line");
@@ -746,6 +782,7 @@ function chatPick(step) {
     S.ninku.full += 1;
     siteOf("s2").laborMd += 1;
     S.flags.report = true;
+    S.lastAction = "8/20の日報を1件登録（◇◇マンション・終日）";
     chatPush({ html:'<div class="bub me">なし</div>' });
     chatPush({ html:'<div class="sumcard"><div class="h">✅ 日報を登録しました</div>' +
       '<div class="r2"><span>現場</span><b>◇◇マンション大規模修繕</b></div>' +
@@ -863,6 +900,7 @@ function bJoyoHtml() {
     '<div class="stepper"><button class="stbtn" onclick="bStep(\'jw-ff\',-1)">−</button><input type="text" inputmode="numeric" id="jw-ff" value="' + bJoyo.full + '" oninput="bJoyoCalc()"><button class="stbtn" onclick="bStep(\'jw-ff\',1)">＋</button></div>' +
     '<div class="jlabel">半日（0.5人工）</div>' +
     '<div class="stepper"><button class="stbtn" onclick="bStep(\'jw-fh\',-1)">−</button><input type="text" inputmode="numeric" id="jw-fh" value="' + bJoyo.half + '" oninput="bJoyoCalc()"><button class="stbtn" onclick="bStep(\'jw-fh\',1)">＋</button></div>' +
+    '<div class="lg" style="margin-top:8px;line-height:1.5">💡 ＋／−で終日・半日の人数を手で直せます（実物には「人数 × 日数」でまとめて足す欄もあります）。単価は元請ごとのマスタから自動で入るので、入力は人工だけです。</div>' +
     '<div class="grid2" style="margin-top:12px">' +
     '<label class="fl2">終日の単価（円）<input type="text" inputmode="numeric" id="jw-up" value="18000" oninput="bJoyoCalc()"></label>' +
     '<label class="fl2">半日の単価<input type="text" inputmode="numeric" id="jw-hp" value="9000" oninput="bJoyoCalc()"></label></div>' +
@@ -914,8 +952,12 @@ function bAdjustHtml() {
   const rows = bAdjust.map((a,i) =>
     '<div class="line-item"><span>' + a.label + '</span><span style="margin-left:auto;font-weight:600" class="' + (a.amount<0?"neg":"") + '">' + (a.amount<0?"−":"") + fmt(Math.abs(a.amount)) + '</span>' +
     '<span class="muted" style="cursor:pointer" onclick="bDelAdjust(' + i + ')">削除</span></div>').join("");
+  const cur = bSubtotal();
+  const hint = bAdjust.length
+    ? '<div class="lg" style="margin-top:6px;line-height:1.5">💡 差額は「値引き」行として明細に載り、請求書（A4）にもそのまま印字されます。実物には駐車場代などを足す「＋その他の調整」もあります。</div>'
+    : '<div class="lg" style="margin:6px 0;line-height:1.5">💡 税抜合計 ' + fmt(cur) + ' を、そのまま請求するか、万円未満を丸めて ' + fmt(Math.floor(cur / 10000) * 10000) + ' にするか選べます（元請への切りのいい請求額に）。</div>';
   return rows + (bAdjust.length ? "" :
-    '<button class="bbtn bbtn-ghost" style="height:40px;font-size:12.5px" onclick="bRoundAdjust()">端数調整（値引き）— 万円未満を丸める</button>');
+    '<button class="bbtn bbtn-ghost" style="height:40px;font-size:12.5px" onclick="bRoundAdjust()">端数調整（値引き）— 万円未満を丸める</button>') + hint;
 }
 function bRoundAdjust() {
   const cur = bSubtotal();
@@ -955,7 +997,8 @@ function bUkeoiHtml() {
     '<div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--sub)">' +
     '<span>または 進捗率で</span>' +
     '<input type="text" inputmode="decimal" id="in-pw" placeholder="70" oninput="bUkeoiPct()" style="width:84px;height:40px;text-align:center;border:1px solid var(--line);border-radius:var(--r-sm);font-size:16px;font-weight:600;font-family:inherit;background:#fff;color:var(--ink)">' +
-    '<span>% → 今月分を自動計算</span></div></div>' +
+    '<span>% → 今月分を自動計算</span></div>' +
+    '<div class="lg" style="margin-top:8px;line-height:1.5">💡 金額と進捗率はどちらを入れても連動します。元請と「今月は◯%まで」と話がついていれば進捗率から、金額で決まっていれば金額から入力できます。</div></div>' +
     '<div style="margin-top:12px"><div class="prog-head"><span>工事全体の進みぐあい</span><span><span id="in-pct">0.0</span>%</span></div>' +
     '<div class="prog-bar"><div class="prog-fill" id="in-bar" style="width:0%"></div></div>' +
     '<div class="prog-foot"><span>当初請負 ' + fmt(s.contract) + '</span><span>残額 <span id="in-rem">' + fmt(s.contract - c.billedA2) + '</span></span></div></div>' +
@@ -1043,12 +1086,14 @@ function doIssue() {
   S.invoices.push(inv);
   bLastIssued = inv;
   S.flags[bSel.kind] = true;
+  S.lastAction = "請求書 No." + no + "（" + s.name + "・" + (bSel.kind === "joyo" ? "常用" : "出来高") + "）を発行";
   const dueTxt = fmtD(inv.due);
+  const rule = bSel.kind === "joyo" ? "8/25締め → 翌月10日入金（□□建材の入金サイト）" : "8/31締め → 翌月末入金（△△工業の入金サイト）";
   if (bSel.kind === "joyo") {
-    announce("<b>請求書 No." + no + " を発行しました（" + fmt(total) + "）。</b>この請求には<b>🆕印</b>が付き、請求一覧の一番上と、ダッシュボードの入金予定（<b>" + dueTxt + "</b>・□□建材の入金サイトから自動計算）で追えます。「今期の売上」＋" + fmt(sub) + "・要対応の請求漏れも1件消えました。",
+    announce("<b>【" + todayLabel() + "】請求書 No." + no + " を発行しました（税込 " + fmt(total) + "）。</b><br>入金予定日は <b>" + dueTxt + "</b>（" + rule + "）。この請求には<b>🆕印</b>が付き、請求一覧の一番上と、ダッシュボードの入金予定で追えます。「今期の売上」＋" + fmt(sub) + "、要対応の請求漏れ1件が消えました。",
       "ダッシュボードで見る", "function(){ showApp('dash'); dGo('home') }");
   } else {
-    announce("<b>請求書 No." + no + " を発行しました（" + fmt(total) + "）。</b>こちらも<b>🆕印</b>付きで一覧と入金予定（<b>" + dueTxt + "</b>）に出ています。「今期の売上」＋" + fmt(sub) + "、「これから請求する分」−" + fmt(sub) + "、請負の進みぐあいは " + siteCalc(s).pct.toFixed(0) + "% になりました。",
+    announce("<b>【" + todayLabel() + "】請求書 No." + no + " を発行しました（税込 " + fmt(total) + "）。</b><br>入金予定日は <b>" + dueTxt + "</b>（" + rule + "）。こちらも<b>🆕印</b>付きで一覧と入金予定に出ています。「今期の売上」＋" + fmt(sub) + "、「これから請求する分」−" + fmt(sub) + "、請負の進みぐあいは " + siteCalc(s).pct.toFixed(0) + "% になりました。",
       "ダッシュボードで見る", "function(){ showApp('dash'); dGo('home') }");
   }
   renderGuide();
@@ -1084,7 +1129,7 @@ function bPrintHtml() {
     '<div class="pv-sub2">現場：' + s.name + '</div>' +
     '<div style="margin-top:10px;font-size:10.5px">下記のとおりご請求申し上げます。</div>' +
     '<div class="pv-amount"><span class="lab">ご請求金額</span><span class="val">' + fmt(i.total).slice(1) + '</span><span style="font-size:10px">円（税込）</span></div></div>' +
-    '<div class="pv-from"><div>No.' + i.no + '</div><div>2026年9月2日</div>' +
+    '<div class="pv-from"><div>No.' + i.no + '</div><div>' + todayLong() + '</div>' +
     '<div class="cname">架空建設株式会社</div><div>代表　田中 一郎</div><div>登録番号 T0000000000000</div>' +
     '<div class="pv-seal">印</div></div></div>' +
     '<table class="pv-table"><thead><tr><th>摘要</th><th>数量</th><th>単位</th><th class="r">単価</th><th class="r">金額</th></tr></thead>' +
@@ -1137,7 +1182,12 @@ function dHomeHtml() {
     const df = cur[k] - prev[k];
     return '<div class="delta">' + (df > 0 ? "▲ +" : "▼ −") + fmt(Math.abs(df)) + ' ' + (label || "変わりました") + '</div>';
   };
-  const tiles = '<div class="c"><div class="split">' +
+  // 操作 → 結果 の橋渡し（どの操作でどの数字が変わったかを1行で示す）
+  const anyChg = prev && ["in","paid","out","sales","back"].some(k => prev[k] !== cur[k]);
+  const bridge = (anyChg && S.lastAction)
+    ? '<div class="note" style="margin-bottom:8px;font-size:11.5px">🔗 <b>直前の操作：' + S.lastAction + '</b><br>この操作で変わった数字に ▲▼ と金額が付いています。</div>'
+    : (prev && S.lastAction && !anyChg ? '<div class="lg" style="margin-bottom:6px">直前の操作「' + S.lastAction + '」では、この4つの数字は変わりません（入金予定の画面や現場タブに変化があります）。</div>' : "");
+  const tiles = bridge + '<div class="c"><div class="split">' +
     '<div class="tile in' + (chg("in") || chg("paid")) + '" onclick="dGo(\'payin\')"><div class="k">今月 入る</div><div class="v">' + fmt(sum.inMonth) + '</div><div class="n">入金済み ' + fmt(sum.inPaid) + '</div>' + (delta("in") || delta("paid", "入金済みが増えました")) + '</div>' +
     '<div class="tile' + chg("out") + '" onclick="dSetTab(\'sites\')"><div class="k">今月 出る</div><div class="v">' + fmt(sum.outMonth) + '</div><div class="n">支払済み ' + fmt(sum.outPaid) + '</div>' + delta("out") + '</div></div>' +
     '<div class="split" style="margin-top:7px">' +
@@ -1229,6 +1279,7 @@ function dTogglePaid(siteId, idx) {
   const s = siteOf(siteId);
   const m = s.months[idx];
   m.paid = !m.paid;
+  S.lastAction = s.name + "の" + (m.cat === "sub" ? "外注費" : "材料費") + " " + fmt(m.amt) + " を" + (m.paid ? "支払済みに" : "予定に戻す");
   dRender();
   const el = document.getElementById("dsite-" + siteId); if (el) el.classList.add("open");
   if (m.paid) announce("<b>" + (m.cat==="sub"?"外注費":"材料費") + " " + fmt(m.amt) + " を支払済みにしました。</b>「今月出る」の支払済みと、" + s.name + " の「いま時点の利益率」・会社の粗利が動きました。");
@@ -1266,7 +1317,10 @@ function dPayinHtml() {
   const byM = {};
   rest.forEach(x => { (byM[ymOf(x.due)] = byM[ymOf(x.due)] || []).push(x); });
   const card = x => {
-    const pill = x.i.paid ? '<span class="pill p-ok">入金済</span>' : (x.due < TODAY ? '<span class="pill p-warn">遅延</span>' : '<span class="pill p-mut">予定</span>');
+    const pill = x.i.paid ? '<span class="pill p-ok">入金済</span>'
+               : x.due < TODAY ? '<span class="pill p-warn">遅延</span>'
+               : x.due === TODAY ? '<span class="pill p-cau">📅 今日予定</span>'
+               : '<span class="pill p-mut">予定</span>';
     const mk = x.i.isNew ? '<span class="newtag">🆕 いま発行</span>'
              : (x.i.justPaid ? '<span class="newtag ok">✅ さっきの遅延分</span>' : "");
     const cls = x.i.isNew ? " hl-new" : (x.i.justPaid ? " hl-done" : "");
@@ -1292,11 +1346,15 @@ function dMarkPaid(invId) {
   S.invoices.forEach(x => { delete x.justPaid; });   // 緑の印は最新の1件だけ
   i.paid = TODAY;
   i.justPaid = true;
-  if (wasOverdue) S.flags.paidMark = true;
+  if (wasOverdue || i.isNew) S.flags.paidMark = true;
+  S.lastAction = primeName(i.site) + " " + fmt(i.total) + "（" + siteOf(i.site).name + "・No." + i.no + "）を入金済みに";
   dRender(); renderGuide();
-  announce("<b>" + primeName(i.site) + " " + fmt(i.total) + " を入金済みにしました。</b>" +
-    (wasOverdue ? "赤い「遅延」枠から、月別の欄へ<b>緑の「✅さっきの遅延分」</b>として移っています。ホームの要対応からも「入金遅延」が消えました。" : "「今月入る」の入金済みが増えました。"),
-    "ホームで確認する", "function(){ dGo('home') }");
+  const head = "<b>【" + todayLabel() + "】" + primeName(i.site) + " " + fmt(i.total) + "（No." + i.no + "）を入金済みにしました。</b><br>";
+  let body;
+  if (wasOverdue) body = "赤い「遅延」枠から、月別の欄へ<b>緑の「✅さっきの遅延分」</b>として移りました。ホームの要対応からも「入金遅延」が消えます。";
+  else if (i.isNew) body = "<b>" + fmtD(i.pe) + "に締めて → " + (S.flags.timeAdv ? "9/2に" : "") + "請求書を発行 → 予定日どおり入金</b>、という一連の流れが完了しました。「今月 入る」タイルの「入金済み」が " + fmt(i.total) + " 増えています。";
+  else body = "「今月入る」の入金済みが増えました。";
+  announce(head + body, "ホームで確認する", "function(){ dGo('home') }");
 }
 function dTodoHtml() {
   const td = todos();
@@ -1341,8 +1399,9 @@ function dWinLead(id) {
   S.sites.push({ id:"s_" + id, name:l.name, prime:l.prime, contract:l.amount, laborMd:0, active:true,
                  plans:{ sub:0, mat:0 }, months:[], isNew:true });
   S.flags.won = true;
+  S.lastAction = "見込み案件「" + l.name + "」を受注に";
   dRender(); renderGuide();
-  announce("<b>「" + l.name + "」を受注にしました。</b>起きたことは2つ：①この案件が下の「決着した案件」へ移動（🆕印）②<b>現場タブに🆕の新しい現場</b>ができ、請負金額 " + fmt(l.amount) + " が登録済み（二重入力なしで日報・請求を始められる状態）。「これから請求する分」も " + fmt(summary().backlog) + " に増えました。",
+  announce("<b>【" + todayLabel() + "】「" + l.name + "」を受注にしました。</b>起きたことは2つ：①この案件が下の「決着した案件」へ移動（🆕印）②<b>現場タブに🆕の新しい現場</b>ができ、請負金額 " + fmt(l.amount) + " が登録済み（二重入力なしで日報・請求を始められる状態）。「これから請求する分」も " + fmt(summary().backlog) + " に増えました。",
     "現場タブで🆕の現場を見る", "function(){ dGo('home'); dSetTab('sites') }");
 }
 function dSettingsHtml() {
