@@ -541,6 +541,7 @@ function showApp(name) {
   });
   if (name === "dash") dRender();
   if (name === "bill") bRender();
+  renderGuide();   // タブ切替時もガイド（ステップバー）を最新化する
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 function demoToast(msg, err) {
@@ -580,7 +581,7 @@ function renderGuide() {
   const cur = curStep();
   document.getElementById("gsteps").innerHTML = STEPS.map((st, i) => {
     const ok = stepDone(st.key), isCur = cur && cur.key === st.key;
-    return '<div class="gstep' + (ok ? " ok" : "") + (isCur ? " cur" : "") + '" onclick="showApp(\'' + st.app + '\')">' +
+    return '<div class="gstep' + (ok ? " ok" : "") + (isCur ? " cur" : "") + '" onclick="stepGo(\'' + st.key + '\')">' +
       '<span class="no">' + (ok ? "✓" : (i+1)) + '</span>' +
       '<span class="tx"><b>' + st.title + '</b><span>' + st.desc + '</span></span></div>';
   }).join("");
@@ -592,8 +593,16 @@ function renderGuide() {
     bar.className = "stepbar";
     const idx = STEPS.indexOf(cur) + 1;
     bar.innerHTML = "<b>ステップ " + idx + "/6：" + cur.title + "</b><br>" + cur.desc +
-      (curApp !== cur.app ? "<span class='go' onclick=\"showApp('" + cur.app + "')\">この画面へ移動 ›</span>" : "");
+      "<span class='go' onclick=\"stepGo('" + cur.key + "')\">▶ やってみる（操作する画面へ） ›</span>";
   }
+}
+// ステップの「やってみる」: アプリ切替だけでなく、その操作を始める画面まで直行させる
+function stepGo(key) {
+  if (key === "report") { showApp("line"); }
+  else if (key === "joyo" || key === "ukeoi") { showApp("bill"); bGo("site"); }
+  else if (key === "dash") { showApp("dash"); dGo("home"); }
+  else if (key === "paidMark") { showApp("dash"); dGo("payin"); }
+  else if (key === "won") { showApp("dash"); dGo("leads"); }
 }
 function resetDemo() {
   initState(); chatLog = []; chatPhase = 0;
@@ -718,8 +727,8 @@ function bListHtml() {
   }).join("");
   return '<div class="c"><div class="muted">利用者</div><div style="font-size:14px;font-weight:bold">田中 一郎（管理者）</div>' +
     '<div class="muted" style="margin-top:6px">所属会社</div><div style="font-size:14px;font-weight:bold">架空建設株式会社</div></div>' +
-    '<div class="sec-label">請求一覧</div>' + rows +
-    '<button class="bbtn bbtn-primary" style="margin-top:6px" onclick="bGo(\'site\')">＋ 今月の請求をつくる</button>';
+    '<button class="bbtn bbtn-primary" style="margin:2px 0 12px" onclick="bGo(\'site\')">＋ 今月の請求をつくる</button>' +
+    '<div class="sec-label">請求一覧</div>' + rows;
 }
 function bSiteHtml() {
   const cards = S.sites.filter(s => s.active).map(s =>
