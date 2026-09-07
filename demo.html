@@ -16,6 +16,9 @@
     /* 見た目の正本: liff/dashboard.html ／ liff/billing.html（そこからCSSを移植）
        用語の正本: docs/UI_TERMINOLOGY.md
        このページはブラウザ内のサンプルデータだけで動くデモです（DB・LINEには接続しません） */
+    /* fla-tokens.css が読めない環境（ローカルファイルを直接開いた場合など）でも色が崩れないよう、同じ値を既定として持つ */
+    :root{--acc:#1d9e75;--acc-dark:#178a66;--bg:#f4f3ed;--card:#fff;--ink:#1f1e1c;--sub:#6b6a63;--line:#e2e0d8;
+          --info-bg:#e7f4ee;--info-ink:#178a66;--warn:#c0392b;--ok-bg:#e7f4ee;--ok-ink:#1f9a63;--r:12px;--r-sm:8px;}
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;background:#e8e6df;color:var(--ink);min-height:100vh;-webkit-text-size-adjust:100%;line-height:1.6;}
 
