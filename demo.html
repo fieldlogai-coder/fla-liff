@@ -730,7 +730,10 @@ function spotTarget() {
     if (bScreen === "cj") return bAdjust.length ? findIn(B, "この内容で発行する") : findIn(B, "端数調整");
     if (bScreen === "cf") return findIn(B, "この内容で発行する");
     if (bScreen === "done") return findIn(B, "請求一覧へもどる");
-    return null;
+    return document.getElementById("b-back");   // A4表示など想定外の画面 → 戻る
+  }
+  if (cur.key === "dash") {
+    return dScreen === "home" ? null : document.getElementById("d-back");   // ホームを表示した時点で自動達成。別画面なら戻る
   }
   if (cur.key === "paidMark") {
     if (dScreen === "payin") {
@@ -738,19 +741,21 @@ function spotTarget() {
       return document.querySelector("#d-body .row.hl-new .btn") || findIn("#d-body .btn", "入金済");
     }
     if (dScreen === "home") { const t = findIn("#d-body .tile", "今月 入る"); return t ? t.closest(".tile") : null; }
-    return null;
+    if (dScreen === "todo") return findIn("#d-body .btn", "入金済みにする") || document.getElementById("d-back");
+    return document.getElementById("d-back");
   }
   if (cur.key === "won") {
     if (dScreen === "leads") return findIn("#d-body .btn", "受注した");
     if (dScreen === "home") { const t = findIn("#d-body .tile", "これから請求する分"); return t ? t.closest(".tile") : null; }
-    return null;
+    return document.getElementById("d-back");   // 入金予定・要対応などにいる → 戻る
   }
-  return null;   // dash: ホームを見た時点で自動達成
+  return null;
 }
 function spotlight() {
   document.querySelectorAll(".spot").forEach((el) => el.classList.remove("spot"));
   try {
-    const t = spotTarget();
+    let t = spotTarget();
+    if (!t && curStep()) t = document.querySelector("#stepbar .go");   // 対象が見つからない状態でも必ず1つは光らせる
     if (t) t.classList.add("spot");
   } catch (_e) { /* 誘導の失敗はデモ本体に影響させない */ }
 }
@@ -1205,6 +1210,8 @@ function dRender() {
   document.getElementById("d-set").style.display = dScreen === "home" ? "inline-block" : "none";
   document.getElementById("d-ybar").style.display = dScreen === "home" ? "flex" : "none";
   const el = document.getElementById("d-body");
+  // 請求2枚を発行した後にホームを表示した時点でステップ4達成（タブ切替で来た場合も。dGo経由だけだと達成されず誘導が消えていた）
+  if (dScreen === "home" && S.flags.joyo && S.flags.ukeoi && !S.flags._dashSeen) S.flags._dashSeen = true;
   if (dScreen === "home")  el.innerHTML = dHomeHtml();
   if (dScreen === "payin") el.innerHTML = dPayinHtml();
   if (dScreen === "todo")  el.innerHTML = dTodoHtml();

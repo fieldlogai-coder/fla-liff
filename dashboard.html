@@ -64,6 +64,13 @@
     .chart .out{background:#e3b5ae;border-radius:0 0 3px 3px;min-height:1px;}
     .chart .lab{font-size:10px;color:var(--sub);margin-top:4px;}
     .chart .amt{font-size:10px;font-weight:bold;}
+    /* 請求書発行済み（入金待ち）のカード */
+    .argrp{cursor:pointer;}
+    .argrp .big{font-size:16px;font-weight:bold;letter-spacing:-.3px;}
+    .hint{font-size:10px;color:var(--sub);margin-top:4px;line-height:1.45;}
+    .b-ov{background:#e07a6a;} .b-tm{background:var(--acc);} .b-lt{background:#c9c6ba;} .b-nd{background:#efe6c8;}
+    /* 売上と支払の折れ線 */
+    .lchart{width:100%;height:auto;display:block;margin-top:2px;}
     .note{background:var(--info-bg);color:var(--info-ink);border-radius:var(--r-sm);padding:8px 10px;font-size:11.5px;line-height:1.55;}
     .setup{background:var(--bg);border:1px dashed #cfcdc2;border-radius:var(--r-sm);padding:9px 10px;font-size:11.5px;color:var(--sub);}
     .setup b{color:var(--ink);display:block;margin-bottom:2px;font-size:12.5px;}
@@ -113,6 +120,7 @@
 <!-- ── ホーム ─────────────────────────────────────────────── -->
 <div class="screen" id="s-home">
   <div class="c" id="tiles"></div>
+  <div id="ar-card"></div>
   <div id="todo-card"></div>
   <div class="tabs">
     <div class="tab on" id="tab-money" onclick="setTab('money')">お金</div>
@@ -357,6 +365,25 @@ function buildSummary() {
   const leadTotal = openLeads.reduce((n,l) => n + (l.amount||0), 0);
   const leadWeighted = openLeads.reduce((n,l) => n + (l.amount||0) * (PROB[l.probability]?.[1] ?? .5), 0);
 
+  // 請求書発行済み（入金待ち）＝入金予定の月にかかわらず、発行済みで未入金の請求（税込）。遅延／今月予定／来月以降／予定日未設定
+  const amtOf = i => (i.total_amount || i.subtotal_amount || 0);
+  const td = today();
+  const unpaidAll = issued.filter(i => !i.paid_on);
+  const unpaidDue = dues.filter(x => !x.inv.paid_on);
+  const bucket = list => ({ amt: list.reduce((n,x) => n + amtOf(x.inv || x), 0), n: list.length });
+  const ar = {
+    total: unpaidAll.reduce((n,i) => n + amtOf(i), 0), count: unpaidAll.length,
+    overdue: bucket(unpaidDue.filter(x => x.due < td)),
+    thisM:   bucket(unpaidDue.filter(x => x.due >= td && ymOf(x.due) === ym)),
+    later:   bucket(unpaidDue.filter(x => ymOf(x.due) > ym)),
+    noDue:   bucket(unpaidAll.filter(i => !dueDateOf(i))),
+  };
+  // 遅れていた分の回収＝予定月が今月より前で、今月に入金済みにしたもの（「今月 入る」の合計には入らないので別枠で見せる）
+  const lateList = dues.filter(x => x.inv.paid_on && ymOf(x.inv.paid_on) === ym && ymOf(x.due) < ym);
+  const lateCollected = lateList.reduce((n,x) => n + amtOf(x.inv), 0);
+  // 今期の売上のうち入金済み／入金待ち（税抜・締め日基準）
+  const salesPaidFY = issued.filter(i => inFy(i.period_end, y) && i.paid_on).reduce((n,i) => n + (i.subtotal_amount||0), 0);
+
   // 月平均の売上（年度の経過月数で割る）
   const [fs] = fyRange(y);
   const elapsed = Math.max(1, Math.min(12, (new Date(today()).getFullYear()*12 + new Date(today()).getMonth()) - (new Date(fs).getFullYear()*12 + new Date(fs).getMonth()) + 1));
@@ -371,12 +398,28 @@ function buildSummary() {
     return { ym:m, in:cin, out:cout };
   });
 
+  // 売上と支払（月ごと・今期）＝売上は締め月(period_end)・税抜、支払は登録月。年度初月〜（今月 or データのある最後の月）
+  const [fs0, fe0] = fyRange(y);
+  const fyEndYm = ymOf(fe0);
+  const dataYms = issued.filter(i => inFy(i.period_end, y)).map(i => ymOf(i.period_end))
+    .concat(db.months.filter(m => inFy(m.month, y)).map(m => ymOf(m.month)));
+  let endYm = y === currentFy() ? ym : fyEndYm;
+  dataYms.forEach(d => { if (d > endYm) endYm = d; });
+  if (endYm > fyEndYm) endYm = fyEndYm;
+  const line = [];
+  for (let k = 0, m = ymOf(fs0); k < 12 && m <= endYm; k++, m = ymPlus(m, 1)) {
+    line.push({ ym:m,
+      sales: issued.filter(i => ymOf(i.period_end) === m).reduce((n,i) => n + (i.subtotal_amount||0), 0),
+      pay:   db.months.filter(z => ymOf(z.month) === m).reduce((n,z) => n + (z.amount||0), 0) });
+  }
+
   const hasPaySite = db.plans.length > 0 || db.months.length > 0;
   const hasDue = db.sites.some(s => s.prime_contractors && s.prime_contractors.payment_month_offset != null);
 
   sum = { y, inMonth, inPaid, outMonth, outPaid, salesFY, paidFY, laborFY, grossFY,
           marginFY: salesFY > 0 ? grossFY/salesFY*100 : null, backlog, leadTotal, leadWeighted,
-          monthsOfWork, avgMonth, chart, hasDue, hasPaySite, elapsed };
+          monthsOfWork, avgMonth, chart, hasDue, hasPaySite, elapsed,
+          ar, lateCollected, lateList, salesPaidFY, salesUnpaidFY: salesFY - salesPaidFY, line };
 }
 
 function buildTodos() {
@@ -440,7 +483,7 @@ function renderTiles() {
       <div class="tile ${sum.hasDue ? "in" : "mut"}" onclick="go('payin')">
         <div class="k">今月 入る</div>
         <div class="v">${sum.hasDue ? fmt(sum.inMonth) : "—"}</div>
-        <div class="n">${sum.hasDue ? "入金済み " + fmt(sum.inPaid) : "元請の入金サイト 未設定"}</div>
+        <div class="n">${sum.hasDue ? "入金済み " + fmt(sum.inPaid) + (sum.lateCollected ? "<br>＋遅れていた分の回収 " + fmt(sum.lateCollected) : "") : "元請の入金サイト 未設定"}</div>
       </div>
       <div class="tile ${sum.hasPaySite ? "" : "mut"}" onclick="setTab('sites')">
         <div class="k">今月 出る</div>
@@ -457,6 +500,53 @@ function renderTiles() {
         <div class="n">＋見込み ${fmt(sum.leadTotal)}</div>
       </div>
     </div>`;
+  document.getElementById("ar-card").innerHTML = arCardHtml();
+}
+
+// 🧾 請求書発行済み（入金待ち）＝発行した請求書が、入金予定の月にかかわらず全部入る箱。
+//   これから請求 → 発行 → ここ → 「入金済」で消える、というお金の通り道を見せる（発行済みの請求が1枚もない会社では出さない）
+function arLegendHtml() {
+  const a = sum.ar;
+  const part = (label, b, cls) => b.n ? `<span><i class="${cls}"></i>${label} ${fmt(b.amt)}（${b.n}枚）</span>` : "";
+  return `<div class="lg">${part("遅延", a.overdue, "b-ov")}${part("今月予定", a.thisM, "b-tm")}${part("来月以降", a.later, "b-lt")}${part("予定日未設定", a.noDue, "b-nd")}${a.count ? "" : "<span>入金待ちはありません</span>"}</div>`;
+}
+function arCardHtml() {
+  if (!db.invoices.some(i => i.status === "issued")) return "";
+  const a = sum.ar;
+  const seg = (b, cls) => (a.total && b.amt) ? `<i class="${cls}" style="width:${b.amt / a.total * 100}%"></i>` : "";
+  return `<div class="c argrp" onclick="go('payin')">
+    <div class="c-t"><b>🧾 請求書発行済み（入金待ち）</b><span>${a.count}枚・税込</span></div>
+    <div class="kv"><span class="l">合計</span><span class="r big">${fmt(a.total)}</span></div>
+    <div class="bar">${seg(a.overdue, "b-ov")}${seg(a.thisM, "b-tm")}${seg(a.later, "b-lt")}${seg(a.noDue, "b-nd")}</div>
+    ${arLegendHtml()}
+    <div class="lg" style="display:block;line-height:1.5;margin-top:6px">今期の売上 ${fmt(sum.salesFY)}（税抜）＝ 入金済み ${fmt(sum.salesPaidFY)} ＋ 入金待ち ${fmt(sum.salesUnpaidFY)}</div>
+    <div class="hint">発行した請求書は、入金予定の月にかかわらず全部ここに入り、「入金済」にすると消えます。「今月 入る」はこのうち今月予定の分です。</div></div>`;
+}
+
+// 売上と支払の折れ線（ライブラリなし・SVG直書き）。rows=[{ym, sales, pay}]
+function lineChartSvg(rows) {
+  const W = 340, H = 156, L = 20, R = 20, T = 20, B = 24;
+  const max = Math.max(1, ...rows.map(r => Math.max(r.sales, r.pay)));
+  const n = rows.length;
+  const x = i => n > 1 ? L + i * (W - L - R) / (n - 1) : W / 2;
+  const y = v => T + (H - T - B) * (1 - v / max);
+  const pathOf = key => rows.map((r,i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(r[key]).toFixed(1)).join(" ");
+  const manV = v => v ? Math.round(v / 10000) : 0;
+  const ym = thisYm();
+  let g = "";
+  [0, .5, 1].forEach(f => { g += `<line x1="${L}" y1="${y(max*f).toFixed(1)}" x2="${W-R}" y2="${y(max*f).toFixed(1)}" stroke="#e2e0d8" stroke-width="1"/>`; });
+  const cur = rows.findIndex(r => r.ym === ym);
+  if (cur >= 0) g += `<rect x="${(x(cur) - 14).toFixed(1)}" y="${T}" width="28" height="${H - T - B}" fill="#1d9e75" opacity=".07"/>`;
+  const lines = `<path d="${pathOf("pay")}" fill="none" stroke="#e07a6a" stroke-width="2" stroke-linejoin="round"/>` +
+                `<path d="${pathOf("sales")}" fill="none" stroke="#1d9e75" stroke-width="2.4" stroke-linejoin="round"/>`;
+  const dots = rows.map((r,i) =>
+    `<circle cx="${x(i).toFixed(1)}" cy="${y(r.pay).toFixed(1)}" r="3" fill="#e07a6a"/>` +
+    `<circle cx="${x(i).toFixed(1)}" cy="${y(r.sales).toFixed(1)}" r="3.4" fill="#1d9e75"/>` +
+    (r.sales ? `<text x="${x(i).toFixed(1)}" y="${(y(r.sales) - 6).toFixed(1)}" font-size="9.5" font-weight="bold" fill="#178a66" text-anchor="middle">${manV(r.sales)}</text>` : "") +
+    (r.pay ? `<text x="${x(i).toFixed(1)}" y="${(y(r.pay) + 12).toFixed(1)}" font-size="9.5" fill="#b8503f" text-anchor="middle">${manV(r.pay)}</text>` : "") +
+    `<text x="${x(i).toFixed(1)}" y="${H - 6}" font-size="10" fill="${i === cur ? "#178a66" : "#6b6a63"}" font-weight="${i === cur ? "bold" : "normal"}" text-anchor="middle">${ymLabel(r.ym)}</text>`
+  ).join("");
+  return `<svg class="lchart" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="売上と支払の月別推移">${g}${lines}${dots}</svg>`;
 }
 
 function renderTodoCard() {
@@ -507,6 +597,11 @@ function moneyHtml() {
     ${sum.chart.some(c => c.in - c.out < 0) ? `<div class="note" style="margin-top:8px">支払が入金を上回る月があります。請求の前倒しや支払時期の相談を検討してください。</div>` : ""}
   </div>`;
 
+  const lineCard = sum.line.some(r => r.sales || r.pay) ? `<div class="c"><div class="c-t"><b>売上と支払（月ごと・${fyLabel(sum.y)}）</b><span>単位：万円</span></div>
+    <div class="lg" style="margin-bottom:2px"><span><i class="b-done"></i>売上（税抜・締め月で計上）</span><span><i class="b-ov"></i>支払（外注費・材料費など）</span></div>
+    ${lineChartSvg(sum.line)}
+    <div class="hint">売上は「請求書の締め月」で数えます（翌月に発行した前月分は前月の売上）。今月より先の支払は登録済みの予定です。人件費（日報×日額原価）は含みません。</div></div>` : "";
+
   const dues = db.invoices.filter(i => i.status === "issued" && !i.paid_on)
     .map(i => ({ inv:i, due:dueDateOf(i) })).filter(x => x.due).sort((a,b) => a.due < b.due ? -1 : 1).slice(0,4);
   const payin = `<div class="c"><div class="c-t"><b>近い入金予定</b><span class="lnk" onclick="go('payin')">すべて見る ›</span></div>
@@ -529,7 +624,7 @@ function moneyHtml() {
       : '<div class="row"><span class="mt">今月の支払予定は登録されていません</span></div>'}
     ${sum.laborFY > 0 ? `<div class="note" style="margin-top:7px">※ 人件費（日報×日額原価 ${fmt(cfg.laborCostPerDay)}）は今期 ${fmt(sum.laborFY)}。粗利には含めていますが、この「支払」欄には出していません。</div>` : ""}</div>`;
 
-  return chart + payin + pay;
+  return chart + lineCard + payin + pay;
 }
 
 function sitesHtml() {
@@ -667,7 +762,6 @@ function renderPayin() {
   const rest = rows.filter(x => !(!x.inv.paid_on && x.due < today())).sort((a,b) => a.due < b.due ? -1 : 1);
   const byMonth = {};
   rest.forEach(x => { (byMonth[ymOf(x.due)] = byMonth[ymOf(x.due)] || []).push(x); });
-  const unpaidTotal = rows.filter(x => !x.inv.paid_on).reduce((n,x) => n + (x.inv.total_amount || x.inv.subtotal_amount || 0), 0);
 
   const card = (x) => {
     const amt = x.inv.total_amount || x.inv.subtotal_amount || 0;
@@ -680,8 +774,10 @@ function renderPayin() {
   };
 
   document.getElementById("payin-body").innerHTML = `
-    <div class="c"><div class="kv"><span class="l">今月 入る</span><span class="r">${fmt(sum.inMonth)}</span></div>
-      <div class="kv"><span class="l">未入金 合計</span><span class="r">${fmt(unpaidTotal)}</span></div></div>
+    <div class="c"><div class="kv"><span class="l">今月 入る（${+thisYm().slice(5,7)}月予定の合計）</span><span class="r">${fmt(sum.inMonth)}</span></div>
+      <div class="kv"><span class="l">請求書発行済み（入金待ち）</span><span class="r">${fmt(sum.ar.total)}（${sum.ar.count}枚）</span></div>
+      ${arLegendHtml()}
+      ${sum.lateCollected ? `<div class="lg" style="display:block;margin-top:5px">✅ 遅れていた分の回収 ${fmt(sum.lateCollected)}（予定は先月以前・今月入金）は「今月 入る」の合計には入りません</div>` : ""}</div>
     ${overdue.length ? `<div class="sec">遅延 ${overdue.length}件</div><div class="c" style="border:1px solid #f0c8c2">${overdue.map(card).join("")}</div>` : ""}
     ${Object.keys(byMonth).sort().map(m => `<div class="sec">${m.replace("-","年")}月</div><div class="c">${byMonth[m].map(card).join("")}</div>`).join("")}
     <div class="note">入金予定日は「元請の締め日＋入金サイト」から自動計算しています。実際の入金日がずれても、「入金済」を押した日で記録します。</div>`;
