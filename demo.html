@@ -259,6 +259,14 @@
     @keyframes tileFlash{0%,55%{box-shadow:inset 0 0 0 3px #ffb84d;}100%{box-shadow:inset 0 0 0 3px rgba(255,184,77,0);}}
     .tile.chg{animation:tileFlash 2.4s ease-out 1;}
     .tile .delta{font-size:10px;font-weight:bold;color:#c77700;margin-top:2px;}
+    .tile .delta small{font-weight:normal;color:#a8781a;}
+    /* 請求書発行済み（入金待ち）のグループ */
+    .argrp{cursor:pointer;}
+    .argrp.chg{animation:tileFlash 2.4s ease-out 1;}
+    .argrp .big{font-size:16px;font-weight:bold;letter-spacing:-.3px;}
+    .b-ov{background:#e07a6a;} .b-tm{background:var(--acc);} .b-lt{background:#c9c6ba;}
+    /* 売上と支払の折れ線 */
+    .lchart{width:100%;height:auto;display:block;margin-top:2px;}
 
     /* 発行モーダル */
     #modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:320;align-items:center;justify-content:center;padding:20px;}
@@ -347,7 +355,7 @@
         <div class="farrow">人工 × 日額原価 ＝ <b>人件費</b>（入力ゼロで自動計算）</div>
         <div class="fnode"><b>🗂 マスタ（台帳・最初に1回だけ）</b><div class="d">元請の<b>締め日</b>と<b>入金サイト</b>／工種ごとの<b>常用単価</b>／現場×元請の<b>請負金額</b>。ここが請求と入金予定の計算のもとになります。</div></div>
         <div class="farrow">締め日 → 請求期間を自動算出／単価 → 明細の金額</div>
-        <div class="fnode"><b>🧾 請求書（現場ごとに月1枚）</b><div class="d">現場を選ぶ → 出来高（請負）or 常用（人工）→ 端数調整 → 発行。<b>同じ現場・同じ締め期間は2枚作れません</b>（二重請求ガード）。発行した瞬間に「今期の売上」に乗り、請負なら「これから請求する分」が減ります。</div></div>
+        <div class="fnode"><b>🧾 請求書（現場ごとに月1枚）</b><div class="d">現場を選ぶ → 出来高（請負）or 常用（人工）→ 端数調整 → 発行。<b>同じ現場・同じ締め期間は2枚作れません</b>（二重請求ガード）。発行した瞬間に「今期の売上」（税抜）に乗り、請負なら「これから請求する分」が同じ額だけ減ります。税込額は「請求書発行済み（入金待ち）」に入り、入金予定日が今月なら「今月 入る」にも乗ります。</div></div>
         <div class="farrow">発行済みの請求 ＋ 入金サイト → <b>入金予定日を自動計算</b></div>
         <div class="fnode"><b>💰 入金予定</b><div class="d">「締めの◯ヶ月後の◯日」から入金日を自動で並べ、遅れは最上段に。<b>「入金済」1タップ</b>で消し込みます。</div></div>
         <div class="farrow">入金予定・支払・売上・人件費が1画面に集まる</div>
@@ -358,7 +366,9 @@
         <tr><th>ダッシュボードの数字</th><th>どこから来るか</th></tr>
         <tr><td><b>今月 入る</b></td><td>発行済みの請求 × 元請の入金サイト（自動計算した入金予定日が今月のもの）</td></tr>
         <tr><td><b>今月 出る</b></td><td>現場ごとにざっくり登録した支払（外注費・材料費）の今月分</td></tr>
-        <tr><td><b>今期の売上</b></td><td>発行済みの請求書の税抜合計（請求LIFFで発行した瞬間に反映）</td></tr>
+        <tr><td><b>請求書発行済み（入金待ち）</b></td><td>発行済みで未入金の請求の税込合計（入金予定の月にかかわらず全部）。遅延／今月予定／来月以降に分けて表示。「入金済」で消える</td></tr>
+        <tr><td><b>今期の売上</b></td><td>発行済みの請求書の税抜合計。<b>どの期に入れるかは「締め日」で決める</b>（9/2に発行した8月分は8月の売上。入金日ではない＝入金が遅れても売上はずれない）</td></tr>
+        <tr><td><b>売上と支払（折れ線）</b></td><td>月ごとの売上（締め月・税抜）と支払（外注費＋材料費）。今期の推移を1本ずつ</td></tr>
         <tr><td><b>これから請求する分</b></td><td>請負金額 −（請負の請求済み累計）。＋見込み案件の合計</td></tr>
         <tr><td><b>粗利・利益率</b></td><td>売上 − 支払 − <b>人件費（日報の人工 × 日額原価）</b></td></tr>
         <tr><td><b>要対応</b></td><td>請求漏れ（締め期間に請求なし）／入金遅延（予定日超過）／低採算（目標利益率割れ）／仕事量不足</td></tr>
@@ -468,6 +478,7 @@ function initState() {
     ninku: { full:21, half:3 },
     flags: { report:false, joyo:false, ukeoi:false, timeAdv:false, paidMark:false, won:false },
     lastAction: null,   // 直前の操作（ダッシュボードで「何の操作で数字が変わったか」を示す）
+    lastEffect: null,   // 直前の操作で「なぜ・どの数字がどう動いたか」の説明文（🔗欄に出す）
   };
 }
 
@@ -490,7 +501,8 @@ function siteOf(id){ return S.sites.find(s => s.id === id); }
 // タイル変化表示の基準を「いまから操作する直前」の値に更新する（各操作の冒頭で呼ぶ）
 function snapTiles() {
   const sum = summary();
-  S.prevTiles = { in: sum.inMonth, paid: sum.inPaid, out: sum.outMonth, sales: sum.salesFY, back: sum.backlog };
+  S.prevTiles = { in: sum.inMonth, paid: sum.inPaid, late: sum.lateCollected, out: sum.outMonth, outPaid: sum.outPaid,
+                  sales: sum.salesFY, gross: sum.grossFY, back: sum.backlog, ar: sum.ar.total };
 }
 function primeName(siteId){ return S.primes[siteOf(siteId).prime].name; }
 function laborCost(site){ return site.laborMd * S.laborRate; }
@@ -506,7 +518,18 @@ function summary() {
   const outThis = allMonths.filter(m => m.ym === THIS_YM);
   const outMonth = outThis.reduce((n,m) => n + m.amt, 0);
   const outPaid  = outThis.filter(m => m.paid).reduce((n,m) => n + m.amt, 0);
-  const salesFY = inv.reduce((n,i) => n + i.sub, 0);
+  // 今期の売上＝締め日(pe)が今期の請求書の税抜合計（実物 dashboard.html と同じ「締め日基準」。発行日や入金日ではない）
+  const fyInv = inv.filter(i => String(i.pe).slice(0,4) === "2026");
+  const salesFY = fyInv.reduce((n,i) => n + i.sub, 0);
+  const salesPaidFY = fyInv.filter(i => i.paid).reduce((n,i) => n + i.sub, 0);
+  // 請求書発行済み（入金待ち）＝入金予定の月にかかわらず、発行済みで未入金の請求（税込）。遅延／今月／来月以降に分ける
+  const unpaid = inv.filter(i => !i.paid);
+  const bucket = f => { const a = unpaid.filter(f); return { amt: a.reduce((n,i) => n + i.total, 0), n: a.length }; };
+  const ar = { total: unpaid.reduce((n,i) => n + i.total, 0), sub: unpaid.reduce((n,i) => n + i.sub, 0), count: unpaid.length,
+               overdue: bucket(i => i.due < TODAY), thisM: bucket(i => i.due >= TODAY && ymOf(i.due) === THIS_YM), later: bucket(i => ymOf(i.due) > THIS_YM) };
+  // 遅れていた分の回収＝予定月が過去で、今月に入金済みにしたもの（「今月 入る」の合計には入らないので別枠で見せる）
+  const lateList = inv.filter(i => i.paid && ymOf(i.paid) === THIS_YM && ymOf(i.due) < THIS_YM);
+  const lateCollected = lateList.reduce((n,i) => n + i.total, 0);
   const paidFY  = allMonths.filter(m => m.paid).reduce((n,m) => n + m.amt, 0);
   const laborFY = S.sites.reduce((n,s) => n + laborCost(s), 0);
   const grossFY = salesFY - paidFY - laborFY;
@@ -522,8 +545,18 @@ function summary() {
     cin:  dues.filter(x => ymOf(x.due) === ym).reduce((n,x) => n + x.i.total, 0),
     cout: allMonths.filter(m => m.ym === ym).reduce((n,m) => n + m.amt, 0),
   }));
-  return { inMonth, inPaid, outMonth, outPaid, salesFY, paidFY, laborFY, grossFY,
-           marginFY: salesFY ? grossFY/salesFY*100 : 0, backlog, leadTotal, chart };
+  // 売上と支払（月ごと・今期）＝売上は締め月(pe)、支払は登録した月。データのある最初〜最後の月を連続で並べる
+  const yms = inv.map(i => ymOf(i.pe)).concat(allMonths.map(m => m.ym)).filter(x => x.slice(0,4) === "2026").sort();
+  const line = [];
+  if (yms.length) {
+    for (let m = +yms[0].slice(5,7); m <= +yms[yms.length-1].slice(5,7); m++) {
+      const ym = "2026-" + String(m).padStart(2,"0");
+      line.push({ ym, sales: inv.filter(i => ymOf(i.pe) === ym).reduce((n,i) => n + i.sub, 0),
+                      pay:   allMonths.filter(x => x.ym === ym).reduce((n,x) => n + x.amt, 0) });
+    }
+  }
+  return { inMonth, inPaid, outMonth, outPaid, salesFY, salesPaidFY, salesUnpaidFY: salesFY - salesPaidFY, paidFY, laborFY, grossFY,
+           marginFY: salesFY ? grossFY/salesFY*100 : 0, backlog, leadTotal, chart, ar, lateCollected, lateList, line };
 }
 
 // 現場ごとの集計
@@ -600,11 +633,11 @@ const STEPS = [
   { key:"ukeoi",  app:"bill", title:"【9月2日】出来高（請負）の請求を発行",
     desc:"〇〇ビルは「末日締め」。8月分を、金額でも進捗率（%）でも入力して発行します。△△工業は「翌月末入金」なので、入金予定日は 9月30日 になります。" },
   { key:"dash",   app:"dash", title:"【9月2日】ダッシュボードで確認",
-    desc:"いま発行した2枚が「今期の売上」「今月入る」に乗ります。変わったタイルには ▲▼ の金額と「どの操作で変わったか」が出ます。入金予定には2枚が🆕印で並びます。" },
+    desc:"いま発行した2枚が「今期の売上」（税抜）と「今月 入る」（税込）に乗り、タイルの下の「🧾 請求書発行済み（入金待ち）」にも入ります。変わったタイルには ▲▼ の金額、上の🔗欄には「どの操作で・なぜその額だけ変わったか」が出ます。お金タブの下に「売上と支払」の折れ線もあります。" },
   { key:"timeAdv", app:"dash", title:"【⏩ 時間を進める】9月10日へ",
     desc:"◇◇マンション分の入金予定日（9月10日）まで日付を進めます。「やってみる」を押すと、デモの今日が 9月10日 になります。" },
   { key:"paidMark", app:"dash", title:"【9月10日】入金を消し込む",
-    desc:"入金予定を開くと、さっき発行した◇◇マンション分 ¥473,000 が「📅 今日予定」になっています。通帳で確認できた、という想定で「入金済」を押します。8/31予定のまま10日遅れている △△工業 ¥3,300,000（〇〇ビル7月分・赤い遅延枠）も同じ操作で消し込めます。" },
+    desc:"入金予定を開くと、さっき発行した◇◇マンション分 ¥473,000 が「📅 今日予定」になっています。通帳で確認できた、という想定で「入金済」を押します。8/31予定のまま10日遅れている △△工業 ¥3,300,000（〇〇ビル7月分・赤い遅延枠）も同じ操作で消し込めます。消し込むと「請求書発行済み（入金待ち）」から消え、◇◇分は「今月 入る」の入金済みに、△△工業分（8月予定）は『遅れていた分の回収』に出ます。" },
   { key:"won",    app:"dash", title:"【9月10日】見込み案件を受注にする",
     desc:"見積を出していた△△倉庫が決まりました。「受注した」を押すと、現場タブに🆕の新しい現場（請負¥700,000登録済み）ができ、「これから請求する分」が増えます。" },
 ];
@@ -620,6 +653,7 @@ function advanceTime() {
   TODAY = "2026-09-10";
   S.flags.timeAdv = true;
   S.lastAction = "日付を 9月10日 に進めた";
+  S.lastEffect = "日付が進んだだけなので、お金の数字は変わりません。変わるのは日付に連動する部分＝入金予定で ◇◇マンション分 ¥473,000 が「📅 今日予定」になり、△△工業 ¥3,300,000 の遅延が「10日遅れ」になります。";
   updateDateLabels();
   bRender(); dRender(); renderGuide();
   announce("<b>⏩ 9月10日になりました。</b>さっき発行した◇◇マンション分 ¥473,000 は「8/25締め → 翌月10日入金」のルールで、<b>今日が入金予定日</b>です。△△工業の8/31予定分（〇〇ビル7月分 ¥3,300,000）は10日遅れのまま赤い枠に残っています。入金予定画面で確認しましょう。",
@@ -786,6 +820,7 @@ function chatPick(step) {
     siteOf("s2").laborMd += 1;
     S.flags.report = true;
     S.lastAction = "8/20の日報を1件登録（◇◇マンション・終日）";
+    S.lastEffect = "日報は「人工」を貯める入力で、まだ請求前なのでお金の数字は動きません。人件費（1人工 × 日額原価 " + fmt(S.laborRate) + "）だけ増えるので、粗利が " + fmt(S.laborRate) + " 減っています。この人工が、次のステップの常用請求の根拠になります。";
     chatPush({ html:'<div class="bub me">なし</div>' });
     chatPush({ html:'<div class="sumcard"><div class="h">✅ 日報を登録しました</div>' +
       '<div class="r2"><span>現場</span><b>◇◇マンション大規模修繕</b></div>' +
@@ -1090,13 +1125,21 @@ function doIssue() {
   bLastIssued = inv;
   S.flags[bSel.kind] = true;
   S.lastAction = "請求書 No." + no + "（" + s.name + "・" + (bSel.kind === "joyo" ? "常用" : "出来高") + "）を発行";
+  const dueYm = ymOf(inv.due), dueM = +dueYm.slice(5,7);
+  S.lastEffect = (bSel.kind === "joyo"
+      ? "税抜 " + fmt(sub) + " が「今期の売上」に加わりました。常用は請負金額がないので「これから請求する分」は変わりません。"
+      : "税抜 " + fmt(sub) + " が「これから請求する分」から「今期の売上」へ移りました（▼と▲が同じ額）。") +
+    "税込 " + fmt(total) + "（＝税抜 " + fmt(sub) + " ＋ 消費税 " + fmt(tax) + "）は入金予定 " + fmtD(inv.due) + " なので、" +
+    (dueYm === THIS_YM
+      ? "「今月 入る」と下の「請求書発行済み（入金待ち）」に加わりました。「今月 入る」だけ額が違うのは消費税のぶんです。"
+      : "「今月 入る」には入らず（" + dueM + "月の予定）、下の「請求書発行済み（入金待ち）」の来月以降に加わりました。" + dueM + "月になると「今月 入る」に自動で乗ります。");
   const dueTxt = fmtD(inv.due);
   const rule = bSel.kind === "joyo" ? "8/25締め → 翌月10日入金（□□建材の入金サイト）" : "8/31締め → 翌月末入金（△△工業の入金サイト）";
   if (bSel.kind === "joyo") {
-    announce("<b>【" + todayLabel() + "】請求書 No." + no + " を発行しました（税込 " + fmt(total) + "）。</b><br>入金予定日は <b>" + dueTxt + "</b>（" + rule + "）。この請求には<b>🆕印</b>が付き、請求一覧の一番上と、ダッシュボードの入金予定で追えます。「今期の売上」＋" + fmt(sub) + "、要対応の請求漏れ1件が消えました。",
+    announce("<b>【" + todayLabel() + "】請求書 No." + no + " を発行しました（税込 " + fmt(total) + "）。</b><br>入金予定日は <b>" + dueTxt + "</b>（" + rule + "）。この請求には<b>🆕印</b>が付き、請求一覧の一番上と、ダッシュボードの入金予定で追えます。「今期の売上」＋" + fmt(sub) + "（税抜）、「今月 入る」＋" + fmt(total) + "（税込）、要対応の請求漏れ1件が消えました。ダッシュボードの🔗欄に「なぜその額だけ変わったか」が出ます。",
       "ダッシュボードで見る", "function(){ showApp('dash'); dGo('home') }");
   } else {
-    announce("<b>【" + todayLabel() + "】請求書 No." + no + " を発行しました（税込 " + fmt(total) + "）。</b><br>入金予定日は <b>" + dueTxt + "</b>（" + rule + "）。こちらも<b>🆕印</b>付きで一覧と入金予定に出ています。「今期の売上」＋" + fmt(sub) + "、「これから請求する分」−" + fmt(sub) + "、請負の進みぐあいは " + siteCalc(s).pct.toFixed(0) + "% になりました。",
+    announce("<b>【" + todayLabel() + "】請求書 No." + no + " を発行しました（税込 " + fmt(total) + "）。</b><br>入金予定日は <b>" + dueTxt + "</b>（" + rule + "）。こちらも<b>🆕印</b>付きで一覧と入金予定に出ています。「今期の売上」＋" + fmt(sub) + "、「これから請求する分」−" + fmt(sub) + "（同じ税抜額が移動）、「今月 入る」＋" + fmt(total) + "（税込）、請負の進みぐあいは " + siteCalc(s).pct.toFixed(0) + "% になりました。",
       "ダッシュボードで見る", "function(){ showApp('dash'); dGo('home') }");
   }
   renderGuide();
@@ -1170,6 +1213,20 @@ function dRender() {
   spotlight();
 }
 function dSetTab(t){ dTab = t; dRender(); }
+// 🧾 請求書発行済み（入金待ち）＝発行した請求書が、入金予定の月にかかわらず全部入る箱。
+//   「これから請求する分」→ 発行 → ここ → 入金済 で消える、というお金の通り道が見えるようにする
+function dArGroupHtml(sum, chgCls, deltaHtml) {
+  const a = sum.ar;
+  const seg = (amt, cls) => a.total ? '<i class="' + cls + '" style="width:' + (amt / a.total * 100) + '%"></i>' : "";
+  const part = (label, b, color) => b.n ? '<span><i class="' + color + '"></i>' + label + ' ' + fmt(b.amt) + '（' + b.n + '枚）</span>' : "";
+  return '<div class="c argrp' + chgCls + '" onclick="dGo(\'payin\')">' +
+    '<div class="c-t"><b>🧾 請求書発行済み（入金待ち）</b><span>' + a.count + '枚・税込</span></div>' +
+    '<div class="kv"><span class="l">合計</span><span class="r big">' + fmt(a.total) + '</span></div>' + deltaHtml +
+    '<div class="bar">' + seg(a.overdue.amt, "b-ov") + seg(a.thisM.amt, "b-tm") + seg(a.later.amt, "b-lt") + '</div>' +
+    '<div class="lg" style="margin-bottom:6px">' + part("遅延", a.overdue, "b-ov") + part("今月予定", a.thisM, "b-tm") + part("来月以降", a.later, "b-lt") + (a.count ? "" : "<span>入金待ちはありません</span>") + '</div>' +
+    '<div class="lg" style="display:block;line-height:1.5">今期の売上 ' + fmt(sum.salesFY) + '（税抜）＝ 入金済み ' + fmt(sum.salesPaidFY) + ' ＋ 入金待ち ' + fmt(sum.salesUnpaidFY) + '</div>' +
+    '<div class="tile-n" style="font-size:10px;color:var(--sub);margin-top:4px;line-height:1.45">発行した請求書は、入金予定の月にかかわらず全部ここに入り、「入金済」にすると消えます。「今月 入る」はこのうち今月予定の分（＋今月に入金済みの分）です。</div></div>';
+}
 function dHomeHtml() {
   const sum = summary();
   const td = todos();
@@ -1177,25 +1234,30 @@ function dHomeHtml() {
   // 前回ホームを見たときから変わったタイルに、変化額とフラッシュを付ける（結果を追えるように）
   // 基準は「最後に操作した瞬間」のスナップショット（snapTiles）。描画では消費しないので、
   // 何度画面を行き来しても「その操作で何が変わったか」が出続ける。次の操作で基準が更新される。
-  const cur = { in: sum.inMonth, paid: sum.inPaid, out: sum.outMonth, sales: sum.salesFY, back: sum.backlog };
+  const cur = { in: sum.inMonth, paid: sum.inPaid, late: sum.lateCollected, out: sum.outMonth, outPaid: sum.outPaid,
+                sales: sum.salesFY, gross: sum.grossFY, back: sum.backlog, ar: sum.ar.total };
   const prev = S.prevTiles;
   const chg = (k) => (prev && prev[k] !== cur[k]) ? " chg" : "";
-  const delta = (k, label) => {
+  // 変化額。税込／税抜の別を小さく添える（「今月 入る」だけ額が違う＝消費税のぶん、が分かるように）
+  const delta = (k, label, unit) => {
     if (!prev || prev[k] === cur[k]) return "";
     const df = cur[k] - prev[k];
-    return '<div class="delta">' + (df > 0 ? "▲ +" : "▼ −") + fmt(Math.abs(df)) + ' ' + (label || "変わりました") + '</div>';
+    return '<div class="delta">' + (df > 0 ? "▲ +" : "▼ −") + fmt(Math.abs(df)) + (unit ? '<small>（' + unit + '）</small>' : "") + ' ' + (label || "変わりました") + '</div>';
   };
-  // 操作 → 結果 の橋渡し（どの操作でどの数字が変わったかを1行で示す）
-  const anyChg = prev && ["in","paid","out","sales","back"].some(k => prev[k] !== cur[k]);
-  const bridge = (anyChg && S.lastAction)
-    ? '<div class="note" style="margin-bottom:8px;font-size:11.5px">🔗 <b>直前の操作：' + S.lastAction + '</b><br>この操作で変わった数字に ▲▼ と金額が付いています。</div>'
-    : (prev && S.lastAction && !anyChg ? '<div class="lg" style="margin-bottom:6px">直前の操作「' + S.lastAction + '」では、この4つの数字は変わりません（入金予定の画面や現場タブに変化があります）。</div>' : "");
+  // 操作 → 結果 の橋渡し（どの操作で・なぜ・どの数字がどう動いたかを示す。説明文は各操作が S.lastEffect にセット）
+  const anyChg = prev && Object.keys(cur).some(k => prev[k] !== cur[k]);
+  const bridge = S.lastAction
+    ? '<div class="note" style="margin-bottom:8px;font-size:11.5px">🔗 <b>直前の操作：' + S.lastAction + '</b><br>' +
+      (S.lastEffect || (anyChg ? "この操作で変わった数字に ▲▼ と金額が付いています。" : "この操作では、お金の数字は変わりません。")) + '</div>'
+    : "";
+  const lateLine = sum.lateCollected ? '<br>＋遅れていた分の回収 ' + fmt(sum.lateCollected) : "";
   const tiles = bridge + '<div class="c"><div class="split">' +
-    '<div class="tile in' + (chg("in") || chg("paid")) + '" onclick="dGo(\'payin\')"><div class="k">今月 入る</div><div class="v">' + fmt(sum.inMonth) + '</div><div class="n">入金済み ' + fmt(sum.inPaid) + '</div>' + (delta("in") || delta("paid", "入金済みが増えました")) + '</div>' +
-    '<div class="tile' + chg("out") + '" onclick="dSetTab(\'sites\')"><div class="k">今月 出る</div><div class="v">' + fmt(sum.outMonth) + '</div><div class="n">支払済み ' + fmt(sum.outPaid) + '</div>' + delta("out") + '</div></div>' +
+    '<div class="tile in' + (chg("in") || chg("paid") || chg("late")) + '" onclick="dGo(\'payin\')"><div class="k">今月 入る</div><div class="v">' + fmt(sum.inMonth) + '</div><div class="n">入金済み ' + fmt(sum.inPaid) + lateLine + '</div>' + (delta("in", null, "税込") || delta("paid", "入金済みが増えました") || delta("late", "遅れていた分を回収")) + '</div>' +
+    '<div class="tile' + (chg("out") || chg("outPaid")) + '" onclick="dSetTab(\'sites\')"><div class="k">今月 出る</div><div class="v">' + fmt(sum.outMonth) + '</div><div class="n">支払済み ' + fmt(sum.outPaid) + '</div>' + (delta("out") || delta("outPaid", "支払済みが変わりました")) + '</div></div>' +
     '<div class="split" style="margin-top:7px">' +
-    '<div class="tile' + chg("sales") + '" onclick="dSetTab(\'sites\')"><div class="k">今期の売上</div><div class="v">' + fmt(sum.salesFY) + '</div><div class="n">' + gross + '</div>' + delta("sales") + '</div>' +
-    '<div class="tile' + chg("back") + '" onclick="dGo(\'leads\')"><div class="k">これから請求する分</div><div class="v">' + fmt(sum.backlog) + '</div><div class="n">＋見込み ' + fmt(sum.leadTotal) + '</div>' + delta("back") + '</div></div></div>';
+    '<div class="tile' + (chg("sales") || chg("gross")) + '" onclick="dSetTab(\'sites\')"><div class="k">今期の売上</div><div class="v">' + fmt(sum.salesFY) + '</div><div class="n">' + gross + '</div>' + (delta("sales", null, "税抜") || delta("gross", "粗利が変わりました")) + '</div>' +
+    '<div class="tile' + chg("back") + '" onclick="dGo(\'leads\')"><div class="k">これから請求する分</div><div class="v">' + fmt(sum.backlog) + '</div><div class="n">＋見込み ' + fmt(sum.leadTotal) + '</div>' + delta("back", null, "税抜") + '</div></div></div>' +
+    dArGroupHtml(sum, chg("ar"), delta("ar", "入金待ちが変わりました", "税込"));
   const todoCard = td.length
     ? '<div class="c" style="border:1px solid #f0c8c2"><div class="c-t"><b style="color:var(--warn)">要対応 ' + td.length + '件</b><span class="lnk" onclick="dGo(\'todo\')">すべて見る ›</span></div>' +
       td.slice(0,3).map(t => '<div class="row"><span class="pill ' + (t.kind==="low"?"p-cau":"p-warn") + '">' + t.label + '</span><span class="nm">' + t.name + '</span>' +
@@ -1219,6 +1281,10 @@ function dMoneyHtml(sum) {
         '<div class="lab">' + ymLabel(c.ym) + '</div></div>';
     }).join("") + '</div>' +
     (sum.chart.some(c => c.cin - c.cout < 0) ? '<div class="note" style="margin-top:8px">支払が入金を上回る月があります。請求の前倒しや支払時期の相談を検討してください。</div>' : "") + '</div>';
+  const lineCard = '<div class="c"><div class="c-t"><b>売上と支払（月ごと・今期）</b><span>単位：万円</span></div>' +
+    '<div class="lg" style="margin-bottom:2px"><span><i class="b-done"></i>売上（税抜・締め月で計上）</span><span><i class="b-ov"></i>支払（外注費＋材料費）</span></div>' +
+    lineChartSvg(sum.line) +
+    '<div class="tile-n" style="font-size:10px;color:var(--sub);margin-top:6px;line-height:1.45">売上は「請求書の締め月」で数えます（9/2に発行した8月分は 8月 の売上）。' + (+THIS_YM.slice(5,7)) + '月より先の支払は登録済みの予定です。人件費（日報×日額原価）は含みません。</div></div>';
   const dues = S.invoices.filter(i => !i.paid).sort((a,b) => a.due < b.due ? -1 : 1).slice(0,4);
   const payin = '<div class="c"><div class="c-t"><b>近い入金予定</b><span class="lnk" onclick="dGo(\'payin\')">すべて見る ›</span></div>' +
     (dues.length ? dues.map(i => '<div class="row' + (i.isNew ? ' hl-new' : '') + '">' + (i.due < TODAY ? '<span class="pill p-warn">遅延</span>' : "") +
@@ -1234,7 +1300,32 @@ function dMoneyHtml(sum) {
     (cats.length ? cats.map(x => '<div class="row"><span class="nm">' + x.label + '</span><span class="mt">済 ' + fmt(x.paid) + '</span><span class="am">' + fmt(x.total) + '</span></div>').join("")
       : '<div class="row"><span class="mt">今月の支払予定は登録されていません</span></div>') +
     '<div class="note" style="margin-top:7px">※ 人件費（日報×日額原価 ' + fmt(S.laborRate) + '）は今期 ' + fmt(summary().laborFY) + '。粗利には含めていますが、この「支払」欄には出していません。</div></div>';
-  return chart + payin + pay;
+  return chart + lineCard + payin + pay;
+}
+// 折れ線グラフ（ライブラリなし・SVG直書き）。rows=[{ym, sales, pay}]
+function lineChartSvg(rows) {
+  if (!rows || !rows.length) return '<div class="empty">データがありません</div>';
+  const W = 340, H = 156, L = 20, R = 20, T = 20, B = 24;
+  const max = Math.max(1, ...rows.map(r => Math.max(r.sales, r.pay)));
+  const n = rows.length;
+  const x = i => n > 1 ? L + i * (W - L - R) / (n - 1) : W / 2;
+  const y = v => T + (H - T - B) * (1 - v / max);
+  const pathOf = key => rows.map((r,i) => (i ? "L" : "M") + x(i).toFixed(1) + " " + y(r[key]).toFixed(1)).join(" ");
+  const manV = v => v ? Math.round(v / 10000) : 0;
+  let g = "";
+  [0, .5, 1].forEach(f => { g += '<line x1="' + L + '" y1="' + y(max*f).toFixed(1) + '" x2="' + (W-R) + '" y2="' + y(max*f).toFixed(1) + '" stroke="#e2e0d8" stroke-width="1"/>'; });
+  const cur = rows.findIndex(r => r.ym === THIS_YM);
+  if (cur >= 0) g += '<rect x="' + (x(cur) - 14).toFixed(1) + '" y="' + T + '" width="28" height="' + (H - T - B) + '" fill="#1d9e75" opacity=".07"/>';
+  const lines = '<path d="' + pathOf("pay") + '" fill="none" stroke="#e07a6a" stroke-width="2" stroke-linejoin="round"/>' +
+                '<path d="' + pathOf("sales") + '" fill="none" stroke="#1d9e75" stroke-width="2.4" stroke-linejoin="round"/>';
+  const dots = rows.map((r,i) =>
+    '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(r.pay).toFixed(1) + '" r="3" fill="#e07a6a"/>' +
+    '<circle cx="' + x(i).toFixed(1) + '" cy="' + y(r.sales).toFixed(1) + '" r="3.4" fill="#1d9e75"/>' +
+    (r.sales ? '<text x="' + x(i).toFixed(1) + '" y="' + (y(r.sales) - 6).toFixed(1) + '" font-size="9.5" font-weight="bold" fill="#178a66" text-anchor="middle">' + manV(r.sales) + '</text>' : "") +
+    (r.pay ? '<text x="' + x(i).toFixed(1) + '" y="' + (y(r.pay) + 12).toFixed(1) + '" font-size="9.5" fill="#b8503f" text-anchor="middle">' + manV(r.pay) + '</text>' : "") +
+    '<text x="' + x(i).toFixed(1) + '" y="' + (H - 6) + '" font-size="10" fill="' + (i === cur ? "#178a66" : "#6b6a63") + '" font-weight="' + (i === cur ? "bold" : "normal") + '" text-anchor="middle">' + ymLabel(r.ym) + '</text>'
+  ).join("");
+  return '<svg class="lchart" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="売上と支払の月別推移">' + g + lines + dots + '</svg>';
 }
 function dSitesHtml() {
   const rows = [...S.sites].sort((a,b) => {
@@ -1283,6 +1374,9 @@ function dTogglePaid(siteId, idx) {
   const m = s.months[idx];
   m.paid = !m.paid;
   S.lastAction = s.name + "の" + (m.cat === "sub" ? "外注費" : "材料費") + " " + fmt(m.amt) + " を" + (m.paid ? "支払済みに" : "予定に戻す");
+  S.lastEffect = m.paid
+    ? (m.ym === THIS_YM ? "「今月 出る」の合計は変わらず、支払済みが " + fmt(m.amt) + " 増えました（予定が実績になっただけ）。" : "今月以外の支払なので「今月 出る」は変わりません。") + s.name + " の「いま時点の利益率」と会社の粗利が動きます。"
+    : "支払済みを予定に戻しました。";
   dRender();
   const el = document.getElementById("dsite-" + siteId); if (el) el.classList.add("open");
   if (m.paid) announce("<b>" + (m.cat==="sub"?"外注費":"材料費") + " " + fmt(m.amt) + " を支払済みにしました。</b>「今月出る」の支払済みと、" + s.name + " の「いま時点の利益率」・会社の粗利が動きました。");
@@ -1333,9 +1427,12 @@ function dPayinHtml() {
   };
   const jp = S.invoices.find(i => i.justPaid);
   const jpNote = jp ? '<div class="note" style="background:#e7f4ee;color:#178a66;margin-bottom:8px">✅ さっきまで赤い「遅延」枠にあった <b>' + primeName(jp.site) + ' ' + fmt(jp.total) + '</b> を入金済みにしました。' + (+jp.paid.slice(5,7)) + '月の欄に緑の印で移っています（消えたのではなく「回収済み」になった、ということです）。</div>' : "";
+  const a = sum.ar;
   return jpNote +
-    '<div class="c"><div class="kv"><span class="l">今月 入る</span><span class="r">' + fmt(sum.inMonth) + '</span></div>' +
-    '<div class="kv"><span class="l">未入金 合計</span><span class="r">' + fmt(unpaidTotal) + '</span></div></div>' +
+    '<div class="c"><div class="kv"><span class="l">今月 入る（' + (+THIS_YM.slice(5,7)) + '月予定の合計）</span><span class="r">' + fmt(sum.inMonth) + '</span></div>' +
+    '<div class="kv"><span class="l">請求書発行済み（入金待ち）</span><span class="r">' + fmt(unpaidTotal) + '（' + a.count + '枚）</span></div>' +
+    '<div class="lg">' + (a.overdue.n ? '<span><i class="b-ov"></i>遅延 ' + fmt(a.overdue.amt) + '</span>' : "") + (a.thisM.n ? '<span><i class="b-tm"></i>今月予定 ' + fmt(a.thisM.amt) + '</span>' : "") + (a.later.n ? '<span><i class="b-lt"></i>来月以降 ' + fmt(a.later.amt) + '</span>' : "") + '</div>' +
+    (sum.lateCollected ? '<div class="lg" style="display:block;margin-top:5px">✅ 遅れていた分の回収 ' + fmt(sum.lateCollected) + '（予定は先月以前・今月入金）は「今月 入る」の合計には入りません</div>' : "") + '</div>' +
     (overdue.length ? '<div class="sec">遅延 ' + overdue.length + '件</div><div class="c" style="border:1px solid #f0c8c2">' +
       '<div class="lg" style="margin-bottom:4px">入金予定日を過ぎても未入金のものが、ここに一番目立つ形で出ます</div>' +
       overdue.map(card).join("") + '</div>' : "") +
@@ -1351,10 +1448,13 @@ function dMarkPaid(invId) {
   i.justPaid = true;
   if (wasOverdue || i.isNew) S.flags.paidMark = true;
   S.lastAction = primeName(i.site) + " " + fmt(i.total) + "（" + siteOf(i.site).name + "・No." + i.no + "）を入金済みに";
+  S.lastEffect = wasOverdue && ymOf(i.due) < THIS_YM
+    ? fmtD(i.due) + " 予定だった分なので、" + (+THIS_YM.slice(5,7)) + "月予定の合計である「今月 入る」は変わりません。回収した " + fmt(i.total) + " は「今月 入る」の下に『遅れていた分の回収』として出て、「請求書発行済み（入金待ち）」の遅延から消えました。「今期の売上」は発行した時点で計上済みなので動きません。"
+    : "「今月 入る」の入金済みが " + fmt(i.total) + " 増え、「請求書発行済み（入金待ち）」から同じ額が消えました。「今期の売上」は請求書を発行した時点で計上済みなので変わりません（売上＝請求、入金＝回収、を分けて見ています）。";
   dRender(); renderGuide();
   const head = "<b>【" + todayLabel() + "】" + primeName(i.site) + " " + fmt(i.total) + "（No." + i.no + "）を入金済みにしました。</b><br>";
   let body;
-  if (wasOverdue) body = "赤い「遅延」枠から、月別の欄へ<b>緑の「✅さっきの遅延分」</b>として移りました。ホームの要対応からも「入金遅延」が消えます。";
+  if (wasOverdue) body = "赤い「遅延」枠から、月別の欄へ<b>緑の「✅さっきの遅延分」</b>として移りました。ホームの要対応からも「入金遅延」が消えます。" + (ymOf(i.due) < THIS_YM ? "<b>「今月 入る」は変わりません</b>（" + (+i.due.slice(5,7)) + "月予定の分だったため）。代わりに「今月 入る」の下に『遅れていた分の回収 " + fmt(i.total) + "』と出ます。" : "");
   else if (i.isNew) body = "<b>" + fmtD(i.pe) + "に締めて → " + (S.flags.timeAdv ? "9/2に" : "") + "請求書を発行 → 予定日どおり入金</b>、という一連の流れが完了しました。「今月 入る」タイルの「入金済み」が " + fmt(i.total) + " 増えています。";
   else body = "「今月入る」の入金済みが増えました。";
   announce(head + body, "ホームで確認する", "function(){ dGo('home') }");
@@ -1403,6 +1503,7 @@ function dWinLead(id) {
                  plans:{ sub:0, mat:0 }, months:[], isNew:true });
   S.flags.won = true;
   S.lastAction = "見込み案件「" + l.name + "」を受注に";
+  S.lastEffect = "請負 " + fmt(l.amount) + " が「これから請求する分」に加わり、「＋見込み」から同じ額が減りました（見込み → 確定した仕事）。売上・入金はまだ動きません。動くのは、この現場の請求書を発行したときです。";
   dRender(); renderGuide();
   announce("<b>【" + todayLabel() + "】「" + l.name + "」を受注にしました。</b>起きたことは2つ：①この案件が下の「決着した案件」へ移動（🆕印）②<b>現場タブに🆕の新しい現場</b>ができ、請負金額 " + fmt(l.amount) + " が登録済み（二重入力なしで日報・請求を始められる状態）。「これから請求する分」も " + fmt(summary().backlog) + " に増えました。",
     "現場タブで🆕の現場を見る", "function(){ dGo('home'); dSetTab('sites') }");
