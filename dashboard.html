@@ -629,7 +629,7 @@ function moneyHtml() {
 
 function sitesHtml() {
   const y = fy ?? currentFy();
-  let rows = calc.filter(x => x.fy === y || (x.isActive && x.billed === 0));
+  let rows = calc.filter(x => x.fy === y || x.isActive);   // 要対応・受注残（buildTodos/buildSummary）と同じ基準
   if (!rows.length) return `<div class="c"><div class="empty">${esc(fyLabel(y))}に動いた現場はまだありません。</div></div>`;
   const sorters = {
     margin: (a,b) => (a.marginNow ?? 999) - (b.marginNow ?? 999),
@@ -751,8 +751,11 @@ function primesHtml() {
 
 // ── 描画: 入金予定 ─────────────────────────────────────────────────────
 function renderPayin() {
-  const rows = db.invoices.filter(i => i.status === "issued").map(i => ({ inv:i, due:dueDateOf(i) })).filter(x => x.due);
-  if (!rows.length) {
+  const all = db.invoices.filter(i => i.status === "issued").map(i => ({ inv:i, due:dueDateOf(i) }));
+  const rows = all.filter(x => x.due);
+  // 入金サイト未設定などで予定日を計算できない請求＝入金待ちカードには数えるので、ここで「入金済」にできる導線を出す
+  const noDue = all.filter(x => !x.due && !x.inv.paid_on).sort((a,b) => a.inv.period_end < b.inv.period_end ? -1 : 1);
+  if (!rows.length && !noDue.length) {
     document.getElementById("payin-body").innerHTML = `<div class="c"><div class="setup"><b>入金予定はまだ出せません</b>
       元請ごとに入金サイト（締めの◯ヶ月後の◯日）を設定すると、発行済みの請求から自動で計算します。
       <div><button class="btn" onclick="go('settings')">元請の入金サイトを設定</button></div></div></div>`;
@@ -766,9 +769,11 @@ function renderPayin() {
   const card = (x) => {
     const amt = x.inv.total_amount || x.inv.subtotal_amount || 0;
     const pill = x.inv.paid_on ? '<span class="pill p-ok">入金済</span>'
-               : x.due < today() ? '<span class="pill p-warn">遅延</span>' : '<span class="pill p-mut">予定</span>';
+               : !x.due ? '<span class="pill p-cau">予定日未設定</span>'
+               : x.due < today() ? '<span class="pill p-warn">遅延</span>'
+               : x.due === today() ? '<span class="pill p-cau">📅 今日予定</span>' : '<span class="pill p-mut">予定</span>';
     return `<div class="row">${pill}<span class="nm">${esc(primeOf(x.inv)?.name ?? "元請未設定")}</span>
-      <span class="mt">${x.inv.paid_on ? fmtDate(x.inv.paid_on)+"入金" : fmtDate(x.due)}</span>
+      <span class="mt">${x.inv.paid_on ? fmtDate(x.inv.paid_on)+"入金" : (x.due ? fmtDate(x.due) : fmtDate(x.inv.period_end) + "締め")}</span>
       <span class="am">${fmt(amt)}</span>
       ${x.inv.paid_on ? "" : `<button class="btn" style="margin-top:0;padding:5px 9px" onclick="markPaid('${x.inv.id}')">入金済</button>`}</div>`;
   };
@@ -779,6 +784,8 @@ function renderPayin() {
       ${arLegendHtml()}
       ${sum.lateCollected ? `<div class="lg" style="display:block;margin-top:5px">✅ 遅れていた分の回収 ${fmt(sum.lateCollected)}（予定は先月以前・今月入金）は「今月 入る」の合計には入りません</div>` : ""}</div>
     ${overdue.length ? `<div class="sec">遅延 ${overdue.length}件</div><div class="c" style="border:1px solid #f0c8c2">${overdue.map(card).join("")}</div>` : ""}
+    ${noDue.length ? `<div class="sec">予定日未設定 ${noDue.length}件</div><div class="c" style="border:1px dashed #cfcdc2">
+      <div class="lg" style="display:block;margin-bottom:4px">元請の入金サイトが未設定のため予定日を計算できません。<span class="lnk" onclick="go('settings')">入金サイトを設定する ›</span></div>${noDue.map(card).join("")}</div>` : ""}
     ${Object.keys(byMonth).sort().map(m => `<div class="sec">${m.replace("-","年")}月</div><div class="c">${byMonth[m].map(card).join("")}</div>`).join("")}
     <div class="note">入金予定日は「元請の締め日＋入金サイト」から自動計算しています。実際の入金日がずれても、「入金済」を押した日で記録します。</div>`;
 }
@@ -922,7 +929,8 @@ function renderSettings() {
 async function saveSetting(col, val) {
   const num = col === "backlog_alert_months" ? Number(val) : parseInt(val, 10);
   if (isNaN(num)) return toast("数字を入れてください", true);
-  const r = await rPatch(`/company_settings?company_id=eq.${cu.companyId}`, { [col]: num });
+  // 行が無い会社（会社作成直後）でも保存できるように upsert（PATCH だと 0行更新＝204 で「保存しました」になるだけ）
+  const r = await rPost(`/company_settings?on_conflict=company_id`, { company_id: cu.companyId, [col]: num }, "resolution=merge-duplicates,return=minimal");
   if (!r.ok) return toast("保存に失敗しました", true);
   await reload("保存しました");
   go("settings");
@@ -1012,19 +1020,29 @@ async function lostLead() {
 async function wonLead() {
   syncLeadForm();
   const amount = parseInt(leadDraft.amount || "0", 10) || 0;
-  // ① 現場を作る
-  const sr = await rPost(`/sites`, { company_id: cu.companyId, name: leadDraft.name, status: "active",
-    prime_contractor_id: leadDraft.prime_contractor_id, created_by: cu.workerId }, "return=representation");
-  if (!sr.ok) return toast("現場の登録に失敗しました", true);
-  const site = (await sr.json())[0];
-  // ② 請負金額（元請と金額があるときだけ）
-  if (leadDraft.prime_contractor_id && amount > 0) {
-    const cr = await rPost(`/construction_contracts`, { company_id: cu.companyId, site_id: site.id,
-      prime_contractor_id: leadDraft.prime_contractor_id, original_amount: amount, title: leadDraft.name }, "return=minimal");
-    if (!cr.ok) toast("現場は作れましたが請負金額の登録に失敗しました", true);
+  // ① 現場（同名の稼働中現場があれば再利用＝途中で失敗して押し直しても二重に作らない）
+  let site = null;
+  const er = await rGet(`/sites?company_id=eq.${cu.companyId}&name=eq.${enc(leadDraft.name)}&status=eq.active&select=id&limit=1`);
+  if (er.ok) site = (await er.json())[0] || null;
+  if (!site) {
+    const sr = await rPost(`/sites`, { company_id: cu.companyId, name: leadDraft.name, status: "active",
+      prime_contractor_id: leadDraft.prime_contractor_id, created_by: cu.workerId }, "return=representation");
+    if (!sr.ok) return toast("現場の登録に失敗しました", true);
+    site = (await sr.json())[0];
   }
-  // ③ 案件を受注済みに
-  await rPatch(`/sales_leads?id=eq.${leadDraft.id}&company_id=eq.${cu.companyId}`, { status: "won", site_id: site.id });
+  // ② 請負金額（元請と金額があるときだけ・同じ現場×元請に既にあれば作らない）
+  if (leadDraft.prime_contractor_id && amount > 0) {
+    const cx = await rGet(`/construction_contracts?site_id=eq.${site.id}&prime_contractor_id=eq.${leadDraft.prime_contractor_id}&select=id&limit=1`);
+    const exists = cx.ok && (await cx.json()).length > 0;
+    if (!exists) {
+      const cr = await rPost(`/construction_contracts`, { company_id: cu.companyId, site_id: site.id,
+        prime_contractor_id: leadDraft.prime_contractor_id, original_amount: amount, title: leadDraft.name }, "return=minimal");
+      if (!cr.ok) return toast("現場は作れましたが請負金額の登録に失敗しました。もう一度「受注した」を押してください", true);
+    }
+  }
+  // ③ 案件を受注済みに（失敗したら見込みのまま＝押し直せる）
+  const pr = await rPatch(`/sales_leads?id=eq.${leadDraft.id}&company_id=eq.${cu.companyId}`, { status: "won", site_id: site.id });
+  if (!pr.ok) return toast("案件の更新に失敗しました。もう一度「受注した」を押してください", true);
   await reload("受注として現場を作りました");
   go("home"); setTab("sites");
 }

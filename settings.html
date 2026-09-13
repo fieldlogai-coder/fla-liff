@@ -297,7 +297,8 @@
 <!-- セクション2: 現場 -->
 <div id="section-sites" class="section">
   <div id="sites-list"></div>
-  <button class="add-btn" onclick="openAddSite()">＋ 現場を追加</button>
+  <button class="add-btn" id="add-site-btn" style="display:none" onclick="openAddSite()">＋ 現場を追加</button>
+  <div class="empty" id="add-site-note" style="display:none;border:none;padding:6px 0">現場の追加・変更は管理者（または請求担当）が行います。</div>
 </div>
 
 <!-- セクション3: 作業員 -->
@@ -337,7 +338,6 @@ const AUTH_FN      = FLA.AUTH_FN;
 let cu = null;           // currentUser: { lineId, workerId, name, role, companyId, companyName }
 let allSites = [];       // Site[]
 let allWorkers = [];     // Worker[]
-let pricing = {};        // { full_price, half_price }
 
 // modal用
 let modalMode  = "";
@@ -366,7 +366,7 @@ let pWorkerId  = null;   // pending worker id (編集用)
 })();
 
 async function boot() {
-  const res = await get(`/workers?line_user_id=eq.${enc(cu.lineId)}&select=id,name,role,company_id,companies(name)`);
+  const res = await get(`/workers?line_user_id=eq.${enc(cu.lineId)}&select=id,name,role,company_id,can_bill,companies(name)`);
   if (!res.ok) { toast("ユーザー取得失敗", true); hide(); return; }
   const rows = await res.json();
   if (!rows.length) {
@@ -374,11 +374,15 @@ async function boot() {
     hide(); showSec("info"); return;
   }
   const w = rows[0];
-  cu = { ...cu, workerId: w.id, name: w.name, role: w.role, companyId: w.company_id, companyName: w.companies?.name ?? "" };
+  cu = { ...cu, workerId: w.id, name: w.name, role: w.role, companyId: w.company_id, companyName: w.companies?.name ?? "", canBill: !!w.can_bill };
   if (cu.role === "admin") {
     document.getElementById("tab-pricing").style.display = "";
     document.getElementById("add-worker-btn").style.display = "";
   }
+  // sites の書き込みは RLS で admin / can_bill 限定（20260717140000）。見えるのに必ず失敗するボタンを出さない
+  const canEditSites = cu.role === "admin" || cu.canBill;
+  document.getElementById("add-site-btn").style.display = canEditSites ? "" : "none";
+  document.getElementById("add-site-note").style.display = canEditSites ? "none" : "";
   renderProfile();
   await Promise.all([loadHistory(), loadSites(), loadWorkers(), ...(cu.role === "admin" ? [loadPricing()] : [])]);
   hide(); showSec("info");
@@ -419,7 +423,7 @@ async function loadHistory() {
 
 // ── セクション2: 現場 ────────────────────────────────────────────────
 async function loadSites() {
-  const res = await get(`/sites?company_id=eq.${cu.companyId}&select=id,name,status,companies(name),workers!created_by(name)&order=name`);
+  const res = await get(`/sites?company_id=eq.${cu.companyId}&select=id,name,status,prime_contractors(name),workers!created_by(name)&order=name`);
   if (!res.ok) { document.getElementById("sites-list").innerHTML = '<div class="empty">取得に失敗しました</div>'; return; }
   allSites = await res.json();
   renderSites();
@@ -431,9 +435,9 @@ function renderSites() {
   const el = document.getElementById("sites-list");
   if (!active.length) { el.innerHTML = '<div class="empty">現場が登録されていません</div>'; return; }
   el.innerHTML = active.map(s => {
-    const billing = s.companies?.name ?? "";
+    const prime = s.prime_contractors?.name ?? "";
     const creator = s.workers?.name ?? "";
-    const sub = [billing ? `請求先：${esc(billing)}` : "", creator ? `登録者：${esc(creator)}` : ""].filter(Boolean).join("　");
+    const sub = [prime ? `元請：${esc(prime)}` : "元請：未設定（請求メニュー「マスタ」で紐付け）", creator ? `登録者：${esc(creator)}` : ""].filter(Boolean).join("　");
     const adminBtns = isAdmin ? `
       <button class="btn-sm primary" onclick="openEditSite('${s.id}')">編集</button>
       <button class="btn-sm danger"  onclick="openEndSite('${s.id}')">終了</button>` : "";
@@ -451,8 +455,7 @@ function openAddSite() {
   setModal("現場を追加", `
     <div class="form-group"><label>現場名</label>
       <input type="text" id="mi-site-name" placeholder="〇〇現場" maxlength="50" /></div>
-    ${isAdmin ? `<div class="form-group"><label>請求先（省略可）</label>
-      <input type="text" id="mi-billing" placeholder="△△工業" maxlength="50" /></div>` : ""}
+    <p class="modal-msg" style="font-size:12px;color:#666">元請との紐付け・請負金額は、請求メニュー「マスタ」で登録します。</p>
   `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
      <button class="btn-submit" onclick="submitModal()">登録</button>`);
 }
@@ -553,43 +556,18 @@ function openChangeRole(id) {
 }
 
 // ── セクション4: 単価 ────────────────────────────────────────────────
-async function loadPricing() {
-  const res = await get(`/companies?id=eq.${cu.companyId}&select=full_price,half_price`);
-  if (!res.ok) return;
-  const rows = await res.json();
-  if (!rows.length) return;
-  pricing = rows[0];
-  renderPricing();
-}
+// 常用単価は「元請 × 工種」ごと（billing_prices）＝請求LIFFのマスタで登録する。旧 companies.full_price は廃止済み
+async function loadPricing() { renderPricing(); }
 
 function renderPricing() {
-  const hp = pricing.half_price != null
-    ? `¥${pricing.half_price.toLocaleString()}`
-    : `（未設定 ＝ 終日の半額）`;
   document.getElementById("pricing-card").innerHTML = `
-    <div class="price-row">
-      <span class="price-label">終日単価</span>
-      <span class="price-value">¥${(pricing.full_price ?? 0).toLocaleString()}</span>
-    </div>
-    <div class="price-row">
-      <span class="price-label">半日単価</span>
-      <span class="price-value" style="font-size:13px;color:#555">${hp}</span>
-    </div>
-    <div class="card-actions">
-      <button class="btn-sm primary" onclick="openEditPricing()">編集</button>
+    <div class="card-title">常用単価は元請ごとに設定します</div>
+    <div class="card-sub" style="margin-top:6px;line-height:1.6">終日・半日の単価は「元請 × 工種」ごとに登録します。<br>請求メニュー →「請求を開く」→ 右上「マスタ」→「工種と常用単価」からどうぞ。</div>
+    <div class="card-actions" style="margin-top:10px">
+      <a class="btn-sm primary" href="https://liff.line.me/2009694631-7HvWrIGj" style="text-decoration:none;display:inline-block">請求のマスタを開く</a>
     </div>`;
 }
 
-function openEditPricing() {
-  modalMode = "edit-pricing";
-  setModal("単価を編集", `
-    <div class="form-group"><label>終日単価（円）</label>
-      <input type="number" id="mi-full-price" value="${pricing.full_price ?? ""}" placeholder="25000" min="1" /></div>
-    <div class="form-group"><label>半日単価（円・空欄で終日の半額）</label>
-      <input type="number" id="mi-half-price" value="${pricing.half_price ?? ""}" placeholder="空欄で終日の半額" min="1" /></div>
-  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
-     <button class="btn-submit" onclick="submitModal()">保存</button>`);
-}
 
 // ── モーダル送信ディスパッチ ─────────────────────────────────────────
 async function submitModal() {
@@ -602,7 +580,6 @@ async function submitModal() {
     else if (modalMode === "add-worker")   await doAddWorker();
     else if (modalMode === "edit-worker")  await doEditWorker();
     else if (modalMode === "change-role")  await doChangeRole();
-    else if (modalMode === "edit-pricing") await doEditPricing();
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -611,7 +588,7 @@ async function submitModal() {
 // ── 現場追加 ─────────────────────────────────────────────────────────
 async function doAddSite() {
   const name    = val("mi-site-name");
-  const billing = val("mi-billing");
+  const billing = "";   // 請求先欄は廃止（旧モデル）
   if (!name) { toast("現場名を入力してください", true); return; }
 
   const activeSiteNames = allSites.filter(s => s.status === "active").map(s => s.name);
@@ -630,23 +607,9 @@ async function doAddSite() {
 
 async function doNewSite() { closeModal(); await insertSite(pSiteName, pBilling); }
 
-async function insertSite(name, billing) {
-  let compId = cu.companyId;
-  if (cu.role === "admin" && billing) {
-    const fr = await get(`/companies?name=eq.${enc(billing)}&select=id`);
-    if (fr.ok) {
-      const found = await fr.json();
-      if (found.length) {
-        compId = found[0].id;
-      } else {
-        const pr = await get(`/companies?id=eq.${cu.companyId}&select=full_price,half_price`);
-        const pd = pr.ok ? (await pr.json())[0] : { full_price: 25000, half_price: null };
-        const cr = await post("/companies", { name: billing, full_price: pd.full_price ?? 25000, half_price: pd.half_price ?? null });
-        if (cr.ok) { const cd = await cr.json(); if (cd.length) compId = cd[0].id; }
-      }
-    }
-  }
-  const res = await post("/sites", { company_id: compId, name, status: "active", created_by: cu.workerId });
+async function insertSite(name, _billing) {
+  // 現場は常に自社（cu.companyId）配下。請求先を companies に作る旧モデルは廃止（RLS でも不可）
+  const res = await post("/sites", { company_id: cu.companyId, name, status: "active", created_by: cu.workerId });
   if (!res.ok) { console.error("[insertSite]", res.status, await res.text().catch(() => "")); toast("登録に失敗しました", true); return; }
   closeModal(); toast(`「${name}」を登録しました`); await loadSites();
 }
@@ -695,17 +658,6 @@ async function doChangeRole() {
 }
 
 // ── 単価変更 ─────────────────────────────────────────────────────────
-async function doEditPricing() {
-  const fp = parseInt(val("mi-full-price") || "0", 10);
-  const hs = val("mi-half-price");
-  const hp = hs ? parseInt(hs, 10) : null;
-  if (!fp || fp <= 0) { toast("終日単価を正しく入力してください", true); return; }
-  if (hs && (!hp || hp <= 0)) { toast("半日単価を正しく入力してください", true); return; }
-  const res = await patch(`/companies?id=eq.${cu.companyId}`, { full_price: fp, half_price: hp });
-  if (!res.ok) { toast("更新に失敗しました", true); return; }
-  pricing.full_price = fp; pricing.half_price = hp;
-  closeModal(); renderPricing(); toast("単価を更新しました");
-}
 
 // ── タブ切り替え ─────────────────────────────────────────────────────
 function showTab(tab) {

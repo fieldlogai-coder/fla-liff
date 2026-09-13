@@ -218,6 +218,14 @@
   <div class="card">
     <div class="form-row" style="margin-bottom:12px"><span class="fl">工種</span><select id="jw-type" onchange="onWorkTypeChange()"></select></div>
 
+    <div class="helper" id="jw-nippo" style="display:none;margin-bottom:12px">
+      <span class="muted" id="jw-nippo-txt"></span>
+      <div class="helper-row" style="margin-top:6px">
+        <button class="stbtn wide" onclick="applyNippo()">この値を人工欄に入れる</button>
+        <span class="muted">（選択中の工種に入ります）</span>
+      </div>
+    </div>
+
     <div class="jlabel">終日（1人工）</div>
     <div class="stepper">
       <button class="stbtn" onclick="adjNinku('jw-ff',-1)">−</button>
@@ -393,6 +401,7 @@
     </div>
   </div>
   <div class="muted" style="text-align:center;margin:6px 0 12px">内容を直すと、新しい版として履歴に残ります。</div>
+  <button class="btn" style="margin-bottom:8px" onclick="printFromDone()">📄 請求書を表示（印刷/PDF）</button>
   <button class="btn btn-ghost" onclick="toList()">請求一覧へもどる</button>
 </div>
 
@@ -656,7 +665,10 @@ const rDel  = (p)        => FLA.rest(p, { method:"DELETE" });
 
 async function boot() {
   const res = await rGet(`/workers?line_user_id=eq.${enc(cu.lineId)}&select=id,name,role,company_id,can_bill,companies(name)`);
-  if (!res.ok) { toast("ユーザー取得に失敗しました (HTTP " + res.status + ")", true); hideLoading(); return; }
+  if (!res.ok) {
+    document.getElementById("loading").innerHTML = `<div class="empty" style="padding:24px 16px">ユーザー情報を取得できませんでした (HTTP ${res.status})。<br>通信状態を確認して、開き直してください。<br><button class="btn" style="margin-top:12px" onclick="location.reload()">再読み込み</button></div>`;
+    return;
+  }
   const rows = await res.json();
   if (!rows.length) {
     document.getElementById("profile-card").innerHTML = '<div class="empty" style="border:none;padding:8px 0">登録されていません。管理者に連絡してください。</div>';
@@ -735,7 +747,8 @@ async function selectSite(siteId) {
   // 元請の締め日・必須欄を先に取得し、締め期間を確定（M3.5-a: 締め日連動）
   let primeReq = [], closingDay = null;
   const rr = await rGet(`/prime_contractors?id=eq.${site.prime_contractor_id}&select=required_fields,closing_day`);
-  if (rr.ok) {
+  if (!rr.ok) { toast("元請の情報を取得できませんでした。通信状態を確認して、もう一度お試しください", true); return; }
+  {
     const p = (await rr.json())[0] || {};
     primeReq = (p.required_fields || {}).fields || [];
     closingDay = p.closing_day ?? null;
@@ -744,8 +757,9 @@ async function selectSite(siteId) {
 
   // 二重発行ガード（同現場・同締め期間の非取消。種類に関わらず1現場1枚/締め期間）
   const ex = await rGet(`/billing_invoices?site_id=eq.${siteId}&period_end=eq.${periodEnd}&status=neq.void&select=id,status,invoice_number`);
+  if (!ex.ok) { toast("発行済みの確認に失敗しました。通信状態を確認して、もう一度お試しください", true); return; }
   let existingDraftId = null;
-  if (ex.ok) {
+  {
     const exRows = await ex.json();
     const issued = exRows.find(r => r.status === "issued");
     if (issued) { toast(`この現場の${fmtDate(periodEnd)}締め分は発行済みです（No.${issued.invoice_number ?? "-"}）`, true); await backToList(); return; }
@@ -771,7 +785,8 @@ async function chooseUkeoi() {
   // 既請求累計 C（発行済 A-2 明細の合計）
   let C = 0;
   const pr = await rGet(`/billing_invoice_lines?mode=eq.A2_rate&contract_id=eq.${contract.id}&select=amount,billing_invoices!inner(status)&billing_invoices.status=eq.issued`);
-  if (pr.ok) { const prows = await pr.json(); C = prows.reduce((s, r) => s + (r.amount || 0), 0); }
+  if (!pr.ok) { toast("請求済みの累計を取得できませんでした。通信状態を確認して、もう一度お試しください", true); return; }
+  { const prows = await pr.json(); C = prows.reduce((s, r) => s + (r.amount || 0), 0); }
 
   sel.type = "ukeoi";
   sel.contract = contract;
@@ -802,6 +817,30 @@ async function chooseJoyo() {
   renderJoyoLines();
   await onWorkTypeChange();
   showScreen("joyo");
+  loadNippoSummary();   // 日報の集計は後追いで表示（失敗しても画面は使える）
+}
+
+// 締め期間×この現場の日報（自社作業員分）を 終日/半日 で集計して表示
+let nippo = { full: 0, half: 0 };
+async function loadNippoSummary() {
+  const box = document.getElementById("jw-nippo"), txt = document.getElementById("jw-nippo-txt");
+  box.style.display = "none"; nippo = { full: 0, half: 0 };
+  try {
+    const r = await rGet(`/report_details?company_id=eq.${cu.companyId}&site_id=eq.${sel.site.id}&is_subcontractor=eq.false&report_date=gte.${sel.periodStart}&report_date=lte.${sel.periodEnd}&select=duration&limit=1000`);
+    if (!r.ok) return;
+    const rows = await r.json();
+    nippo.full = rows.filter(x => x.duration === "full").length;
+    nippo.half = rows.filter(x => x.duration === "half").length;
+    if (!nippo.full && !nippo.half) return;
+    txt.innerHTML = `📱 日報の集計（${fmtDate(sel.periodStart)}〜${fmtDate(sel.periodEnd)}・この現場）：終日 <b>${nippo.full}</b>・半日 <b>${nippo.half}</b>（${(nippo.full + nippo.half * 0.5).toFixed(1)}人工）`;
+    box.style.display = "block";
+  } catch (e) { console.error("[nippo]", e); }
+}
+function applyNippo() {
+  document.getElementById("jw-ff").value = String(nippo.full);
+  document.getElementById("jw-fh").value = String(nippo.half);
+  recomputeJoyo();
+  toast("日報の集計を入れました。単価と材料費を確認してください");
 }
 
 // 工種を変えたら billing_prices から単価を自動プレフィル（現場優先→元請レベル）
@@ -1043,7 +1082,8 @@ async function reviseInvoice() {
   sel.adjustments = rlines.filter(l => l.mode === "direct")
     .map(l => ({ label: l.description ?? "調整", amount: l.amount ?? 0 }));
   const rr = await rGet(`/prime_contractors?id=eq.${inv.prime_contractor_id}&select=required_fields`);
-  if (rr.ok) sel.primeReq = (((await rr.json())[0] || {}).required_fields || {}).fields || [];
+  if (!rr.ok) { toast("元請の情報を取得できませんでした。通信状態を確認して、もう一度お試しください", true); return; }
+  sel.primeReq = (((await rr.json())[0] || {}).required_fields || {}).fields || [];
 
   if (line.mode === "A2_rate") {
     const cr = await rGet(`/construction_contracts?id=eq.${line.contract_id}&select=id,contract_amount,work_type_id,prime_contractor_id,work_types(name)&limit=1`);
@@ -1052,7 +1092,8 @@ async function reviseInvoice() {
     const contract = contracts[0];
     let C = 0;   // 自分の版を除く既請求累計
     const pr = await rGet(`/billing_invoice_lines?mode=eq.A2_rate&contract_id=eq.${contract.id}&invoice_id=neq.${inv.id}&select=amount,billing_invoices!inner(status)&billing_invoices.status=eq.issued`);
-    if (pr.ok) { const prows = await pr.json(); C = prows.reduce((s, r) => s + (r.amount || 0), 0); }
+    if (!pr.ok) { toast("請求済みの累計を取得できませんでした。通信状態を確認して、もう一度お試しください", true); return; }
+    { const prows = await pr.json(); C = prows.reduce((s, r) => s + (r.amount || 0), 0); }
     sel.type = "ukeoi"; sel.contract = contract; sel.C = C;
     sel.workLabel = (contract.work_types?.name ? contract.work_types.name + "　一式" : "一式");
     document.getElementById("in-prime").textContent = "元請　" + sel.primeName;
@@ -1202,15 +1243,23 @@ async function doIssue() {
   const btn = document.getElementById("modal-issue");
   btn.disabled = true;
   const isRevise = !!sel.reviseInvoiceId;
+  let backupLines = null, backupInvoiceId = null;   // 改訂で消した旧明細（EF まで到達できなかったら戻す）
   try {
     // 1. 対象invoice（改訂=既存発行済／通常=既存draft再利用 or 新規draft）。明細は作り直す。
     let invoiceId;
     if (isRevise) {
       invoiceId = sel.reviseInvoiceId;
-      await rDel(`/billing_invoice_lines?invoice_id=eq.${invoiceId}`);
+      // 旧明細を退避してから消す（途中で切れても発行済み請求が明細0件のまま残らないように）
+      const br = await rGet(`/billing_invoice_lines?invoice_id=eq.${invoiceId}&select=*`);
+      if (!br.ok) throw new Error("現在の明細を取得できませんでした。通信状態を確認してもう一度お試しください");
+      backupLines = (await br.json()).map(({ id, created_at, ...rest }) => rest);
+      backupInvoiceId = invoiceId;
+      const dr = await rDel(`/billing_invoice_lines?invoice_id=eq.${invoiceId}`);
+      if (!dr.ok) { backupLines = null; throw new Error("旧明細の削除に失敗しました。もう一度お試しください"); }
     } else if (sel.existingDraftId) {
       invoiceId = sel.existingDraftId;
-      await rDel(`/billing_invoice_lines?invoice_id=eq.${invoiceId}`);
+      const dr = await rDel(`/billing_invoice_lines?invoice_id=eq.${invoiceId}`);
+      if (!dr.ok) throw new Error("下書き明細の削除に失敗しました。もう一度お試しください");
     } else {
       const ir = await rPost(`/billing_invoices`, {
         company_id: cu.companyId,
@@ -1221,6 +1270,7 @@ async function doIssue() {
       });
       if (!ir.ok) { console.error("[draft]", ir.status, await ir.text().catch(()=> "")); throw new Error("下書きの作成に失敗しました"); }
       invoiceId = (await ir.json())[0].id;
+      sel.existingDraftId = invoiceId;   // 発行に失敗しても次の「発行する」で同じ下書きを再利用（孤児の下書きを増やさない）
     }
     // 1.5 元請の必須欄（工事番号/注文番号など）を保存（列未適用でも発行は止めない）
     sel.extraFields = collectExtraFields();
@@ -1254,6 +1304,8 @@ async function doIssue() {
     if (!res.ok) { console.error("[issue]", res.status, data); throw new Error(isRevise ? "改訂に失敗しました" : "発行に失敗しました"); }
 
     // 4. 完了
+    backupLines = null;   // EF まで成功＝旧明細の復元は不要
+    lastIssuedId = invoiceId;
     const inv = data.invoice || {};
     closeModal();
     document.getElementById("done-title").textContent = isRevise ? "改訂しました" : "発行しました";
@@ -1266,6 +1318,18 @@ async function doIssue() {
   } catch (e) {
     closeModal();
     toast(e.message || "発行に失敗しました", true);
+    // 改訂の途中で失敗した場合は旧明細を戻す（新明細が入っていれば消してから）
+    if (backupLines && backupInvoiceId) {
+      try {
+        await rDel(`/billing_invoice_lines?invoice_id=eq.${backupInvoiceId}`);
+        const rs = await rPost(`/billing_invoice_lines`, backupLines, "return=minimal");
+        if (!rs.ok) throw new Error("restore " + rs.status);
+        toast("改訂前の明細に戻しました。もう一度お試しください", true);
+      } catch (e2) {
+        console.error("[restore]", e2);
+        toast("改訂前の明細を戻せませんでした。請求一覧から内容を確認してください", true);
+      }
+    }
   } finally {
     submitting = false; btn.disabled = false;
   }
@@ -1291,6 +1355,12 @@ function collectExtraFields() {
 }
 function fmtDateJa(iso) { if (!iso) return ""; const d = new Date(iso); return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`; }
 
+let lastIssuedId = null;   // 完了画面から A4 を開くために発行直後の invoice id を保持
+async function printFromDone() {
+  if (!lastIssuedId) return toast("請求一覧から開いてください", true);
+  await openDetail(lastIssuedId);
+  if (detailInv && detailInv.id === lastIssuedId) await openPrint();
+}
 async function openPrint() {
   const inv = detailInv;
   if (!inv) return;

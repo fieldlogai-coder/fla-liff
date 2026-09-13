@@ -725,7 +725,7 @@ function spotTarget() {
     if (bScreen === "list") return findIn(B, "今月の請求をつくる");
     if (bScreen === "site") return findIn(B, cur.key === "joyo" ? "◇◇マンション" : "〇〇ビル");
     if (bScreen === "type") return findIn(B, cur.key === "joyo" ? "常用（人工）" : "出来高（請負）");
-    if (bScreen === "joyo") return (bJoyo.full || bJoyo.half) ? findIn(B, "この内容で確認する") : findIn(B, "集計の値をそのまま入れる");
+    if (bScreen === "joyo") return (bJoyo.full || bJoyo.half) ? findIn(B, "この内容で確認する") : findIn(B, "日報の集計をそのまま入れる");
     if (bScreen === "ukeoi") return bUkeoi.amt ? findIn(B, "この内容で確認する") : findIn(B, "例の金額");
     if (bScreen === "cj") return bAdjust.length ? findIn(B, "この内容で発行する") : findIn(B, "端数調整");
     if (bScreen === "cf") return findIn(B, "この内容で発行する");
@@ -936,7 +936,7 @@ function bJoyoHtml() {
   return '<div class="c"><div class="ctx"><span class="prime">元請　' + S.primes[s.prime].name + '</span>' +
     '<span class="site2">' + s.name + '</span></div><span class="tpill">常用（人工）・' + bSel.per.label + '締め分</span></div>' +
     '<div class="note" style="margin-bottom:10px">日報の集計では、この締め期間の人工は<b>終日22・半日3（23.5人工）</b>でした。' +
-    '<span style="display:block;margin-top:4px"><button class="btn g" style="margin-top:2px" onclick="bFillFromNippo()">デモ用：集計の値をそのまま入れる</button></span></div>' +
+    '<span style="display:block;margin-top:4px"><button class="btn g" style="margin-top:2px" onclick="bFillFromNippo()">📱 日報の集計をそのまま入れる（終日22・半日3）</button></span></div>' +
     '<div class="c">' +
     '<div class="kv"><span class="l">工種</span><span class="r">塗装（単価はマスタから自動）</span></div>' +
     '<div class="jlabel">終日（1人工）</div>' +

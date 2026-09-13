@@ -374,7 +374,6 @@ const LIFF_ID        = "2009694631-Q9UpokY1";
 // 共通基盤（fla-core.js）から取得
 const SUPABASE_URL   = FLA.SUPA_URL;
 const SUPABASE_ANON  = FLA.SUPA_ANON;
-const MEMO_API       = `${SUPABASE_URL}/functions/v1/memo-api`;
 const STORAGE_BUCKET = "memo-photos";
 const AUTH_FN        = FLA.AUTH_FN;
 
@@ -419,6 +418,7 @@ async function loadSites() {
     const workerRes = await sbFetch(
       `/workers?line_user_id=eq.${encodeURIComponent(currentUser.lineId)}&select=id,name,company_id`
     );
+    if (!workerRes.ok) throw new Error("workers HTTP " + workerRes.status);
     const workers = await workerRes.json();
 
     const list = document.getElementById("site-list");
@@ -437,6 +437,7 @@ async function loadSites() {
     const sitesRes = await sbFetch(
       `/sites?company_id=eq.${companyId}&status=eq.active&select=id,name&order=name`
     );
+    if (!sitesRes.ok) throw new Error("sites HTTP " + sitesRes.status);
     const sites = await sitesRes.json();
     siteList = sites || [];
 
@@ -452,6 +453,12 @@ async function loadSites() {
     }
     showScreen("sites");
   } catch (e) {
+    console.error("[loadSites]", e);
+    // 白画面にせず、再試行ボタン付きで案内する
+    document.getElementById("site-list").innerHTML =
+      '<p class="empty">現場を取得できませんでした。<br>通信状態を確認して、もう一度お試しください。</p>' +
+      '<div style="text-align:center"><button class="submit-btn" style="width:auto;padding:8px 18px;margin-top:8px" onclick="loadSites()">再読み込み</button></div>';
+    showScreen("sites");
     showToast("現場の取得に失敗しました");
   } finally {
     hideLoading();
@@ -475,6 +482,7 @@ async function loadMemos() {
     const res = await sbFetch(
       `/site_memos?site_id=eq.${currentSite.id}&select=id,content,photo_urls,created_at,user_id,status,workers!user_id(name),memo_confirmations(worker_id,workers!worker_id(name))&order=created_at.desc&limit=50`
     );
+    if (!res.ok) throw new Error("site_memos HTTP " + res.status);
     const memos = await res.json();
 
     const list = document.getElementById("memo-list");
@@ -492,6 +500,11 @@ async function loadMemos() {
     showScreen("memos");
     document.getElementById("fab").classList.add("visible");
   } catch (e) {
+    console.error("[loadMemos]", e);
+    document.getElementById("memo-list").innerHTML =
+      '<p class="empty">メモを取得できませんでした。<br>通信状態を確認して、もう一度お試しください。</p>' +
+      '<div style="text-align:center"><button class="submit-btn" style="width:auto;padding:8px 18px;margin-top:8px" onclick="loadMemos()">再読み込み</button></div>';
+    showScreen("memos");
     showToast("メモの取得に失敗しました");
   } finally {
     hideLoading();
@@ -557,10 +570,12 @@ async function cycleStatus(memoId, current) {
   try {
     const res = await sbFetch(`/site_memos?id=eq.${memoId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json", "Prefer": "return=minimal" },
+      headers: { "Content-Type": "application/json", "Prefer": "return=representation" },
       body: JSON.stringify({ status: next }),
     });
     if (!res.ok) { showToast("区分の変更に失敗しました"); return; }
+    const changed = await res.json().catch(() => []);
+    if (!changed.length) { showToast("区分を変更できませんでした（権限がないか、削除済みです）"); await loadMemos(); return; }
     await loadMemos();
   } catch (e) {
     showToast("区分の変更に失敗しました");
@@ -730,13 +745,15 @@ async function deleteMemo(memoId) {
   try {
     const res = await sbFetch(
       `/site_memos?id=eq.${memoId}&user_id=eq.${currentUser.workerId}`,
-      { method: "DELETE" }
+      { method: "DELETE", headers: { "Prefer": "return=representation" } }
     );
     if (!res.ok) {
       console.error("[deleteMemo]", res.status, await res.text().catch(() => ""));
       showToast("削除に失敗しました");
       return;
     }
+    const deleted = await res.json().catch(() => []);
+    if (!deleted.length) { showToast("削除できませんでした（自分の投稿のみ削除できます）"); return; }
     showToast("削除しました");
     await loadMemos();
   } catch (e) {
