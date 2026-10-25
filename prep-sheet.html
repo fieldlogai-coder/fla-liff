@@ -58,6 +58,20 @@
   .sendbox{border:2px solid var(--acc);}
   .sendbox .warn{font-size:12px;color:var(--sub);margin-top:6px;}
   .btn.danger{background:#fff;color:#a33;border:1px solid #d9b3b3;}
+  /* 行の追加・運営に送らない区分（2026-10 v2） */
+  .keep{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink);background:#faf9f5;border:1px dashed var(--line);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:10px;cursor:pointer;}
+  .keep input{width:18px;height:18px;margin-top:2px;flex-shrink:0;accent-color:var(--acc);}
+  .keep small{display:block;color:var(--sub);font-size:11.5px;}
+  .sec.excluded .body{opacity:.35;pointer-events:none;}
+  .sec.excluded .keep{background:var(--info-bg);border-style:solid;border-color:var(--acc);}
+  .addrow{margin-top:8px;background:#fff;color:var(--acc);border:1px dashed var(--acc);font-family:inherit;font-size:13px;font-weight:bold;padding:7px 14px;border-radius:var(--r-sm);cursor:pointer;}
+  .tblwrap{overflow-x:auto;}
+  @media print{
+    .keep,.addrow{display:none;}
+    .sec.excluded .body{display:none;}
+    .sec.excluded .printnote{display:block!important;}
+  }
+  .printnote{display:none;font-size:13px;color:var(--sub);}
 </style>
 </head>
 <body>
@@ -72,14 +86,19 @@
 
 <div class="howto noprint" id="howto">
   <b>ご記入方法</b>：この画面に直接入力できます。<b>書いた内容はこのスマホ（パソコン）に自動で残る</b>ので、途中でやめても、あとで開けば続きから書けます。
-  書き終えたら、いちばん下の<b>「この内容をLINEで送る」</b>を押してください。記入済みのシートが、リンク1本で届きます。
-  紙に手書きされる場合は、そのまま印刷してお使いください。
+  書き終えたら、いちばん下の<b>「この内容をLINEで送る」</b>を押してください。記入済みのシートが、リンク1本で届きます。<br>
+  <b>運営に見せたくない区分</b>は、区分の上の<b>「自分でアプリに入れる（運営に送らない）」</b>にチェックしてください。その区分は送られません。あとでアプリに直接入れられます。
+  行が足りないときは<b>「＋ 行を追加」</b>で増やせます。紙に手書きされる場合は、そのまま印刷してお使いください。
   <div class="savestate" id="saveState"></div>
 </div>
 
 <!-- ① 会社情報 -->
+<section class="sec" data-sec="s1" data-name="① 会社情報">
 <h2>① 会社情報 <span>請求書に印字されます</span></h2>
 <div class="card">
+  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>口座なども含め、この区分は送られません。アプリの請求画面の「自社情報」から入れられます</small></span></label>
+  <div class="printnote">この区分は、自分でアプリに入れます</div>
+  <div class="body">
   <div class="grid2">
     <div class="fld"><label>会社名（正式名称）</label><input type="text" id="f_company" placeholder="例）〇〇塗装工業 株式会社"></div>
     <div class="fld"><label>代表者名</label><input type="text" id="f_rep" placeholder="例）〇〇 太郎"></div>
@@ -94,12 +113,18 @@
     <div class="fld"><label>種別・口座番号</label><input type="text" id="f_acc" placeholder="例）普通 1234567"></div>
   </div>
   <div class="fld"><label>口座名義（カナ）</label><input type="text" id="f_kana" placeholder="例）マルマルトソウコウギヨウ（カ"></div>
+  </div>
 </div>
+</section>
 
 <!-- ② 使う方 -->
+<section class="sec" data-sec="s2" data-name="② 使う方">
 <h2>② 使う方 <span>作業員の方も含めて全員</span></h2>
 <div class="card">
-  <table id="t_people">
+  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>アプリの「設定」の作業員タブから、管理者の方が追加できます</small></span></label>
+  <div class="printnote">この区分は、自分でアプリに入れます</div>
+  <div class="body">
+  <div class="tblwrap"><table id="t_people">
     <tr><th style="width:38%">お名前</th><th style="width:34%">役割</th><th>請求書を作る</th></tr>
     <tr><td class="ex">例）〇〇 太郎</td><td class="ex">社長</td><td class="ex">○</td></tr>
     <tr><td><input type="text"></td><td><input type="text" placeholder="社長／職長／作業員"></td><td><input type="text" placeholder="○／−"></td></tr>
@@ -107,29 +132,44 @@
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
-  </table>
-  <div class="note">「請求書を作る」に○の方だけが、請求と経営の数字（ダッシュボード）を開けます。</div>
+  </table></div>
+  <button type="button" class="addrow" data-t="t_people">＋ 行を追加</button>
+  <div class="note">「請求書を作る」に○の方だけが、請求と経営の数字（ダッシュボード）を開けます。<br>
+    作業員ごとの<b>日給</b>は、このシートには書かず、アプリの「設定」の作業員タブで管理者の方が入れてください（運営にも職人さんにも見えません）。</div>
+  </div>
 </div>
+</section>
 
 <!-- ③ 元請 -->
+<section class="sec" data-sec="s3" data-name="③ 請求先（元請）">
 <h2>③ 請求先（元請）ごとに <span>取引のある元請の数だけ</span></h2>
 <div class="card">
-  <table id="t_primes">
+  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>アプリの請求画面の「元請」から入れられます</small></span></label>
+  <div class="printnote">この区分は、自分でアプリに入れます</div>
+  <div class="body">
+  <div class="tblwrap"><table id="t_primes">
     <tr><th style="width:22%">会社名</th><th style="width:14%">締め日</th><th style="width:18%">入金の条件</th><th style="width:22%">請求書に必ず書く欄</th><th>出し方・指定様式</th></tr>
     <tr><td class="ex">例）△△工業</td><td class="ex">25日締め</td><td class="ex">翌月10日払い</td><td class="ex">工事番号・注文番号</td><td class="ex">メール／指定様式あり</td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
-  </table>
+  </table></div>
+  <button type="button" class="addrow" data-t="t_primes">＋ 行を追加</button>
   <div class="note"><b>入金の条件</b>は「今月いくら入ってくるか」の計算に使います（例：末日締め・翌月末払い）。<br>
     <b>請求書のExcel</b>：元請ごとに、最近実際に出した請求書のExcelファイル（記入済み・1〜2か月分）を、このシートとは別にLINEかメールでお送りください。元請から配られた白紙の様式があれば、それもお願いします。FLAから出す請求書を、今お出しの物と全く同じ形にするために使います。</div>
+  </div>
 </div>
+</section>
 
 <!-- ④ 現場 -->
+<section class="sec" data-sec="s4" data-name="④ いま動いている現場">
 <h2>④ いま動いている現場</h2>
 <div class="card">
-  <table id="t_sites">
+  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>アプリの請求画面の「現場」から入れられます。請負金額だけ隠したいときは、金額の欄を空けたまま送ってください</small></span></label>
+  <div class="printnote">この区分は、自分でアプリに入れます</div>
+  <div class="body">
+  <div class="tblwrap"><table id="t_sites">
     <tr><th style="width:28%">現場名</th><th style="width:18%">元請</th><th style="width:14%">請負／常用</th><th style="width:18%">請負金額（税抜）</th><th>工事名（請求書の件名）</th></tr>
     <tr><td class="ex">例）〇〇マンション改修</td><td class="ex">△△工業</td><td class="ex">請負</td><td class="ex">3,000,000</td><td class="ex">〇〇マンション改修工事</td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
@@ -137,40 +177,60 @@
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
-  </table>
+  </table></div>
+  <button type="button" class="addrow" data-t="t_sites">＋ 行を追加</button>
+  </div>
 </div>
+</section>
 
 <!-- ⑤ 常用単価 -->
-<h2>⑤ 常用（人工）の単価 <span>常用の請求をする場合</span></h2>
+<section class="sec" data-sec="s5" data-name="⑤ 常用（人工）の単価">
+<h2>⑤ 常用（人工）の単価 <span>元請に請求する単価・常用の請求をする場合</span></h2>
 <div class="card">
-  <table id="t_prices">
+  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>アプリの請求画面の「単価」から入れられます</small></span></label>
+  <div class="printnote">この区分は、自分でアプリに入れます</div>
+  <div class="body">
+  <div class="tblwrap"><table id="t_prices">
     <tr><th style="width:28%">工種</th><th style="width:28%">元請</th><th style="width:22%">終日の単価</th><th>半日の単価<span class="ex">（半額でない場合）</span></th></tr>
     <tr><td class="ex">例）塗装</td><td class="ex">△△工業</td><td class="ex">22,000</td><td class="ex">12,000</td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
-  </table>
+  </table></div>
+  <button type="button" class="addrow" data-t="t_prices">＋ 行を追加</button>
+  </div>
 </div>
+</section>
 
 <!-- ⑥ 経営の数字 -->
+<section class="sec" data-sec="s6" data-name="⑥ 経営の数字">
 <h2>⑥ 経営の数字（ダッシュボード）のために <span>ざっくりで構いません</span></h2>
 <div class="card">
+  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>アプリのダッシュボードの「設定」から入れられます</small></span></label>
+  <div class="printnote">この区分は、自分でアプリに入れます</div>
+  <div class="body">
   <div class="grid2">
-    <div class="fld"><label>人工1人1日あたりの原価の目安</label><input type="text" id="f_labor" placeholder="例）18,000円（日給＋保険等）"></div>
+    <div class="fld"><label>人工1人1日あたりの原価の目安（会社共通）</label><input type="text" id="f_labor" placeholder="例）18,000円（日給＋保険等）"></div>
     <div class="fld"><label>会計年度の開始月</label><input type="text" id="f_fy" placeholder="例）4月"></div>
   </div>
   <div class="fld"><label>「利益率が低い」と感じるライン</label><input type="text" id="f_margin" placeholder="例）15% を切ったら知らせてほしい"></div>
-  <div class="note">日報の人工 × この原価で<b>人件費を自動計算</b>し、現場ごとの利益率を出します。金額は後からいつでも変更でき、変更すると過去分も計算し直します。</div>
+  <div class="note">日報の人工 × この原価で<b>人件費を自動計算</b>し、現場ごとの利益率を出します。作業員ごとの日給を入れた方は、その日給で計算します。金額は後からいつでも変更でき、変更すると過去分も計算し直します。</div>
+  </div>
 </div>
+</section>
 
 <!-- ⑦ その他 -->
+<section class="sec" data-sec="s7" data-name="⑦ そのほか">
 <h2>⑦ そのほか</h2>
 <div class="card">
+  <div class="body">
   <div class="fld"><label>請求書のExcel（元請ごと・記入済み1〜2か月分を別送）</label><input type="text" id="f_sample" placeholder="例）△△工業の9月分・10月分をLINEで送ります"></div>
   <div class="note">Excelファイルは、このシートには付けられません。<b>LINEかメールで別にお送りください</b>。元請から配られた白紙の様式があれば、それもお願いします。</div>
-  <div class="fld"><label>ご質問・ご要望</label><input type="text" id="f_memo" placeholder="例）現場が増えたときは自分たちで追加したい"></div>
+  <div class="fld" style="margin-top:11px"><label>ご質問・ご要望</label><input type="text" id="f_memo" placeholder="例）現場が増えたときは自分たちで追加したい"></div>
+  </div>
 </div>
+</section>
 
 <div class="btnrow noprint">
   <button class="btn" id="sendBtn" type="button">📤 この内容をLINEで送る</button>
@@ -179,7 +239,7 @@
   <label style="font-size:12.5px;color:var(--sub)">LINEが開かないときは、下のリンクをコピーして送ってください</label>
   <textarea id="shareText" readonly style="width:100%;height:110px;font-family:inherit;font-size:12.5px;padding:9px;border:1px solid var(--line);border-radius:var(--r-sm);margin-top:5px"></textarea>
   <div class="btnrow" style="margin:8px 0 0"><button class="btn g" id="copyBtn" type="button">リンクをコピー</button><span id="copyState" style="font-size:12.5px;color:var(--sub);align-self:center"></span></div>
-  <div class="warn">このリンクを開くと、記入した内容（口座なども）が見られます。FIELDLOGの担当者以外には送らないでください。</div>
+  <div class="warn">このリンクを開くと、記入した内容（口座なども）が見られます。FIELDLOGの担当者以外には送らないでください。「自分でアプリに入れる」にした区分は入っていません。</div>
 </div>
 <div class="btnrow noprint" style="margin-top:6px">
   <button class="btn g" onclick="window.print()">🖨 印刷／PDFで保存</button>
@@ -200,13 +260,72 @@
 </div>
 
 <script>
-function val(id){ const e = document.getElementById(id); return e && e.value.trim(); }
+/* ===== 準備シート（2026-10 v2）=====
+   保存・共有の形：{ v, f:{欄ID:値}, t:{表ID:[[行の値…]…]}, x:[送らない区分ID…], t0:時刻 }
+   ・行を足しても崩れないよう、欄は ID、表は「表ごとの行の並び」で持つ
+   ・保存先＝このブラウザの localStorage。共有＝内容を「#s=」以降に詰めたリンク（# 以降はサーバに送られない）
+   ・「自分でアプリに入れる」にした区分（x）は、共有リンク・文字まとめ・印刷に入れない
+   ※ 欄や表の構成を変えたら VER を上げる */
+const VER = 2;
+const KEY = "fla_prep_sheet_v" + VER;
+const BASE_URL = "https://fieldlogai-coder.github.io/fla-liff/prep-sheet.html";
+const TABLES = ["t_people", "t_primes", "t_sites", "t_prices"];
+const $ = (id) => document.getElementById(id);
+const secOf = (el) => el.closest(".sec");
+const isExcluded = (sec) => !!sec && sec.classList.contains("excluded");
+function val(id){ const e = $(id); return e && !isExcluded(secOf(e)) ? e.value.trim() : ""; }
+
+/* ---- 表の行 ---- */
+const dataRows = (tid) => [...$(tid).querySelectorAll("tr")].slice(2);   // 見出しと記入例を除く
+function addRow(tid) {
+  const rows = dataRows(tid), tpl = rows[rows.length - 1];
+  const tr = tpl.cloneNode(true);
+  tr.querySelectorAll("input").forEach((i) => { i.value = ""; i.removeAttribute("placeholder"); });
+  tpl.parentNode.appendChild(tr);
+  return tr;
+}
+function ensureRows(tid, n) { while (dataRows(tid).length < n) addRow(tid); }
+
+/* ---- 集める・入れる ---- */
+function collect(forShare) {
+  const o = { v: VER, f: {}, t: {}, x: [] };
+  document.querySelectorAll(".sec").forEach((s) => { if (isExcluded(s)) o.x.push(s.dataset.sec); });
+  document.querySelectorAll('input[type="text"][id]').forEach((e) => {
+    if (forShare && isExcluded(secOf(e))) return;
+    const v = e.value.trim(); if (v) o.f[e.id] = v;
+  });
+  TABLES.forEach((tid) => {
+    if (forShare && isExcluded(secOf($(tid)))) return;
+    const rows = dataRows(tid).map((tr) => [...tr.querySelectorAll("input")].map((i) => i.value.trim()));
+    while (rows.length && rows[rows.length - 1].every((c) => !c)) rows.pop();   // 後ろの空行は持たない
+    if (rows.length) o.t[tid] = rows;
+  });
+  return o;
+}
+const hasContent = (o) => Object.keys(o.f).length > 0 || Object.keys(o.t).length > 0;
+function fill(o) {
+  document.querySelectorAll('input[type="text"]').forEach((e) => { e.value = ""; });
+  Object.entries((o && o.f) || {}).forEach(([id, v]) => { const e = $(id); if (e && typeof v === "string") e.value = v; });
+  Object.entries((o && o.t) || {}).forEach(([tid, rows]) => {
+    if (!$(tid) || !Array.isArray(rows)) return;
+    ensureRows(tid, rows.length);
+    const trs = dataRows(tid);
+    rows.forEach((cells, r) => { const ins = trs[r].querySelectorAll("input"); (cells || []).forEach((v, c) => { if (ins[c] && typeof v === "string") ins[c].value = v; }); });
+  });
+  document.querySelectorAll(".sec").forEach((s) => {
+    const on = ((o && o.x) || []).includes(s.dataset.sec);
+    s.classList.toggle("excluded", on);
+    const cb = s.querySelector(".keepchk"); if (cb) cb.checked = on;
+  });
+}
+
+/* ---- 文字にまとめる ---- */
 function tableText(tid, head) {
-  const rows = [...document.querySelectorAll("#"+tid+" tr")].slice(2);   // ヘッダと記入例を除く
+  if (isExcluded(secOf($(tid)))) return "";
   const out = [];
-  rows.forEach(tr => {
-    const cells = [...tr.querySelectorAll("input")].map(i => i.value.trim());
-    if (cells.some(c => c)) out.push("・" + cells.filter(c=>c).join(" ／ "));
+  dataRows(tid).forEach((tr) => {
+    const cells = [...tr.querySelectorAll("input")].map((i) => i.value.trim());
+    if (cells.some((c) => c)) out.push("・" + cells.filter((c) => c).join(" ／ "));
   });
   return out.length ? head + "\n" + out.join("\n") : "";
 }
@@ -215,39 +334,28 @@ function toText() {
   L.push("【FIELDLOG 準備シート】");
   const comp = [["会社名",val("f_company")],["代表者",val("f_rep")],["住所",val("f_addr")],["電話",val("f_tel")],
                 ["インボイス番号",val("f_inv")],["振込先",val("f_bank")],["種別・番号",val("f_acc")],["名義カナ",val("f_kana")]]
-                .filter(x => x[1]).map(x => "・" + x[0] + "：" + x[1]);
+                .filter((x) => x[1]).map((x) => "・" + x[0] + "：" + x[1]);
   if (comp.length) L.push("\n■ 会社情報\n" + comp.join("\n"));
   const t1 = tableText("t_people", "\n■ 使う方（お名前／役割／請求書を作る）");
   const t2 = tableText("t_primes", "\n■ 請求先（会社名／締め日／入金条件／必須欄／出し方）");
   const t3 = tableText("t_sites",  "\n■ 現場（現場名／元請／請負or常用／請負金額／工事名）");
   const t4 = tableText("t_prices", "\n■ 常用単価（工種／元請／終日／半日）");
-  [t1,t2,t3,t4].forEach(t => { if (t) L.push(t); });
+  [t1,t2,t3,t4].forEach((t) => { if (t) L.push(t); });
   const mg = [["人工の原価",val("f_labor")],["年度開始月",val("f_fy")],["低採算ライン",val("f_margin")]]
-             .filter(x => x[1]).map(x => "・" + x[0] + "：" + x[1]);
+             .filter((x) => x[1]).map((x) => "・" + x[0] + "：" + x[1]);
   if (mg.length) L.push("\n■ 経営の数字\n" + mg.join("\n"));
   const etc = [["請求書のExcel",val("f_sample")],["質問・要望",val("f_memo")]]
-              .filter(x => x[1]).map(x => "・" + x[0] + "：" + x[1]);
+              .filter((x) => x[1]).map((x) => "・" + x[0] + "：" + x[1]);
   if (etc.length) L.push("\n■ そのほか\n" + etc.join("\n"));
-  document.getElementById("out").style.display = "block";
-  const ta = document.getElementById("outtext");
+  const ex = [...document.querySelectorAll(".sec.excluded")].map((s) => s.dataset.name);
+  if (ex.length) L.push("\n■ 自分でアプリに入れる区分（送っていません）\n・" + ex.join("\n・"));
+  $("out").style.display = "block";
+  const ta = $("outtext");
   ta.value = L.join("\n");
   ta.focus(); ta.select();
 }
 
-/* ===== 自動保存と共有リンク（2026-10 追加） =====
-   入力欄（input[type=text]）をページ内の順番で番号付けし、空でない欄だけ [番号, 値] で持つ。
-   保存先：このブラウザの localStorage。共有：内容を「#s=」以降に詰めたリンク（# 以降はサーバに送られない）。
-   ※ 入力欄の並びを変えたら VER を上げる（古いリンクを別の欄に入れないため） */
-const VER = 1;
-const KEY = "fla_prep_sheet_v" + VER;
-const BASE_URL = "https://fieldlogai-coder.github.io/fla-liff/prep-sheet.html";
-const fields = () => [...document.querySelectorAll('input[type="text"]')];
-const collect = () => fields().map((e, i) => [i, e.value.trim()]).filter((p) => p[1]);
-function fill(pairs) {
-  const fs = fields();
-  fs.forEach((e) => { e.value = ""; });
-  (pairs || []).forEach(([i, v]) => { if (fs[i] && typeof v === "string") fs[i].value = v; });
-}
+/* ---- リンクに詰める ---- */
 const b64u = (bytes) => { let s = ""; bytes.forEach((b) => { s += String.fromCharCode(b); }); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
 const unb64u = (s) => { const t = atob(s.replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(t, (c) => c.charCodeAt(0)); };
 async function pipe(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
@@ -259,89 +367,89 @@ async function encode(obj) {
 async function decode(s) {
   const kind = s[0], bytes = unb64u(s.slice(1));
   if (kind === "z") {
-    if (!window.DecompressionStream) throw new Error("このブラウザでは開けません");
+    if (!window.DecompressionStream) throw new Error("old");
     return JSON.parse(new TextDecoder().decode(await pipe(bytes, new DecompressionStream("deflate-raw"))));
   }
   return JSON.parse(new TextDecoder().decode(bytes));
 }
 
+/* ---- 自動保存 ---- */
 let SHARED = false;   // 共有リンクで開いた時は、開いた側の保存を上書きしない
 const stamp = (t) => { const d = new Date(t); return (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
 function saveLocal() {
   if (SHARED) return;
   try {
-    const t = Date.now();
-    localStorage.setItem(KEY, JSON.stringify({ v: VER, a: collect(), t }));
-    document.getElementById("saveState").textContent = "✓ このスマホに自動で保存しました（" + stamp(t) + "）";
+    const o = collect(false); o.t0 = Date.now();
+    localStorage.setItem(KEY, JSON.stringify(o));
+    $("saveState").textContent = "✓ このスマホに自動で保存しました（" + stamp(o.t0) + "）";
   } catch (e) {
-    document.getElementById("saveState").textContent = "このブラウザでは自動保存ができません。書き終えたら、すぐに送ってください。";
+    $("saveState").textContent = "このブラウザでは自動保存ができません。書き終えたら、すぐに送ってください。";
   }
 }
 function loadLocal() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY) || "null");
-    if (d && d.v === VER && d.a && d.a.length) {
-      fill(d.a);
-      document.getElementById("saveState").textContent = "✓ 前に書いた内容を開きました（" + stamp(d.t) + " 保存）";
-    }
+    if (d && d.v === VER) { fill(d); $("saveState").textContent = "✓ 前に書いた内容を開きました（" + stamp(d.t0) + " 保存）"; }
   } catch (e) {}
 }
+
+/* ---- 画面の動き ---- */
+document.querySelectorAll(".addrow").forEach((b) => b.addEventListener("click", () => { addRow(b.dataset.t); saveLocal(); }));
+document.querySelectorAll(".keepchk").forEach((cb) => cb.addEventListener("change", () => { secOf(cb).classList.toggle("excluded", cb.checked); saveLocal(); }));
 
 async function boot() {
   const m = location.hash.match(/^#s=([A-Za-z0-9_-]+)$/);
   if (m) {
     SHARED = true;
-    const bn = document.getElementById("sharedBanner");
+    const bn = $("sharedBanner");
     bn.hidden = false;
     try {
       const d = await decode(m[1]);
-      if (!d || d.v !== VER) throw new Error("版が違います");
-      fill(d.a);
-      bn.innerHTML = "<b>送られてきた記入内容を表示しています</b>" + (d.t ? "（" + stamp(d.t) + " 時点）" : "") +
-        "。この画面で直しても、送った人の画面は変わりません。印刷・PDF保存・「文字にまとめる」はそのまま使えます。";
+      if (!d || d.v !== VER) throw new Error("ver");
+      fill(d);
+      const ex = [...document.querySelectorAll(".sec.excluded")].map((s) => s.dataset.name);
+      bn.innerHTML = "<b>送られてきた記入内容を表示しています</b>" + (d.t0 ? "（" + stamp(d.t0) + " 時点）" : "") +
+        "。この画面で直しても、送った人の画面は変わりません。印刷・PDF保存・「文字にまとめる」はそのまま使えます。" +
+        (ex.length ? "<br>「自分でアプリに入れる」にした区分（送られていません）：" + ex.join("、") : "");
     } catch (e) {
       bn.className = "banner noprint err";
       bn.textContent = "記入内容を開けませんでした。リンクが途中で切れているか、古いブラウザの可能性があります。別のブラウザで開くか、送った方に「文字にまとめる」の文章で送り直してもらってください。";
     }
-    document.getElementById("howto").hidden = true;
-    document.getElementById("sendBtn").parentElement.hidden = true;
-    document.getElementById("clearBtn").hidden = true;
+    document.querySelectorAll(".keepchk").forEach((cb) => { cb.disabled = true; });
+    $("howto").hidden = true;
+    $("sendBtn").parentElement.hidden = true;
+    $("clearBtn").hidden = true;
     return;
   }
   loadLocal();
   document.addEventListener("input", (ev) => { if (ev.target.matches('input[type="text"]')) saveLocal(); });
 }
 
-document.getElementById("sendBtn").addEventListener("click", async () => {
+$("sendBtn").addEventListener("click", async () => {
   saveLocal();
-  const a = collect();
-  if (!a.length) { alertBox("まだ何も書かれていません。分かるところから書いてから送ってください。"); return; }
-  const url = BASE_URL + "#s=" + (await encode({ v: VER, a, t: Date.now() }));
+  const o = collect(true);
+  if (!hasContent(o)) { showBox("まだ何も書かれていません（「自分でアプリに入れる」にした区分は送られません）。分かるところから書いてから送ってください。"); return; }
+  o.t0 = Date.now();
+  const url = BASE_URL + "#s=" + (await encode(o));
   const co = val("f_company");
-  const text = "【FIELDLOG 準備シート】" + (co ? co : "") + "\n記入した内容です（開くと記入済みのシートが見られます）\n" + url;
-  const box = document.getElementById("sendBox");
-  box.hidden = false;
-  document.getElementById("shareText").value = text;
+  const text = "【FIELDLOG 準備シート】" + co + "\n記入した内容です（開くと記入済みのシートが見られます）\n" + url;
+  showBox(text);
   location.href = "https://line.me/R/share?text=" + encodeURIComponent(text);
 });
-function alertBox(msg) {
-  const box = document.getElementById("sendBox");
-  box.hidden = false;
-  document.getElementById("shareText").value = msg;
-}
-document.getElementById("copyBtn").addEventListener("click", () => {
-  const ta = document.getElementById("shareText"), st = document.getElementById("copyState");
+function showBox(msg) { $("sendBox").hidden = false; $("shareText").value = msg; }
+$("copyBtn").addEventListener("click", () => {
+  const ta = $("shareText"), st = $("copyState");
   const done = () => { st.textContent = "コピーしました。LINEに貼って送ってください"; };
   try { navigator.clipboard.writeText(ta.value).then(done, () => { ta.select(); document.execCommand("copy"); done(); }); }
   catch (e) { ta.select(); document.execCommand("copy"); done(); }
 });
 let clearArmed = 0;
-document.getElementById("clearBtn").addEventListener("click", (ev) => {
+$("clearBtn").addEventListener("click", (ev) => {
   const b = ev.currentTarget;
   if (Date.now() - clearArmed > 4000) { clearArmed = Date.now(); b.textContent = "本当に消す？（もう一度押す）"; setTimeout(() => { b.textContent = "書いた内容を消す"; }, 4000); return; }
-  fill([]);
+  fill({ f: {}, t: {}, x: [] });
   try { localStorage.removeItem(KEY); } catch (e) {}
-  document.getElementById("saveState").textContent = "書いた内容を消しました";
+  $("saveState").textContent = "書いた内容を消しました";
   b.textContent = "書いた内容を消す"; clearArmed = 0;
 });
 boot();
