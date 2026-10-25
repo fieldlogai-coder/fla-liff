@@ -50,6 +50,14 @@
     input[type=text]{border:none;border-bottom:1px solid #bbb;border-radius:0;}
     h2{page-break-after:avoid;} .card{page-break-inside:avoid;}
   }
+  /* 自動保存・共有リンク（2026-10 追加） */
+  [hidden]{display:none!important;}
+  .banner{background:var(--info-bg);color:var(--info-ink);border-radius:var(--r);padding:12px 15px;margin-bottom:16px;font-size:13.5px;line-height:1.7;}
+  .banner.err{background:#fdecea;color:#8a1c12;}
+  .savestate{font-size:12px;color:var(--sub);margin:6px 2px 0;}
+  .sendbox{border:2px solid var(--acc);}
+  .sendbox .warn{font-size:12px;color:var(--sub);margin-top:6px;}
+  .btn.danger{background:#fff;color:#a33;border:1px solid #d9b3b3;}
 </style>
 </head>
 <body>
@@ -60,10 +68,13 @@
   <p>ご記入は10〜15分ほどです。<b>分かる範囲でOK</b>、あとからいつでも変更できます。</p>
 </div></header>
 
-<div class="howto noprint">
-  <b>ご記入方法</b>：この画面に直接入力できます（保存はされません）。書き終えたら
-  <b>「印刷／PDFで保存」</b>を押してPDFにして送っていただくか、<b>「文字にまとめる」</b>を押して出てきた文章をLINEで送ってください。
+<div class="banner noprint" id="sharedBanner" hidden></div>
+
+<div class="howto noprint" id="howto">
+  <b>ご記入方法</b>：この画面に直接入力できます。<b>書いた内容はこのスマホ（パソコン）に自動で残る</b>ので、途中でやめても、あとで開けば続きから書けます。
+  書き終えたら、いちばん下の<b>「この内容をLINEで送る」</b>を押してください。記入済みのシートが、リンク1本で届きます。
   紙に手書きされる場合は、そのまま印刷してお使いください。
+  <div class="savestate" id="saveState"></div>
 </div>
 
 <!-- ① 会社情報 -->
@@ -112,7 +123,7 @@
     <tr><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td><td><input type="text"></td></tr>
   </table>
   <div class="note"><b>入金の条件</b>は「今月いくら入ってくるか」の計算に使います（例：末日締め・翌月末払い）。<br>
-    <b>指定のExcel様式</b>がある元請は、そのファイルもお送りください。</div>
+    <b>請求書のExcel</b>：元請ごとに、最近実際に出した請求書のExcelファイル（記入済み・1〜2か月分）を、このシートとは別にLINEかメールでお送りください。元請から配られた白紙の様式があれば、それもお願いします。FLAから出す請求書を、今お出しの物と全く同じ形にするために使います。</div>
 </div>
 
 <!-- ④ 現場 -->
@@ -156,13 +167,24 @@
 <!-- ⑦ その他 -->
 <h2>⑦ そのほか</h2>
 <div class="card">
-  <div class="fld"><label>いまお使いの請求書の見本（写真でも可）</label><input type="text" id="f_sample" placeholder="例）△△工業の様式を1枚お送りします"></div>
+  <div class="fld"><label>請求書のExcel（元請ごと・記入済み1〜2か月分を別送）</label><input type="text" id="f_sample" placeholder="例）△△工業の9月分・10月分をLINEで送ります"></div>
+  <div class="note">Excelファイルは、このシートには付けられません。<b>LINEかメールで別にお送りください</b>。元請から配られた白紙の様式があれば、それもお願いします。</div>
   <div class="fld"><label>ご質問・ご要望</label><input type="text" id="f_memo" placeholder="例）現場が増えたときは自分たちで追加したい"></div>
 </div>
 
 <div class="btnrow noprint">
-  <button class="btn" onclick="window.print()">🖨 印刷／PDFで保存</button>
-  <button class="btn g" onclick="toText()">📋 文字にまとめる（LINEで送る用）</button>
+  <button class="btn" id="sendBtn" type="button">📤 この内容をLINEで送る</button>
+</div>
+<div class="card noprint sendbox" id="sendBox" hidden>
+  <label style="font-size:12.5px;color:var(--sub)">LINEが開かないときは、下のリンクをコピーして送ってください</label>
+  <textarea id="shareText" readonly style="width:100%;height:110px;font-family:inherit;font-size:12.5px;padding:9px;border:1px solid var(--line);border-radius:var(--r-sm);margin-top:5px"></textarea>
+  <div class="btnrow" style="margin:8px 0 0"><button class="btn g" id="copyBtn" type="button">リンクをコピー</button><span id="copyState" style="font-size:12.5px;color:var(--sub);align-self:center"></span></div>
+  <div class="warn">このリンクを開くと、記入した内容（口座なども）が見られます。FIELDLOGの担当者以外には送らないでください。</div>
+</div>
+<div class="btnrow noprint" style="margin-top:6px">
+  <button class="btn g" onclick="window.print()">🖨 印刷／PDFで保存</button>
+  <button class="btn g" onclick="toText()">📋 文字にまとめる</button>
+  <button class="btn danger" id="clearBtn" type="button">書いた内容を消す</button>
 </div>
 <div class="card noprint" id="out" style="display:none">
   <label style="font-size:12.5px;color:var(--sub)">下の文章をコピーして送ってください</label>
@@ -170,7 +192,7 @@
 </div>
 
 <footer>
-  FIELDLOG 準備シート — 2026年8月版／記入例はすべて架空のものです。<br>
+  FIELDLOG 準備シート — 2026年10月版／記入例はすべて架空のものです。<br>
   ご不明な点は、お気軽にお電話ください。<br>
   <a href="./index.html" class="noprint" style="color:var(--acc);font-weight:700">📚 資料一覧（すべての資料はこちら）</a>
 </footer>
@@ -203,7 +225,7 @@ function toText() {
   const mg = [["人工の原価",val("f_labor")],["年度開始月",val("f_fy")],["低採算ライン",val("f_margin")]]
              .filter(x => x[1]).map(x => "・" + x[0] + "：" + x[1]);
   if (mg.length) L.push("\n■ 経営の数字\n" + mg.join("\n"));
-  const etc = [["請求書の見本",val("f_sample")],["質問・要望",val("f_memo")]]
+  const etc = [["請求書のExcel",val("f_sample")],["質問・要望",val("f_memo")]]
               .filter(x => x[1]).map(x => "・" + x[0] + "：" + x[1]);
   if (etc.length) L.push("\n■ そのほか\n" + etc.join("\n"));
   document.getElementById("out").style.display = "block";
@@ -211,6 +233,118 @@ function toText() {
   ta.value = L.join("\n");
   ta.focus(); ta.select();
 }
+
+/* ===== 自動保存と共有リンク（2026-10 追加） =====
+   入力欄（input[type=text]）をページ内の順番で番号付けし、空でない欄だけ [番号, 値] で持つ。
+   保存先：このブラウザの localStorage。共有：内容を「#s=」以降に詰めたリンク（# 以降はサーバに送られない）。
+   ※ 入力欄の並びを変えたら VER を上げる（古いリンクを別の欄に入れないため） */
+const VER = 1;
+const KEY = "fla_prep_sheet_v" + VER;
+const BASE_URL = "https://fieldlogai-coder.github.io/fla-liff/prep-sheet.html";
+const fields = () => [...document.querySelectorAll('input[type="text"]')];
+const collect = () => fields().map((e, i) => [i, e.value.trim()]).filter((p) => p[1]);
+function fill(pairs) {
+  const fs = fields();
+  fs.forEach((e) => { e.value = ""; });
+  (pairs || []).forEach(([i, v]) => { if (fs[i] && typeof v === "string") fs[i].value = v; });
+}
+const b64u = (bytes) => { let s = ""; bytes.forEach((b) => { s += String.fromCharCode(b); }); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+const unb64u = (s) => { const t = atob(s.replace(/-/g, "+").replace(/_/g, "/")); return Uint8Array.from(t, (c) => c.charCodeAt(0)); };
+async function pipe(bytes, stream) { return new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer()); }
+async function encode(obj) {
+  const raw = new TextEncoder().encode(JSON.stringify(obj));
+  if (window.CompressionStream) { try { return "z" + b64u(await pipe(raw, new CompressionStream("deflate-raw"))); } catch (e) {} }
+  return "p" + b64u(raw);
+}
+async function decode(s) {
+  const kind = s[0], bytes = unb64u(s.slice(1));
+  if (kind === "z") {
+    if (!window.DecompressionStream) throw new Error("このブラウザでは開けません");
+    return JSON.parse(new TextDecoder().decode(await pipe(bytes, new DecompressionStream("deflate-raw"))));
+  }
+  return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+let SHARED = false;   // 共有リンクで開いた時は、開いた側の保存を上書きしない
+const stamp = (t) => { const d = new Date(t); return (d.getMonth() + 1) + "/" + d.getDate() + " " + d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
+function saveLocal() {
+  if (SHARED) return;
+  try {
+    const t = Date.now();
+    localStorage.setItem(KEY, JSON.stringify({ v: VER, a: collect(), t }));
+    document.getElementById("saveState").textContent = "✓ このスマホに自動で保存しました（" + stamp(t) + "）";
+  } catch (e) {
+    document.getElementById("saveState").textContent = "このブラウザでは自動保存ができません。書き終えたら、すぐに送ってください。";
+  }
+}
+function loadLocal() {
+  try {
+    const d = JSON.parse(localStorage.getItem(KEY) || "null");
+    if (d && d.v === VER && d.a && d.a.length) {
+      fill(d.a);
+      document.getElementById("saveState").textContent = "✓ 前に書いた内容を開きました（" + stamp(d.t) + " 保存）";
+    }
+  } catch (e) {}
+}
+
+async function boot() {
+  const m = location.hash.match(/^#s=([A-Za-z0-9_-]+)$/);
+  if (m) {
+    SHARED = true;
+    const bn = document.getElementById("sharedBanner");
+    bn.hidden = false;
+    try {
+      const d = await decode(m[1]);
+      if (!d || d.v !== VER) throw new Error("版が違います");
+      fill(d.a);
+      bn.innerHTML = "<b>送られてきた記入内容を表示しています</b>" + (d.t ? "（" + stamp(d.t) + " 時点）" : "") +
+        "。この画面で直しても、送った人の画面は変わりません。印刷・PDF保存・「文字にまとめる」はそのまま使えます。";
+    } catch (e) {
+      bn.className = "banner noprint err";
+      bn.textContent = "記入内容を開けませんでした。リンクが途中で切れているか、古いブラウザの可能性があります。別のブラウザで開くか、送った方に「文字にまとめる」の文章で送り直してもらってください。";
+    }
+    document.getElementById("howto").hidden = true;
+    document.getElementById("sendBtn").parentElement.hidden = true;
+    document.getElementById("clearBtn").hidden = true;
+    return;
+  }
+  loadLocal();
+  document.addEventListener("input", (ev) => { if (ev.target.matches('input[type="text"]')) saveLocal(); });
+}
+
+document.getElementById("sendBtn").addEventListener("click", async () => {
+  saveLocal();
+  const a = collect();
+  if (!a.length) { alertBox("まだ何も書かれていません。分かるところから書いてから送ってください。"); return; }
+  const url = BASE_URL + "#s=" + (await encode({ v: VER, a, t: Date.now() }));
+  const co = val("f_company");
+  const text = "【FIELDLOG 準備シート】" + (co ? co : "") + "\n記入した内容です（開くと記入済みのシートが見られます）\n" + url;
+  const box = document.getElementById("sendBox");
+  box.hidden = false;
+  document.getElementById("shareText").value = text;
+  location.href = "https://line.me/R/share?text=" + encodeURIComponent(text);
+});
+function alertBox(msg) {
+  const box = document.getElementById("sendBox");
+  box.hidden = false;
+  document.getElementById("shareText").value = msg;
+}
+document.getElementById("copyBtn").addEventListener("click", () => {
+  const ta = document.getElementById("shareText"), st = document.getElementById("copyState");
+  const done = () => { st.textContent = "コピーしました。LINEに貼って送ってください"; };
+  try { navigator.clipboard.writeText(ta.value).then(done, () => { ta.select(); document.execCommand("copy"); done(); }); }
+  catch (e) { ta.select(); document.execCommand("copy"); done(); }
+});
+let clearArmed = 0;
+document.getElementById("clearBtn").addEventListener("click", (ev) => {
+  const b = ev.currentTarget;
+  if (Date.now() - clearArmed > 4000) { clearArmed = Date.now(); b.textContent = "本当に消す？（もう一度押す）"; setTimeout(() => { b.textContent = "書いた内容を消す"; }, 4000); return; }
+  fill([]);
+  try { localStorage.removeItem(KEY); } catch (e) {}
+  document.getElementById("saveState").textContent = "書いた内容を消しました";
+  b.textContent = "書いた内容を消す"; clearArmed = 0;
+});
+boot();
 </script>
 </body>
 </html>
