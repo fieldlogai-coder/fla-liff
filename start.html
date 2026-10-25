@@ -274,6 +274,11 @@ function renderIntro() {
       ${IS_DEMO ? "<li>会社名・現場名・金額は<b>すべて架空</b>です</li>" : "<li>各ステップで、先に<b>れんしゅう</b>ができます</li>"}
       <li>途中で閉じても、<b>続きから</b>再開できます</li>
     </ul></div>
+    <div class="card"><div class="label">📱 LINEとこのページを、行ったり来たりします</div><ul class="plain">
+      <li>① このページの<b>緑のボタン</b>を押すと、LINEが開きます</li>
+      <li>② LINEで操作が終わったら、このページに戻ります</li>
+      <li><b>戻り方</b>：送られてきた<b>このページのリンクを、もう一度押してください</b>（続きの画面から開きます）</li>
+    </ul></div>
     <button class="done" id="start">はじめる ▶</button>`;
   const btn = document.getElementById("start");
   const sync = () => {
@@ -321,7 +326,7 @@ function renderStep(st) {
     <div class="card"><div class="label"><b>2</b> 本番</div>
       <a class="go" href="${esc(st.go.url)}" id="golink">${esc(st.go.label)}<small>${esc(st.go.sub)}</small></a>
       <div class="okline">${st.ok}</div>
-      <div class="okline">終わったら、このページに戻ってきてください。</div>
+      <div class="okline">終わったら、このページに戻ってきてください。<br><b>戻り方</b>：送られてきたこのページのリンクを、もう一度押す（続きから開きます）</div>
     </div>
     <button class="done" id="next">できた ✓ 次へ進む</button>
     <details><summary>うまくいかないとき</summary><ul>${st.help.map((h) => `<li>${esc(h)}</li>`).join("")}</ul></details>
