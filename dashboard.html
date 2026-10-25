@@ -204,7 +204,7 @@ async function boot() {
 // ── 読み込み ───────────────────────────────────────────────────────────
 async function loadAll() {
   const c = cu.companyId;
-  const [gr, sr, cr, ir, lr, pr, mr, ld, rr, wr] = await Promise.all([
+  const [gr, sr, cr, ir, lr, pr, mr, ld, rr, wr, cwr] = await Promise.all([
     rGet(`/company_settings?company_id=eq.${c}&select=closing_day,fiscal_year_start_month,low_margin_pct,backlog_alert_months,labor_cost_per_day`),
     rGet(`/sites?company_id=eq.${c}&select=id,name,status,created_at,target_margin_pct,prime_contractor_id,prime_contractors(id,name,closing_day,payment_month_offset,payment_day)&order=name`),
     rGet(`/construction_contracts?company_id=eq.${c}&select=id,site_id,prime_contractor_id,contract_amount,status,title`),
@@ -215,6 +215,8 @@ async function loadAll() {
     rGet(`/sales_leads?company_id=eq.${c}&select=id,name,prime_contractor_id,prime_name,amount,probability,start_month,status&order=created_at.desc`),
     rGet(`/report_details?company_id=eq.${c}&is_subcontractor=eq.false&select=site_id,worker_id,duration,report_date`),
     rGet(`/workers?company_id=eq.${c}&select=id,name,labor_cost_per_day`),
+    // 作業員ごとの日給は、管理者・請求権限の人だけが読める別の表（2026-10 worker_labor_costs）
+    rGet(`/worker_labor_costs?company_id=eq.${c}&select=worker_id,labor_cost_per_day`),
   ]);
   if (!sr.ok || !cr.ok || !ir.ok) return fail("データの取得に失敗しました。時間をおいて開き直してください。");
 
@@ -234,6 +236,11 @@ async function loadAll() {
   db.leads   = ld.ok ? await ld.json() : [];
   db.reports = rr.ok ? await rr.json() : [];
   db.workers = wr.ok ? await wr.json() : [];
+  // 新しい表が読めたら、そちらの日給を使う（表がまだ無い間は、旧列 workers.labor_cost_per_day のまま）
+  if (cwr.ok) {
+    const costs = new Map((await cwr.json()).map(x => [x.worker_id, x.labor_cost_per_day]));
+    db.workers = db.workers.map(w => ({ ...w, labor_cost_per_day: costs.has(w.id) ? costs.get(w.id) : null }));
+  }
 
   buildAll();
   buildYears();

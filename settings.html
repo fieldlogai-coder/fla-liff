@@ -160,6 +160,7 @@
       flex-shrink: 0;
     }
     .role-admin { background: #fce4ec; color: #c62828; }
+    .cost-line { font-size: 12.5px; color: #555; margin-top: 6px; }
     .role-foreman { background: #fff3e0; color: #e65100; }
 
     /* ── 操作ボタン (小) ── */
@@ -338,6 +339,7 @@ const AUTH_FN      = FLA.AUTH_FN;
 let cu = null;           // currentUser: { lineId, workerId, name, role, companyId, companyName }
 let allSites = [];       // Site[]
 let allWorkers = [];     // Worker[]
+let workerCosts = null;  // { worker_id: 日給 }。null＝日給欄を出さない（管理者以外・表が無い）
 
 // modal用
 let modalMode  = "";
@@ -489,6 +491,12 @@ async function loadWorkers() {
   const res = await get(`/workers?company_id=eq.${cu.companyId}&select=id,name,role&order=name`);
   if (!res.ok) { document.getElementById("workers-list").innerHTML = '<div class="empty">取得に失敗しました</div>'; return; }
   allWorkers = await res.json();
+  // 作業員ごとの日給：管理者だけが読める別の表（2026-10 worker_labor_costs）。表がまだ無い・読めない時は欄を出さない
+  workerCosts = null;
+  if (cu.role === "admin") {
+    const cr = await get(`/worker_labor_costs?company_id=eq.${cu.companyId}&select=worker_id,labor_cost_per_day`);
+    if (cr.ok) workerCosts = Object.fromEntries((await cr.json()).map(x => [x.worker_id, x.labor_cost_per_day]));
+  }
   renderWorkers();
 }
 
@@ -498,14 +506,19 @@ function renderWorkers() {
   if (!allWorkers.length) { el.innerHTML = '<div class="empty">作業員が登録されていません</div>'; return; }
   el.innerHTML = allWorkers.map(w => {
     const rc = w.role === "admin" ? " role-admin" : w.role === "foreman" ? " role-foreman" : "";
-    const adminBtns = isAdmin && w.id !== cu.workerId ? `
+    const costBtn = isAdmin && workerCosts ? `<button class="btn-sm" onclick="openEditCost('${w.id}')">日給</button>` : "";
+    const adminBtns = (isAdmin && w.id !== cu.workerId ? `
       <button class="btn-sm" onclick="openEditWorker('${w.id}')">編集</button>
-      <button class="btn-sm primary" onclick="openChangeRole('${w.id}')">役割変更</button>` : "";
+      <button class="btn-sm primary" onclick="openChangeRole('${w.id}')">役割変更</button>` : "") + costBtn;
+    const cost = workerCosts ? workerCosts[w.id] : undefined;
+    const costLine = isAdmin && workerCosts
+      ? `<div class="cost-line">日給：${cost != null ? "¥" + Number(cost).toLocaleString() : "未設定（会社共通の原価で計算）"}</div>` : "";
     return `<div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span class="card-title">${esc(w.name)}</span>
         <span class="role-badge${rc}">${roleLabel(w.role)}</span>
       </div>
+      ${costLine}
       ${isAdmin ? `<div class="card-actions">${adminBtns}</div>` : ""}
     </div>`;
   }).join("");
@@ -555,6 +568,20 @@ function openChangeRole(id) {
      <button class="btn-submit" onclick="submitModal()">変更</button>`);
 }
 
+function openEditCost(id) {
+  const w = allWorkers.find(x => String(x.id) === String(id));
+  if (!w || !workerCosts) return;
+  pWorkerId = id;
+  modalMode = "edit-cost";
+  const cur = workerCosts[w.id];
+  setModal(`${esc(w.name)} の日給`, `
+    <div class="form-group"><label>日給（1日あたりの原価・円）</label>
+      <input type="number" inputmode="numeric" id="mi-worker-cost" min="0" max="999999" step="1" value="${cur != null ? cur : ""}" placeholder="例）20000" /></div>
+    <div class="hint" style="font-size:12px;color:#666;line-height:1.6">空にして保存すると、会社共通の原価で計算します。<br>日給は管理者と請求権限のある方だけに見え、職人さんには見えません。</div>
+  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+     <button class="btn-submit" onclick="submitModal()">保存</button>`);
+}
+
 // ── セクション4: 単価 ────────────────────────────────────────────────
 // 常用単価は「元請 × 工種」ごと（billing_prices）＝請求LIFFのマスタで登録する。旧 companies.full_price は廃止済み
 async function loadPricing() { renderPricing(); }
@@ -580,6 +607,7 @@ async function submitModal() {
     else if (modalMode === "add-worker")   await doAddWorker();
     else if (modalMode === "edit-worker")  await doEditWorker();
     else if (modalMode === "change-role")  await doChangeRole();
+    else if (modalMode === "edit-cost")    await doEditCost();
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -655,6 +683,26 @@ async function doChangeRole() {
   const res = await patch(`/workers?id=eq.${pWorkerId}`, { role });
   if (!res.ok) { toast("変更に失敗しました", true); return; }
   closeModal(); toast("役割を変更しました"); await loadWorkers();
+}
+
+// ── 日給の保存（管理者のみ・RLSでも admin 限定）────────────────────────
+async function doEditCost() {
+  const raw = (document.getElementById("mi-worker-cost")?.value ?? "").trim();
+  if (raw === "") {
+    const r = await FLA.rest(`/worker_labor_costs?worker_id=eq.${pWorkerId}&company_id=eq.${cu.companyId}`, { method: "DELETE", headers: { "Prefer": "return=representation" } });
+    if (!r.ok) { toast("保存に失敗しました", true); return; }
+    closeModal(); toast("日給を未設定に戻しました"); await loadWorkers(); return;
+  }
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0 || n > 999999) { toast("日給は0〜999,999の整数で入れてください", true); return; }
+  const r = await FLA.rest(`/worker_labor_costs?on_conflict=worker_id`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Prefer": "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({ worker_id: pWorkerId, company_id: cu.companyId, labor_cost_per_day: n, updated_at: new Date().toISOString() }),
+  });
+  const rows = r.ok ? await r.json().catch(() => []) : [];
+  if (!r.ok || !rows.length) { toast("保存に失敗しました", true); return; }
+  closeModal(); toast("日給を保存しました"); await loadWorkers();
 }
 
 // ── 単価変更 ─────────────────────────────────────────────────────────
