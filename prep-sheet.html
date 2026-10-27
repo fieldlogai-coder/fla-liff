@@ -72,6 +72,16 @@
     .sec.excluded .printnote{display:block!important;}
   }
   .printnote{display:none;font-size:13px;color:var(--sub);}
+  /* 送る・自分で入れるの違いの説明（2026-10） */
+  .diff{margin-top:10px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;}
+  .diff summary{cursor:pointer;padding:9px 12px;font-weight:bold;color:var(--acc);font-size:13.5px;}
+  .diff .in{padding:0 12px 12px;font-size:13px;line-height:1.7;}
+  .diff table{font-size:12.5px;margin-top:6px;}
+  .diff th{white-space:normal;}
+  .diff td{vertical-align:top;}
+  .diff td:first-child{white-space:nowrap;}
+  .rec{display:inline-block;font-size:11px;font-weight:bold;color:var(--acc);background:var(--info-bg);border-radius:999px;padding:0 8px;margin-left:4px;}
+  .keep .stop{display:block;color:var(--sub);font-size:11.5px;margin-top:2px;}
 </style>
 </head>
 <body>
@@ -89,6 +99,18 @@
   書き終えたら、いちばん下の<b>「この内容をLINEで送る」</b>を押してください。記入済みのシートが、リンク1本で届きます。<br>
   <b>運営に見せたくない区分</b>は、区分の上の<b>「自分でアプリに入れる（運営に送らない）」</b>にチェックしてください。その区分は送られません。あとでアプリに直接入れられます。
   行が足りないときは<b>「＋ 行を追加」</b>で増やせます。紙に手書きされる場合は、そのまま印刷してお使いください。
+  <details class="diff">
+    <summary>「自分でアプリに入れる」とは？（送る・送らないの違い）</summary>
+    <div class="in">
+      <div class="tblwrap"><table>
+        <tr><th></th><th>運営に送る（チェックしない）</th><th>自分でアプリに入れる（チェックする）</th></tr>
+        <tr><td><b>よい点</b></td><td>運営が代わりに登録するので、手間がかかりません。入れ間違いも運営と一緒に確かめられます</td><td>その区分の内容は、運営に届きません。LINEのトークにも残りません</td></tr>
+        <tr><td><b>気をつける点</b></td><td>書いた内容は運営に届きます（登録のためだけに使い、ほかには使いません）</td><td>社長（管理者）が自分でアプリに入れる手間がかかります。入れるまで、その区分を使う機能が動きません。入れ方で迷ったときは運営に聞くことになります（そのときも中身は見ずに説明します）</td></tr>
+      </table></div>
+      <p style="margin-top:8px">どちらを選んでも、アプリに入ったデータは、運営は中身を見ないお約束で扱います（くわしくは「データの取り扱いのお約束」）。</p>
+      <p>各区分には<span class="rec">おすすめ</span>を最初から選んであります。そのままで大丈夫です。変えたいところだけチェックを付け外ししてください。</p>
+    </div>
+  </details>
   <div class="savestate" id="saveState"></div>
 </div>
 
@@ -96,7 +118,7 @@
 <section class="sec" data-sec="s1" data-name="① 会社情報">
 <h2>① 会社情報 <span>請求書に印字されます</span></h2>
 <div class="card">
-  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>口座なども含め、この区分は送られません。アプリの請求画面の「自社情報」から入れられます</small></span></label>
+  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：運営に送る</span><small>口座なども含め、この区分は送られません。アプリの請求画面の「自社情報」から入れられます<span class="stop">入れるまで：請求書に会社名・住所・振込先が出ません</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
   <div class="body">
   <div class="grid2">
@@ -121,7 +143,7 @@
 <section class="sec" data-sec="s2" data-name="② 使う方">
 <h2>② 使う方 <span>作業員の方も含めて全員</span></h2>
 <div class="card">
-  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>アプリの「設定」の作業員タブから、管理者の方が追加できます</small></span></label>
+  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：運営に送る</span><small>アプリの「設定」の作業員タブから、管理者の方が追加できます<span class="stop">入れるまで：職人さんがLINEで登録できません（名簿に名前が無いため）</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
   <div class="body">
   <div class="tblwrap"><table id="t_people">
@@ -144,7 +166,7 @@
 <section class="sec" data-sec="s3" data-name="③ 請求先（元請）">
 <h2>③ 請求先（元請）ごとに <span>取引のある元請の数だけ</span></h2>
 <div class="card">
-  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>アプリの請求画面の「元請」から入れられます</small></span></label>
+  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：運営に送る</span><small>アプリの請求画面の「元請」から入れられます<span class="stop">入れるまで：請求書を作れません</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
   <div class="body">
   <div class="tblwrap"><table id="t_primes">
@@ -166,7 +188,7 @@
 <section class="sec" data-sec="s4" data-name="④ いま動いている現場">
 <h2>④ いま動いている現場</h2>
 <div class="card">
-  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>アプリの請求画面の「現場」から入れられます。請負金額だけ隠したいときは、金額の欄を空けたまま送ってください</small></span></label>
+  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：運営に送る</span><small>アプリの請求画面の「現場」から入れられます。請負金額だけ隠したいときは、金額の欄を空けたまま送ってください<span class="stop">入れるまで：日報と請求書で、その現場を選べません</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
   <div class="body">
   <div class="tblwrap"><table id="t_sites">
@@ -187,7 +209,7 @@
 <section class="sec" data-sec="s5" data-name="⑤ 常用（人工）の単価">
 <h2>⑤ 常用（人工）の単価 <span>元請に請求する単価・常用の請求をする場合</span></h2>
 <div class="card">
-  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>アプリの請求画面の「単価」から入れられます</small></span></label>
+  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：運営に送る</span><small>アプリの請求画面の「単価」から入れられます。単価は、別にお送りいただく請求書のExcelにも載っています<span class="stop">入れるまで：常用の請求書に単価が自動で入りません（手で入れれば作れます）</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
   <div class="body">
   <div class="tblwrap"><table id="t_prices">
@@ -204,10 +226,10 @@
 </section>
 
 <!-- ⑥ 経営の数字 -->
-<section class="sec" data-sec="s6" data-name="⑥ 経営の数字">
+<section class="sec excluded" data-sec="s6" data-name="⑥ 経営の数字">
 <h2>⑥ 経営の数字（ダッシュボード）のために <span>ざっくりで構いません</span></h2>
 <div class="card">
-  <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<small>アプリのダッシュボードの「設定」から入れられます</small></span></label>
+  <label class="keep"><input type="checkbox" class="keepchk" checked><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：自分で入れる</span><small>アプリのダッシュボードの「設定」から入れられます。原価や利益のラインは請求書にも載らない社内の数字なので、自分で入れるのがおすすめです。運営に任せたいときはチェックを外して書いてください<span class="stop">入れるまで：ダッシュボードの人件費・利益率が出ません</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
   <div class="body">
   <div class="grid2">
@@ -270,6 +292,7 @@ const VER = 2;
 const KEY = "fla_prep_sheet_v" + VER;
 const BASE_URL = "https://fieldlogai-coder.github.io/fla-liff/prep-sheet.html";
 const TABLES = ["t_people", "t_primes", "t_sites", "t_prices"];
+const DEFAULT_X = ["s6"];   // おすすめで最初から「自分でアプリに入れる」にしておく区分（HTML の初期状態と合わせる）
 const $ = (id) => document.getElementById(id);
 const secOf = (el) => el.closest(".sec");
 const isExcluded = (sec) => !!sec && sec.classList.contains("excluded");
@@ -447,7 +470,7 @@ let clearArmed = 0;
 $("clearBtn").addEventListener("click", (ev) => {
   const b = ev.currentTarget;
   if (Date.now() - clearArmed > 4000) { clearArmed = Date.now(); b.textContent = "本当に消す？（もう一度押す）"; setTimeout(() => { b.textContent = "書いた内容を消す"; }, 4000); return; }
-  fill({ f: {}, t: {}, x: [] });
+  fill({ f: {}, t: {}, x: DEFAULT_X });
   try { localStorage.removeItem(KEY); } catch (e) {}
   $("saveState").textContent = "書いた内容を消しました";
   b.textContent = "書いた内容を消す"; clearArmed = 0;
