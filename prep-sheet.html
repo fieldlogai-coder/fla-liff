@@ -96,7 +96,7 @@
 
 <div class="howto noprint" id="howto">
   <b>ご記入方法</b>：この画面に直接入力できます。<b>書いた内容はこのスマホ（パソコン）に自動で残る</b>ので、途中でやめても、あとで開けば続きから書けます。
-  書き終えたら、いちばん下の<b>「この内容をLINEで送る」</b>を押してください。記入済みのシートが、リンク1本で届きます。<br>
+  書き終えたら、いちばん下の<b id="howtoSend">「この内容をLINEで送る」</b>を押してください。<span id="howtoSendNote">記入済みのシートが、リンク1本で届きます。</span><br>
   <b>運営に見せたくない区分</b>は、区分の上の<b>「自分でアプリに入れる（運営に送らない）」</b>にチェックしてください。その区分は送られません。あとでアプリに直接入れられます。
   行が足りないときは<b>「＋ 行を追加」</b>で増やせます。紙に手書きされる場合は、そのまま印刷してお使いください。
   <details class="diff">
@@ -257,8 +257,12 @@
 <div class="btnrow noprint">
   <button class="btn" id="sendBtn" type="button">📤 この内容をLINEで送る</button>
 </div>
+<div class="card noprint sendbox" id="sentBox" hidden>
+  <b style="font-size:15px">✅ FIELDLOG に届きました</b>
+  <div style="font-size:13px;margin-top:6px">ありがとうございます。担当者が確認して、設定を進めます。直したい所があれば、書き直してもう一度「送る」を押してください（あとから送った内容を使います）。</div>
+</div>
 <div class="card noprint sendbox" id="sendBox" hidden>
-  <label style="font-size:12.5px;color:var(--sub)">LINEが開かないときは、下のリンクをコピーして送ってください</label>
+  <label style="font-size:12.5px;color:var(--sub)" id="sendBoxLabel">LINEが開かないときは、下のリンクをコピーして送ってください</label>
   <textarea id="shareText" readonly style="width:100%;height:110px;font-family:inherit;font-size:12.5px;padding:9px;border:1px solid var(--line);border-radius:var(--r-sm);margin-top:5px"></textarea>
   <div class="btnrow" style="margin:8px 0 0"><button class="btn g" id="copyBtn" type="button">リンクをコピー</button><span id="copyState" style="font-size:12.5px;color:var(--sub);align-self:center"></span></div>
   <div class="warn">このリンクを開くと、記入した内容（口座なども）が見られます。FIELDLOGの担当者以外には送らないでください。「自分でアプリに入れる」にした区分は入っていません。</div>
@@ -291,6 +295,18 @@
 const VER = 2;
 const KEY = "fla_prep_sheet_v" + VER;
 const BASE_URL = "https://fieldlogai-coder.github.io/fla-liff/prep-sheet.html";
+/* 2026-10-29 Q5：招待リンク（?i=招待コード）で開いた時は、「送る」で FIELDLOG の非公開の受け口（EF prep-intake）へ直接届ける。
+   届かなかった時は、従来どおりの「LINEで送る」に切り替える。招待コードは次に開いた時のためにこの端末に覚えておく */
+const INTAKE_URL = "https://qxeqaqnzbsuykmzwkvhx.supabase.co/functions/v1/prep-intake";
+const INVITE_KEY = "fla_prep_invite";
+const INVITE = (() => {
+  const q = new URLSearchParams(location.search).get("i");
+  try {
+    if (q && /^[A-Za-z0-9_-]{16,64}$/.test(q)) { localStorage.setItem(INVITE_KEY, q); return q; }
+    const s = localStorage.getItem(INVITE_KEY);
+    return s && /^[A-Za-z0-9_-]{16,64}$/.test(s) ? s : "";
+  } catch (e) { return q && /^[A-Za-z0-9_-]{16,64}$/.test(q) ? q : ""; }
+})();
 const TABLES = ["t_people", "t_primes", "t_sites", "t_prices"];
 const DEFAULT_X = ["s6"];   // おすすめで最初から「自分でアプリに入れる」にしておく区分（HTML の初期状態と合わせる）
 const $ = (id) => document.getElementById(id);
@@ -453,13 +469,31 @@ $("sendBtn").addEventListener("click", async () => {
   const o = collect(true);
   if (!hasContent(o)) { showBox("まだ何も書かれていません（「自分でアプリに入れる」にした区分は送られません）。分かるところから書いてから送ってください。"); return; }
   o.t0 = Date.now();
-  const url = BASE_URL + "#s=" + (await encode(o));
+  const s = await encode(o);
   const co = val("f_company");
-  const text = "【FIELDLOG 準備シート】" + co + "\n記入した内容です（開くと記入済みのシートが見られます）\n" + url;
+  $("sentBox").hidden = true;
+  if (INVITE) {
+    const btn = $("sendBtn"), label = btn.textContent;
+    btn.disabled = true; btn.textContent = "送っています…";
+    let ok = false;
+    try {
+      const res = await fetch(INTAKE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ i: INVITE, s, co }) });
+      ok = res.ok;
+    } catch (e) {}
+    btn.disabled = false; btn.textContent = label;
+    if (ok) { $("sendBox").hidden = true; $("sentBox").hidden = false; $("sentBox").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+    $("sendBoxLabel").textContent = "うまく届かなかったので、LINEで送ります。LINEが開かないときは、下のリンクをコピーして送ってください";
+  }
+  const text = "【FIELDLOG 準備シート】" + co + "\n記入した内容です（開くと記入済みのシートが見られます）\n" + BASE_URL + "#s=" + s;
   showBox(text);
   location.href = "https://line.me/R/share?text=" + encodeURIComponent(text);
 });
 function showBox(msg) { $("sendBox").hidden = false; $("shareText").value = msg; }
+if (INVITE) {
+  $("sendBtn").textContent = "📤 この内容を FIELDLOG に送る";
+  $("howtoSend").textContent = "「この内容を FIELDLOG に送る」";
+  $("howtoSendNote").textContent = "記入した内容が、FIELDLOG の担当者だけに直接届きます（LINEに貼る必要はありません）。";
+}
 $("copyBtn").addEventListener("click", () => {
   const ta = $("shareText"), st = $("copyState");
   const done = () => { st.textContent = "コピーしました。LINEに貼って送ってください"; };
