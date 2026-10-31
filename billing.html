@@ -142,13 +142,13 @@
     /* 元請の指定書式（④d-2）：型 layout.json を FLA_LAYOUT.render で描く。画面幅に合わせて縮小 */
     #pv-custom{background:#fff;border-radius:8px;padding:10px;overflow:hidden;max-width:100%;margin:0 auto;}
     #pv-custom .fla-inv{transform-origin:0 0;}
+    body.pv-custom-on #screen-print .sheet{display:none !important;} /* 指定書式のときは共通様式を出さない（画面・印刷とも） */
     .pv-note{font-size:12px;color:var(--sub);text-align:center;margin:8px auto 0;max-width:760px;line-height:1.7;}
     /* 指定書式だけ A4 横で印刷（共通様式はこれまでどおり） */
     @page inv-landscape{size:A4 landscape;margin:8mm;}
     @media print{
       body{background:#fff !important;}
       header,#toast,.no-print,.fla-support{display:none !important;}
-      body.pv-custom-on .sheet{display:none !important;}
       #pv-custom{overflow:hidden !important;padding:0 !important;margin:0 !important;background:#fff !important;border-radius:0 !important;}
       body.pv-custom-on #screen-print{page:inv-landscape;}
       .screen{padding:0 !important;}
@@ -1469,11 +1469,14 @@ function layoutValues(layout, inv, plines, comp, st, subject) {
   const wf = ymd(ex["工期開始"]), wt = ymd(ex["工期終了"]);
   if (wf) { v["work.from.wy"] = reiwa(wf); v["work.from.m"] = String(wf.getMonth() + 1); v["work.from.d"] = String(wf.getDate()); }
   if (wt) { v["work.to.wy"] = reiwa(wt); v["work.to.m"] = String(wt.getMonth() + 1); v["work.to.d"] = String(wt.getDate()); }
-  // 請負（出来高）の行があれば「注文番号」、無ければ「工事番号」
-  const a2 = plines.find(l => l.mode === "A2_rate");
+  // 請求書の種類で切り替える（テクノ様式の「請負請求書／常用・請負外請求書」と同じ）。
+  //   請負　　　　　＝見出し「注文番号」・上の注文金額（A）〜請求残額（E）に出来高を入れる
+  //   常用・請負外＝見出し「工事番号」・上の請負の欄は空のまま（アフター工事は工事番号に「アフター」）
+  const isUkeoi = inv.invoice_type ? inv.invoice_type === "ukeoi" : plines.some(l => l.mode === "A2_rate");
+  const a2 = isUkeoi ? plines.find(l => l.mode === "A2_rate") : null;
   const labels = (layout.fields && layout.fields["kind.labels"]) || { ukeoi: "注文番号", joyo: "工事番号" };
-  v["kind.label"] = a2 ? labels.ukeoi : labels.joyo;
-  v["kind.number"] = (a2 ? (ex["注文番号"] ?? ex["工事番号"]) : (ex["工事番号"] ?? ex["注文番号"])) ?? "";
+  v["kind.label"] = isUkeoi ? labels.ukeoi : labels.joyo;
+  v["kind.number"] = (isUkeoi ? (ex["注文番号"] ?? ex["工事番号"]) : (ex["工事番号"] ?? ex["注文番号"])) ?? "";
   if (a2 && a2.__contract) {
     const c = a2.__contract;
     const total = c.contract_amount ?? ((c.original_amount ?? 0) + (c.adjustment_amount ?? 0));
