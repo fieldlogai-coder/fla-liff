@@ -293,6 +293,11 @@
   <div class="card" id="profile-card"></div>
   <div class="section-label">直近10件の報告履歴</div>
   <div class="card" id="history-card"><div class="empty">読み込み中…</div></div>
+  <!-- 運営のサポート（管理者だけ・2026-10-31） -->
+  <div id="support-wrap" style="display:none">
+    <div class="section-label">運営のサポート（請求の画面を見せる）</div>
+    <div class="card" id="support-card"><div class="empty">読み込み中…</div></div>
+  </div>
 </div>
 
 <!-- セクション2: 現場 -->
@@ -325,7 +330,7 @@
 
 <div id="toast"></div>
 
-<script src="./fla-core.js?v=2026-10-30"></script>
+<script src="./fla-core.js?v=2026-10-31"></script>
 <script src="./fla-support.js?v=2026-10-30"></script>
 <script>
 // ── 定数 ─────────────────────────────────────────────────────────────
@@ -381,6 +386,8 @@ async function boot() {
   if (cu.role === "admin") {
     document.getElementById("tab-pricing").style.display = "";
     document.getElementById("add-worker-btn").style.display = "";
+    document.getElementById("support-wrap").style.display = "";
+    loadSupport();
   }
   // sites の書き込みは RLS で admin / can_bill 限定（20260717140000）。見えるのに必ず失敗するボタンを出さない
   const canEditSites = cu.role === "admin" || cu.canBill;
@@ -389,6 +396,48 @@ async function boot() {
   renderProfile();
   await Promise.all([loadHistory(), loadSites(), loadWorkers(), ...(cu.role === "admin" ? [loadPricing()] : [])]);
   hide(); showSec("info");
+}
+
+// ── 運営のサポート（2026-10-31）──────────────────────────────────────
+// 管理者が「運営に見せる」を押すと、30日のあいだ運営（FIELDLOG サポート）が請求の画面を「見るだけ」で開ける。
+// いつでもやめられる。運営が見た日時はここに出る。許可の出し入れは EF support-access（管理者の証明でだけ動く）。
+const SUPPORT_FN = `${FLA.SUPA_URL}/functions/v1/support-access`;
+async function supportCall(action) {
+  const t = await FLA.ensureToken();
+  const r = await fetch(SUPPORT_FN, { method: "POST", headers: { "Authorization": `Bearer ${t}`, "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+async function loadSupport() {
+  try { renderSupport(await supportCall("status")); }
+  catch (e) { document.getElementById("support-card").innerHTML = `<div class="empty">取得に失敗しました（${esc(e.message)}）</div>`; }
+}
+const jpDateTime = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+function renderSupport(d) {
+  const g = d.grant;
+  const views = d.views || [];
+  const until = g ? new Date(g.expires_at).toLocaleDateString("ja-JP") : "";
+  document.getElementById("support-card").innerHTML = `
+    <div style="font-size:13px;line-height:1.8;color:var(--ink)">
+      困ったときに、運営（FIELDLOG サポート）があなたの会社の<b>請求の画面を「見るだけ」</b>で確認できるようにします。<br>
+      ・見られるもの：請求書・元請・現場・請負金額・単価・振込先<br>
+      ・見られないもの：日報・作業員・現場メモ<br>
+      ・運営は<b>直したり発行したりできません</b>。30日で自動で終わり、いつでもやめられます。
+    </div>
+    <div style="margin:12px 0 4px;font-size:14px;font-weight:bold">${g ? `✅ 運営に見せています（${esc(until)} まで）` : "いまは見せていません"}</div>
+    <div class="card-actions" style="margin-top:8px">
+      ${g ? `<button class="btn-sm danger" onclick="supportSet('revoke')">見せるのをやめる</button><button class="btn-sm primary" onclick="supportSet('grant')">今日から30日に延ばす</button>`
+           : `<button class="btn-sm primary" onclick="supportSet('grant')">運営に見せる（30日）</button>`}
+    </div>
+    <div class="info-label" style="margin-top:12px">運営が見た記録（最近20回）</div>
+    <div style="font-size:13px;line-height:1.8">${views.length ? views.map((v) => esc(jpDateTime(v))).join("　") : "まだありません"}</div>`;
+}
+async function supportSet(action) {
+  try {
+    await supportCall(action);
+    toast(action === "grant" ? "運営に見せるようにしました（30日）" : "運営に見せるのをやめました");
+    await loadSupport();
+  } catch (e) { toast("うまくいきませんでした：" + e.message, true); }
 }
 
 // ── セクション1: 自分の情報 ──────────────────────────────────────────

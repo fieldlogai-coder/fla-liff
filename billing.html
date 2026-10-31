@@ -142,6 +142,10 @@
     /* 元請の指定書式（④d-2）：型 layout.json を FLA_LAYOUT.render で描く。画面幅に合わせて縮小 */
     #pv-custom{background:#fff;border-radius:8px;padding:10px;overflow:hidden;max-width:100%;margin:0 auto;}
     #pv-custom .fla-inv{transform-origin:0 0;}
+    /* 運営の「見るだけ」（?support=会社ID・お客さんの許可がある間だけ） */
+    .support-bar{position:sticky;top:0;z-index:50;background:#5b3fd0;color:#fff;font-size:13px;line-height:1.6;padding:8px 14px;text-align:center;}
+    body.support-mode .add-btn, body.support-mode #master-btn, body.support-mode #dt-actions,
+    body.support-mode #pv-edit-start, body.support-mode #pv-edit-bar, body.support-mode #pdf-mail{display:none !important;}
     body.pv-custom-on #screen-print .sheet{display:none !important;} /* 指定書式のときは共通様式を出さない（画面・印刷とも） */
     .pv-note{font-size:12px;color:var(--sub);text-align:center;margin:8px auto 0;max-width:760px;line-height:1.7;}
     #pv-custom.editing .fla-in{background:#eaf2ff !important;outline:1px dashed #6f9fe0;outline-offset:-2px;cursor:text;}
@@ -658,7 +662,7 @@
 
 <div id="toast"></div>
 
-<script src="./fla-core.js?v=2026-10-30"></script>
+<script src="./fla-core.js?v=2026-10-31"></script>
 <script src="./fla-support.js?v=2026-10-30"></script>
 <script src="./fla-invoice-layout.js?v=2026-10-31e"></script>
 <script>
@@ -688,6 +692,7 @@ const rDel  = (p)        => FLA.rest(p, { method:"DELETE" });
     if (!liff.isLoggedIn()) { liff.login(); return; }
     const profile = await liff.getProfile();
     cu = { lineId: profile.userId };
+    if (SUPPORT_CID) { await supportBoot(); return; }
     await FLA.ensureToken();
     await boot();
     await openPdfFromQuery();
@@ -700,6 +705,36 @@ const rDel  = (p)        => FLA.rest(p, { method:"DELETE" });
     }
   }
 })();
+
+// ── 運営の「見るだけ」（2026-10-31）────────────────────────────────────
+// 運営ダッシュボードから ?support=会社ID で開く。お客さんの管理者が許可（30日・いつでも取り消し）を出している間だけ、
+// EF support-access が「見るだけ」の証明（1時間）を出す。DB 側でも読むことしかできない（役割 fla_support）。
+// この画面では、つくる・直す・取消・マスタ・PDFの保管をすべて出さない／しない。
+const SUPPORT_CID = (() => { const v = new URLSearchParams(location.search).get("support"); return v && /^[0-9a-f-]{36}$/i.test(v) ? v : null; })();
+async function supportBoot() {
+  const fail = (msg) => { document.getElementById("loading").innerHTML = `<div class="empty" style="padding:24px 16px">${esc(msg)}</div>`; };
+  let res;
+  try {
+    res = await fetch(`${SUPA_URL}/functions/v1/support-access`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "session", id_token: liff.getIDToken(), company_id: SUPPORT_CID }) });
+  } catch (_e) { return fail("通信できませんでした。開き直してください。"); }
+  if (res.status === 403) {
+    const e = (await res.json().catch(() => ({}))).error;
+    return fail(e === "no grant" ? "この会社からの許可がありません（期限切れ・取り消しを含む）。お客さんに設定の画面で「運営に見せる」を押してもらってください。" : "この画面は運営専用です。");
+  }
+  if (!res.ok) return fail(`開けませんでした（HTTP ${res.status}）。`);
+  const d = await res.json();
+  FLA.useToken(d.access_token, d.expires_in);
+  cu = { ...cu, workerId: null, name: "運営（見るだけ）", role: "support", companyId: SUPPORT_CID, companyName: d.company_name || "", canBill: true, support: true };
+  document.body.classList.add("support-mode");
+  const bar = document.createElement("div");
+  bar.className = "support-bar no-print";
+  const until = d.grant_expires_at ? new Date(d.grant_expires_at).toLocaleDateString("ja-JP") : "";
+  bar.textContent = `👀 運営が見ています（見るだけ）｜${d.company_name || ""}｜許可は ${until} まで・この画面は1時間で閉じます`;
+  document.body.prepend(bar);
+  renderProfile();
+  await loadInvoices();
+  hideLoading(); showScreen("list");
+}
 
 async function boot() {
   const res = await rGet(`/workers?line_user_id=eq.${enc(cu.lineId)}&select=id,name,role,company_id,can_bill,companies(name)`);
@@ -725,7 +760,7 @@ async function boot() {
 }
 
 function renderProfile() {
-  const rl = cu.role === "admin" ? "管理者" : cu.role === "foreman" ? "職長" : "作業員";
+  const rl = cu.role === "support" ? "許可にもとづく閲覧" : cu.role === "admin" ? "管理者" : cu.role === "foreman" ? "職長" : "作業員";
   document.getElementById("profile-card").innerHTML =
     `<div class="muted">利用者</div><div style="font-size:15px;font-weight:bold">${esc(cu.name)}（${rl}）</div>
      <div class="muted" style="margin-top:6px">所属会社</div><div style="font-size:15px;font-weight:bold">${esc(cu.companyName)}</div>`;
@@ -1702,6 +1737,7 @@ async function preparePdf(inv) {
     if (editCtx) document.getElementById("pdf-panel").hidden = true;
     // 保管（失敗しても送る・保存はできる）
     try {
+      if (cu && cu.support) return; // 運営の見るだけ：PDF は保管しない（見る・保存だけ）
       const token = await FLA.ensureToken();
       const res = await fetch(PDF_FN, { method: "POST", headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "put", invoice_id: inv.id, pdf: await blobToBase64(blob) }) });
       if (!res.ok) throw new Error(String(res.status));

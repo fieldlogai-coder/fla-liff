@@ -11,9 +11,19 @@
 
   let flaToken    = "";   // Supabase JWT（auth-session 発行・role=authenticated）
   let flaTokenExp = 0;    // 失効時刻（ms epoch）。余裕をもって再取得する
+  let flaFixed    = false; // 運営の「見るだけ」（support-access が出した証明を使う。auth-session は呼ばない）
+
+  // 運営の「見るだけ」用：渡された証明をそのまま使う（期限が来たら開き直してもらう）
+  function useToken(token, expiresIn) {
+    flaToken = token; flaTokenExp = Date.now() + (Number(expiresIn) || 3600) * 1000; flaFixed = true;
+  }
 
   // LINE ID トークン → auth-session → Supabase JWT。期限が近ければ再取得。
   async function ensureToken() {
+    if (flaFixed) {
+      if (flaToken && Date.now() < flaTokenExp) return flaToken;
+      throw new Error("見るための期限（1時間）が切れました。運営ダッシュボードから開き直してください");
+    }
     if (flaToken && Date.now() < flaTokenExp - 60000) return flaToken;
     const idToken = liff.getIDToken();
     if (!idToken) throw new Error("IDトークンを取得できません（再ログインしてください）");
@@ -121,5 +131,5 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  global.FLA = { SUPA_URL, SUPA_ANON, AUTH_FN, ensureToken, rest, esc, billingPeriod, notRegisteredHtml };
+  global.FLA = { SUPA_URL, SUPA_ANON, AUTH_FN, ensureToken, useToken, rest, esc, billingPeriod, notRegisteredHtml };
 })(window);

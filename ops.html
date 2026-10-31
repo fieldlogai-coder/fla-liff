@@ -79,7 +79,7 @@
 <header>
   <div class="top"><h1>運営ダッシュボード</h1><button class="hbtn" id="reload" type="button">↻ 更新</button></div>
   <div class="sub" id="stamp">読み込み中…</div>
-  <div class="tabs no-print"><button type="button" id="tab-stats" class="on">使われ方</button><button type="button" id="tab-proof">様式の試し刷り</button></div>
+  <div class="tabs no-print"><button type="button" id="tab-stats" class="on">使われ方</button><button type="button" id="tab-proof">様式の試し刷り</button><button type="button" id="tab-sup">お客さんの画面</button></div>
 </header>
 <main>
   <div id="msg">読み込み中…</div>
@@ -101,6 +101,13 @@
       <p class="note no-print">ここで直した内容は保存されません（試し刷りです）。元の Excel と同じ数字を入れて見比べてください。</p>
       <button type="button" class="pbtn sub no-print" onclick="window.print()">印刷 / PDFに保存（A4 横）</button>
     </div>
+  </section>
+  <section id="sup" hidden>
+    <div class="c">
+      <div class="c-t"><b>お客さんの画面（許可があるときだけ）</b></div>
+      <p class="note">お客さんの管理者が、設定の画面で「運営に見せる（30日）」を押している会社だけが出ます。開くと、その会社の請求の画面を<b>見るだけ</b>で開きます（直す・発行する・取消はできません。1回1時間）。開いた日時はお客さんの設定の画面に出ます。</p>
+    </div>
+    <div id="sup-list"><div class="c note">読み込み中…</div></div>
   </section>
 </main>
 <script>
@@ -246,11 +253,32 @@ async function opsLayout(payload) {
   return res.json();
 }
 function showTab(which) {
-  const proof = which === "proof";
-  $("tab-stats").classList.toggle("on", !proof); $("tab-proof").classList.toggle("on", proof);
-  $("proof").hidden = !proof; document.body.classList.toggle("proof-on", proof);
-  if (proof) { $("view").hidden = true; $("msg").hidden = true; if (!PROOF_LIST) loadProofList(); }
-  else if (DATA) { $("view").hidden = false; } else { $("msg").hidden = false; }
+  for (const t of ["stats", "proof", "sup"]) $("tab-" + t).classList.toggle("on", which === t);
+  $("proof").hidden = which !== "proof"; $("sup").hidden = which !== "sup";
+  document.body.classList.toggle("proof-on", which === "proof");
+  if (which === "stats") { if (DATA) $("view").hidden = false; else $("msg").hidden = false; }
+  else { $("view").hidden = true; $("msg").hidden = true; }
+  if (which === "proof" && !PROOF_LIST) loadProofList();
+  if (which === "sup") loadSupList();
+}
+// ── お客さんの画面（許可制・見るだけ・2026-10-31）───────────────────────
+const SUPPORT_FN = "https://qxeqaqnzbsuykmzwkvhx.supabase.co/functions/v1/support-access";
+const BILLING_LIFF = "https://liff.line.me/2009694631-7HvWrIGj";
+async function loadSupList() {
+  const box = $("sup-list");
+  box.innerHTML = '<div class="c note">読み込み中…</div>';
+  try {
+    if (!window.liff || !liff.isLoggedIn()) throw new Error("LINE の中で開いてください");
+    const res = await fetch(SUPPORT_FN, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "list", id_token: liff.getIDToken() }) });
+    if (res.status === 403) throw new Error("この画面は運営専用です。");
+    if (res.status === 401) throw new Error("LINE の確認が切れました。閉じて開き直してください。");
+    if (!res.ok) throw new Error(`読み込みに失敗しました（${res.status}）`);
+    const d = await res.json();
+    const gs = d.grants || [];
+    box.innerHTML = gs.length ? gs.map((g) => `<div class="c"><div class="c-t"><b>${esc(g.company_name)}</b><span>${esc(new Date(g.expires_at).toLocaleDateString("ja-JP"))} まで</span></div>
+      <a class="pbtn" style="display:block;text-align:center;text-decoration:none;margin-top:6px" href="${BILLING_LIFF}?support=${encodeURIComponent(g.company_id)}">請求の画面を開く（見るだけ）</a></div>`).join("")
+      : '<div class="c note">いま許可を出している会社はありません。</div>';
+  } catch (e) { box.innerHTML = `<div class="c note">${esc(e.message)}</div>`; }
 }
 async function loadProofList() {
   const sel = $("pf-prime");
@@ -322,6 +350,7 @@ $("pf-kind").onchange = () => { if (PROOF && PROOF.sheet) PROOF.sheet.setParam("
 $("pf-reset").onclick = () => { if (PROOF) mountProof(); };
 $("tab-stats").onclick = () => showTab("stats");
 $("tab-proof").onclick = () => showTab("proof");
+$("tab-sup").onclick = () => showTab("sup");
 $("pf-run").onclick = runProof;
 window.addEventListener("resize", fitProof);
 window.addEventListener("beforeprint", () => {
