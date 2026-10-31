@@ -139,9 +139,18 @@
     .pv-grand td{font-weight:700;background:#f7f6f1;}
     .pv-satei{border:1px solid #999;padding:10px 12px;margin-top:14px;font-size:12.5px;min-height:44px;}
     .pv-bank{margin-top:16px;font-size:12.5px;border:1px solid #ccc;border-radius:4px;padding:10px 12px;background:#fafaf7;}
+    /* 元請の指定書式（④d-2）：型 layout.json を FLA_LAYOUT.render で描く。画面幅に合わせて縮小 */
+    #pv-custom{background:#fff;border-radius:8px;padding:10px;overflow:hidden;max-width:100%;margin:0 auto;}
+    #pv-custom .fla-inv{transform-origin:0 0;}
+    .pv-note{font-size:12px;color:var(--sub);text-align:center;margin:8px auto 0;max-width:760px;line-height:1.7;}
+    /* 指定書式だけ A4 横で印刷（共通様式はこれまでどおり） */
+    @page inv-landscape{size:A4 landscape;margin:8mm;}
     @media print{
       body{background:#fff !important;}
-      header,#toast,.no-print{display:none !important;}
+      header,#toast,.no-print,.fla-support{display:none !important;}
+      body.pv-custom-on .sheet{display:none !important;}
+      #pv-custom{overflow:hidden !important;padding:0 !important;margin:0 !important;background:#fff !important;border-radius:0 !important;}
+      body.pv-custom-on #screen-print{page:inv-landscape;}
       .screen{padding:0 !important;}
       .sheet{box-shadow:none;border-radius:0;max-width:none;padding:0;}
     }
@@ -470,6 +479,8 @@
     <div class="pv-satei" id="pv-satei" style="display:none">査定額（貴社記入欄）：</div>
     <div class="pv-bank" id="pv-bank"></div>
   </div>
+  <div id="pv-custom" hidden></div>
+  <div class="pv-note no-print" id="pv-custom-note" hidden>元請の指定書式で表示しています（元のExcelと同じ形）。</div>
   <button class="btn btn-primary no-print" style="margin-top:14px;max-width:760px;margin-left:auto;margin-right:auto;display:block" onclick="window.print()">印刷 / PDFに保存</button>
   <div class="muted no-print" style="text-align:center;margin-top:8px">PCのブラウザで開くと「PDFに保存」を選べます。</div>
 </div>
@@ -625,6 +636,7 @@
 
 <script src="./fla-core.js?v=2026-10-30"></script>
 <script src="./fla-support.js?v=2026-10-30"></script>
+<script src="./fla-invoice-layout.js?v=2026-10-31"></script>
 <script>
 // ── 設定 ───────────────────────────────────────────────────────────────
 const LIFF_ID   = "2009694631-7HvWrIGj";
@@ -1369,11 +1381,12 @@ async function openPrint() {
   const [cr2, sr2, pr2] = await Promise.all([
     rGet(`/companies?id=eq.${cu.companyId}&select=name`),
     rGet(`/company_settings?company_id=eq.${cu.companyId}&select=representative_name,registration_number,address,phone,bank_name,bank_branch,bank_account_type,bank_account_no,bank_account_name`),
-    rGet(`/prime_contractors?id=eq.${inv.prime_contractor_id}&select=required_fields`),
+    rGet(`/prime_contractors?id=eq.${inv.prime_contractor_id}&select=required_fields,invoice_template_ref`),
   ]);
   const comp = cr2.ok ? ((await cr2.json())[0] || {}) : {};
   const st = sr2.ok ? ((await sr2.json())[0] || {}) : {};
-  const preq = pr2.ok ? ((((await pr2.json())[0] || {}).required_fields || {}).fields || []) : [];
+  const primeRow = pr2.ok ? ((await pr2.json())[0] || {}) : {};
+  const preq = ((primeRow.required_fields || {}).fields || []);
 
   // 件名（請負は請負金額マスタの工事名を優先）
   let subject = "";
@@ -1387,7 +1400,7 @@ async function openPrint() {
   document.getElementById("pv-site").textContent = "現場：" + (inv.sites?.name ?? "");
   document.getElementById("pv-subject").textContent = subject ? "件名：" + subject : "";
   const ex = inv.extra_fields || {};
-  document.getElementById("pv-extra").textContent = Object.keys(ex).map(k => `${k}：${ex[k]}`).join("　");
+  document.getElementById("pv-extra").textContent = Object.keys(ex).filter(k => !k.startsWith("_")).map(k => `${k}：${ex[k]}`).join("　");
   document.getElementById("pv-total").textContent = fmt(inv.total_amount ?? 0);
   document.getElementById("pv-no").textContent = inv.invoice_number ? "請求書番号　No. " + inv.invoice_number : "";
   document.getElementById("pv-date").textContent = "発行日　" + fmtDateJa(inv.issued_at);
@@ -1418,8 +1431,125 @@ async function openPrint() {
   document.getElementById("pv-satei").style.display = preq.includes("査定額欄") ? "block" : "none";
   const bk = [st.bank_name, st.bank_branch, st.bank_account_type === "touza" ? "当座" : st.bank_account_type === "futsu" ? "普通" : "", st.bank_account_no, st.bank_account_name].filter(Boolean).join("　");
   document.getElementById("pv-bank").textContent = bk ? "お振込先：" + bk : "お振込先：（マスタの自社情報に口座を登録すると印字されます）";
+  await renderCustomLayout(inv, plines, comp, st, primeRow, subject);
   showScreen("print");
+  fitCustomLayout();
 }
+
+// ── 元請の指定書式（④d-2）────────────────────────────────────────────
+// 型（layout.json）は EF invoice-layout から受け取る。型が無い元請・取得に失敗した時は共通様式のまま。
+const LAYOUT_FN = `${SUPA_URL}/functions/v1/invoice-layout`;
+const layoutCache = {};
+async function fetchLayout(primeId) {
+  if (primeId in layoutCache) return layoutCache[primeId];
+  try {
+    const token = await FLA.ensureToken();
+    const res = await fetch(LAYOUT_FN, { method: "POST", headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ prime_contractor_id: primeId }) });
+    if (!res.ok) return null; // 失敗は覚えない（次に開いた時にもう一度試す）
+    layoutCache[primeId] = (await res.json()).layout || null;
+  } catch (_e) { return null; }
+  return layoutCache[primeId];
+}
+// 和暦（令和）の年。令和元年＝2019年
+const reiwa = (d) => d ? String(d.getFullYear() - 2018) : "";
+function ymd(v) { if (!v) return null; const d = new Date(v); return isNaN(d) ? null : d; }
+// 請求データ → 型の差し込み名ごとの文字
+function layoutValues(layout, inv, plines, comp, st, subject) {
+  const ex = inv.extra_fields || {};
+  const disp = ex._display || {}; // 見た目だけの上書き（手直しの画面＝段C）
+  const yen = (n) => (n === null || n === undefined || n === "") ? "" : fmt(n);
+  const v = {};
+  const issued = ymd(inv.issued_at) || new Date();
+  v["date.wy"] = reiwa(issued); v["date.m"] = String(issued.getMonth() + 1); v["date.d"] = String(issued.getDate());
+  v["prime.onchu"] = (inv.prime_contractors?.name ?? "") + "　御中";
+  v["company.name"] = comp.name ?? ""; v["company.address"] = st.address ?? ""; v["company.rep"] = st.representative_name ?? "";
+  v["company.phone"] = st.phone ?? ""; v["company.reg"] = st.registration_number ?? "";
+  v["site.name"] = inv.sites?.name ?? "";
+  v["extra.現場担当者"] = ex["現場担当者"] ?? "";
+  const wf = ymd(ex["工期開始"]), wt = ymd(ex["工期終了"]);
+  if (wf) { v["work.from.wy"] = reiwa(wf); v["work.from.m"] = String(wf.getMonth() + 1); v["work.from.d"] = String(wf.getDate()); }
+  if (wt) { v["work.to.wy"] = reiwa(wt); v["work.to.m"] = String(wt.getMonth() + 1); v["work.to.d"] = String(wt.getDate()); }
+  // 請負（出来高）の行があれば「注文番号」、無ければ「工事番号」
+  const a2 = plines.find(l => l.mode === "A2_rate");
+  const labels = (layout.fields && layout.fields["kind.labels"]) || { ukeoi: "注文番号", joyo: "工事番号" };
+  v["kind.label"] = a2 ? labels.ukeoi : labels.joyo;
+  v["kind.number"] = (a2 ? (ex["注文番号"] ?? ex["工事番号"]) : (ex["工事番号"] ?? ex["注文番号"])) ?? "";
+  if (a2 && a2.__contract) {
+    const c = a2.__contract;
+    const total = c.contract_amount ?? ((c.original_amount ?? 0) + (c.adjustment_amount ?? 0));
+    v["contract.original"] = yen(c.original_amount); v["contract.change"] = yen(c.adjustment_amount ?? 0); v["contract.total"] = yen(total);
+    const prev = a2.billed_before ?? 0, cum = a2.cumulative_amount ?? (prev + (a2.amount ?? 0));
+    v["dekidaka.this"] = yen(a2.amount ?? 0); v["dekidaka.prev"] = yen(prev); v["dekidaka.cum"] = yen(cum);
+    v["dekidaka.pct"] = total ? Math.round((cum / total) * 1000) / 10 + "%" : "";
+    v["dekidaka.remain"] = yen(total - cum);
+  }
+  // 明細（型の行数まで。常用は終日・半日・材料費を別の行に）
+  // tax_rate は 0.100 の形で入っている（10% なら 0.1）。非課税の請求は 0
+  const rate = inv.tax_category && inv.tax_category !== "taxable" ? 0 : Number(inv.tax_rate ?? 0.1);
+  const rows = [];
+  const multiA1 = plines.filter(l => l.mode === "A1_unit").length > 1;
+  for (const line of plines) {
+    if (line.mode === "A1_unit") {
+      const up = line.unit_price ?? 0, hp = line.half_price ?? Math.round(up / 2), nm = line.description ?? "常用";
+      if ((line.jinku_full ?? 0) > 0) rows.push({ desc: nm + "（終日）", qty: line.jinku_full, unit: "人工", price: up, amount: line.jinku_full * up });
+      if ((line.jinku_half ?? 0) > 0) rows.push({ desc: nm + "（半日）", qty: line.jinku_half, unit: "人工", price: hp, amount: line.jinku_half * hp });
+      if ((line.material_amount ?? 0) > 0) rows.push({ desc: multiA1 ? nm + "　材料費" : "材料費", qty: 1, unit: "式", price: line.material_amount, amount: line.material_amount });
+    } else {
+      rows.push({ desc: line.description || subject || "一式", qty: 1, unit: "式", price: line.amount ?? 0, amount: line.amount ?? 0 });
+    }
+  }
+  const max = (layout.fields && layout.fields["lines.max"]) || 5;
+  rows.slice(0, max).forEach((r, i) => {
+    const tax = Math.round(r.amount * rate);
+    v[`lines.${i}.desc`] = r.desc; v[`lines.${i}.qty`] = String(r.qty); v[`lines.${i}.unit`] = r.unit;
+    v[`lines.${i}.price`] = yen(r.price); v[`lines.${i}.amount`] = yen(r.amount); v[`lines.${i}.tax`] = yen(tax); v[`lines.${i}.incl`] = yen(r.amount + tax);
+  });
+  v["total.subtotal"] = yen(inv.subtotal_amount ?? 0); v["total.tax"] = yen(inv.tax_amount ?? 0);
+  v["total.incl"] = yen(inv.total_amount ?? 0); v["total.incl2"] = yen(inv.total_amount ?? 0);
+  v["bank.name"] = st.bank_name ?? ""; v["bank.branch"] = st.bank_branch ?? "";
+  v["bank.type"] = st.bank_account_type === "touza" ? "当座" : st.bank_account_type === "futsu" ? "普通" : "";
+  v["bank.no"] = st.bank_account_no ?? ""; v["bank.holder"] = st.bank_account_name ?? ""; v["bank.kana"] = ex["口座名義カナ"] ?? "";
+  // 見た目だけの上書き（備考・宛名の書き方など）を最後に重ねる
+  for (const [k, val] of Object.entries(disp)) if (typeof val === "string") v[k] = val;
+  return { values: v, overflow: rows.length > max };
+}
+async function renderCustomLayout(inv, plines, comp, st, primeRow, subject) {
+  const box = document.getElementById("pv-custom"), note = document.getElementById("pv-custom-note");
+  box.hidden = true; note.hidden = true; document.body.classList.remove("pv-custom-on");
+  if (!primeRow.invoice_template_ref) return;
+  const layout = await fetchLayout(inv.prime_contractor_id);
+  if (!layout || !window.FLA_LAYOUT) return;
+  const a2 = plines.find(l => l.mode === "A2_rate" && l.contract_id);
+  if (a2 && !a2.__contract) {
+    const cr = await rGet(`/construction_contracts?id=eq.${a2.contract_id}&select=original_amount,adjustment_amount,contract_amount`);
+    if (cr.ok) a2.__contract = (await cr.json())[0] || null;
+  }
+  const { values, overflow } = layoutValues(layout, inv, plines, comp, st, subject);
+  box.innerHTML = FLA_LAYOUT.render(layout, values);
+  box.hidden = false; note.hidden = false; document.body.classList.add("pv-custom-on");
+  note.textContent = overflow
+    ? "元請の指定書式で表示しています。明細が欄の数より多いため、入りきらない行があります（手直しの画面で調整できるようになります）。"
+    : "元請の指定書式で表示しています（元のExcelと同じ形）。";
+}
+// 画面の幅に合わせて縮める（印刷時は A4 横に収める）
+function fitCustomLayout() {
+  const box = document.getElementById("pv-custom"), t = box.querySelector(".fla-inv");
+  if (box.hidden || !t) return;
+  t.style.transform = ""; box.style.height = ""; box.style.width = "";
+  const w = t.offsetWidth, h = t.offsetHeight, room = box.clientWidth - 20;
+  const k = Math.min(1, room / w);
+  t.style.transform = `scale(${k})`;
+  box.style.height = (h * k + 20) + "px";
+}
+window.addEventListener("resize", fitCustomLayout);
+window.addEventListener("beforeprint", () => {
+  const t = document.querySelector("#pv-custom .fla-inv"), box = document.getElementById("pv-custom");
+  if (!t || box.hidden) return;
+  // A4 横（297mm）から余白を引いた幅 ≒ 1060px に収める
+  const k = Math.min(1, 1060 / t.offsetWidth);
+  t.style.transform = `scale(${k})`; box.style.height = Math.ceil(t.offsetHeight * k) + "px"; box.style.width = Math.ceil(t.offsetWidth * k) + "px";
+});
+window.addEventListener("afterprint", fitCustomLayout);
 
 // ── ⑦ マスタ設定（④c）──────────────────────────────────────────────────
 const rPatch = (p, b) => FLA.rest(p, { method:"PATCH", headers:{ "Content-Type":"application/json", "Prefer":"return=minimal" }, body: JSON.stringify(b) });
