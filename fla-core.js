@@ -106,7 +106,12 @@
       '<b>登録のしかた</b>：FIELDLOGのトークに「<b>合言葉</b>」→「<b>お名前</b>」の順に送信（合言葉は会社の担当者にご確認ください）</div>' +
       '<div>どんな画面か見てみたい方は：<br>' +
       '<a href="https://fieldlogai-coder.github.io/fla-liff/demo.html" style="color:#1d9e75;font-weight:bold">🖐 さわれるデモ（登録不要・架空データ）</a><br>' +
-      '<a href="https://fieldlogai-coder.github.io/fla-liff/" style="color:#1d9e75;font-weight:bold">📚 資料室（説明資料・使い方）</a></div></div>';
+      '<a href="https://fieldlogai-coder.github.io/fla-liff/" style="color:#1d9e75;font-weight:bold">📚 資料室（説明資料・使い方）</a></div>' +
+      // 問い合わせ先（fla-support.js が読み込まれていて ID が決まっているときだけ）
+      (global.FLA_SUPPORT && global.FLA_SUPPORT.id
+        ? '<div style="margin-top:10px">登録できないときは：<br><a href="' + global.FLA_SUPPORT.url() + '" style="color:#1d9e75;font-weight:bold">💬 LINEで運営に問い合わせる</a></div>'
+        : '') +
+      '</div>';
   }
 
   // HTML エスケープ（属性・テキスト共用。' も含める）

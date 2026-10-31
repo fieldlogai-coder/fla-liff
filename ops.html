@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>運営ダッシュボード</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-12" />
+  <style>
+    /* 運営専用（2026-10-30）。数字は EF ops-stats から。運営の LINE だけが開ける（サーバで確認）。
+       出すのは使われ方の数字だけ。金額・人の名前・日報の中身は出さない（お約束 11）。 */
+    :root{ --acc:#2f3b4a; --acc-dark:#232c37; --mid:#b7791f; --mid-bg:#fbf3e4; --bad-bg:#fbeceb; }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;-webkit-text-size-adjust:100%;}
+    header{background:var(--acc);color:#fff;padding:11px 14px;padding-top:calc(11px + env(safe-area-inset-top));position:sticky;top:0;z-index:10;}
+    header .top{display:flex;align-items:center;gap:8px;}
+    header h1{font-size:16px;flex:1;}
+    header .sub{font-size:11px;opacity:.8;margin-top:3px;}
+    .hbtn{background:rgba(255,255,255,.18);border:none;color:#fff;padding:5px 10px;border-radius:var(--r-sm);font-size:12px;font-family:inherit;cursor:pointer;}
+    main{max-width:720px;margin:0 auto;padding:12px 12px calc(28px + env(safe-area-inset-bottom));}
+    #msg{padding:40px 8px;text-align:center;color:var(--sub);font-size:14px;line-height:1.9;}
+    .c{background:var(--card);border-radius:var(--r);padding:12px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.05);}
+    .c-t{font-size:12px;color:var(--sub);margin-bottom:8px;display:flex;justify-content:space-between;gap:8px;align-items:center;}
+    .c-t b{color:var(--ink);font-size:13px;}
+    .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:7px;}
+    .tile{background:var(--bg);border-radius:var(--r-sm);padding:9px 10px;}
+    .tile .k{font-size:10.5px;color:var(--sub);}
+    .tile .v{font-size:19px;font-weight:bold;margin-top:2px;}
+    .tile .n{font-size:10px;color:var(--sub);margin-top:1px;}
+    .tile.bad .v{color:var(--warn);}
+    .watch{list-style:none;display:flex;flex-direction:column;gap:6px;}
+    .watch li{font-size:13px;line-height:1.6;padding:8px 10px;border-radius:var(--r-sm);background:var(--mid-bg);}
+    .watch li.bad{background:var(--bad-bg);}
+    .watch li.ok{background:var(--ok-bg);color:var(--ok-ink);}
+    .co{border-left:4px solid var(--line);}
+    .co.g{border-left-color:var(--ok-ink);} .co.y{border-left-color:var(--mid);} .co.r{border-left-color:var(--warn);}
+    .co h2{font-size:15px;display:flex;flex-wrap:wrap;align-items:center;gap:6px;}
+    .pill{font-size:10.5px;font-weight:normal;padding:2px 7px;border-radius:99px;background:var(--bg);color:var(--sub);}
+    .pill.g{background:var(--ok-bg);color:var(--ok-ink);} .pill.y{background:var(--mid-bg);color:var(--mid);} .pill.r{background:var(--bad-bg);color:var(--warn);}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:2px 16px;margin-top:8px;}
+    .kv{display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0;border-bottom:1px dashed var(--line);gap:8px;}
+    .kv span:first-child{color:var(--sub);}
+    .kv b.bad{color:var(--warn);}
+    .opt{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px;margin:4px 2px 10px;}
+    .note{font-size:11px;color:var(--sub);line-height:1.7;margin-top:6px;}
+    .err{font-size:12.5px;display:flex;justify-content:space-between;padding:3px 0;}
+  </style>
+</head>
+<body>
+<header>
+  <div class="top"><h1>運営ダッシュボード</h1><button class="hbtn" id="reload" type="button">↻ 更新</button></div>
+  <div class="sub" id="stamp">読み込み中…</div>
+</header>
+<main>
+  <div id="msg">読み込み中…</div>
+  <div id="view" hidden></div>
+</main>
+<script>
+// LINE Developers で発行した「運営ダッシュボード」の LIFF ID（チャネル FLA現場メモ 配下）
+const LIFF_ID = "2009694631-NeRvyRsg";
+const STATS_FN = "https://qxeqaqnzbsuykmzwkvhx.supabase.co/functions/v1/ops-stats";
+const SHOW_DEMO_KEY = "fla_ops_show_demo";
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const $ = (id) => document.getElementById(id);
+let DATA = null;
+
+function daysSince(dateStr, today) {
+  if (!dateStr) return null;
+  const a = new Date(dateStr.slice(0, 10) + "T00:00:00Z"), b = new Date(today + "T00:00:00Z");
+  return Math.round((b - a) / 86400000);
+}
+function ago(n) { return n == null ? "まだなし" : n <= 0 ? "今日" : n === 1 ? "昨日" : `${n}日前`; }
+function md(iso) { if (!iso) return "—"; const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()}`; }
+
+// 会社の様子：準備中（LINE連携0人）／よく使われている（2日以内）／少し空いた（3〜7日）／止まっている（8日以上・なし）
+function health(c, today) {
+  if (c.linked === 0) return { k: "", label: "準備中" };
+  const n = daysSince(c.last_report_date, today);
+  if (n != null && n <= 2) return { k: "g", label: "使われている" };
+  if (n != null && n <= 7) return { k: "y", label: "少し空いた" };
+  return { k: "r", label: "止まっている" };
+}
+
+function render() {
+  const d = DATA, today = d.today;
+  let showDemo = false;
+  try { showDemo = localStorage.getItem(SHOW_DEMO_KEY) === "1"; } catch (_) {}
+  const all = d.companies;
+  const list = all.filter((c) => showDemo || !c.demo);
+  const real = all.filter((c) => !c.demo);
+  const sum = (arr, k) => arr.reduce((a, c) => a + (c[k] || 0), 0);
+  const errs = sum(list, "errors7") + (d.errors_no_company || 0);
+
+  // 気にかけること
+  const watch = [];
+  for (const c of list) {
+    const h = health(c, today);
+    if (h.k === "r") watch.push({ k: "bad", t: `${c.name}：日報が${c.last_report_date ? ago(daysSince(c.last_report_date, today)) + "から" : "まだ"}入っていません` });
+    else if (h.k === "y") watch.push({ k: "", t: `${c.name}：最後の日報は${ago(daysSince(c.last_report_date, today))}です` });
+    if (c.linked === 0 && c.workers > 0) watch.push({ k: "", t: `${c.name}：登録済み ${c.workers}人のうち、LINEがつながった人はまだいません` });
+    if (c.errors7) watch.push({ k: "bad", t: `${c.name}：この7日でエラーが ${c.errors7}件` });
+    if (!c.join_open && c.linked < c.workers) watch.push({ k: "", t: `${c.name}：合言葉が閉じています（新しい人が登録できません）` });
+  }
+  if (d.prep.waiting) watch.push({ k: "", t: `準備シートが ${d.prep.waiting}件届いています。Claude に「準備シートを読んで」と伝えてください` });
+  if (!watch.length) watch.push({ k: "ok", t: "いま気にかけることはありません" });
+
+  const sorted = [...list].sort((a, b) => (a.demo - b.demo) || String(b.last_report_date || "").localeCompare(String(a.last_report_date || "")));
+
+  $("view").innerHTML = `
+    <div class="c">
+      <div class="c-t"><b>全体</b><span>運営用の会社を${showDemo ? "含む" : "除く"}</span></div>
+      <div class="tiles">
+        <div class="tile"><div class="k">利用している会社</div><div class="v">${real.length}</div><div class="n">うち動いている ${real.filter((c) => health(c, today).k === "g").length}</div></div>
+        <div class="tile"><div class="k">LINEがつながった人</div><div class="v">${sum(list, "linked")}</div><div class="n">登録 ${sum(list, "workers")}人</div></div>
+        <div class="tile"><div class="k">日報（7日）</div><div class="v">${sum(list, "reports7")}</div><div class="n">30日 ${sum(list, "reports30")}件</div></div>
+        <div class="tile ${errs ? "bad" : ""}"><div class="k">エラー（7日）</div><div class="v">${errs}</div><div class="n">途中放置 ${sum(list, "timeouts7")}件</div></div>
+        <div class="tile"><div class="k">準備シート</div><div class="v">${d.prep.waiting}</div><div class="n">有効な招待 ${d.prep.open_invites}</div></div>
+      </div>
+    </div>
+    <div class="c">
+      <div class="c-t"><b>気にかけること</b></div>
+      <ul class="watch">${watch.map((w) => `<li class="${w.k}">${esc(w.t)}</li>`).join("")}</ul>
+    </div>
+    <label class="opt"><input type="checkbox" id="demoToggle" ${showDemo ? "checked" : ""}> 運営用の会社（デモ建設・サンプル建設・テスト工務店）も表示する</label>
+    ${sorted.map((c) => {
+      const h = health(c, today);
+      return `<div class="c co ${h.k}">
+        <h2>${esc(c.name)} <span class="pill ${h.k}">${h.label}</span>${c.demo ? '<span class="pill">運営用</span>' : ""}${c.join_open ? "" : '<span class="pill">合言葉なし</span>'}</h2>
+        <div class="grid">
+          <div class="kv"><span>LINEがつながった人</span><b>${c.linked} / ${c.workers}人</b></div>
+          <div class="kv"><span>最後の日報</span><b>${ago(daysSince(c.last_report_date, today))}</b></div>
+          <div class="kv"><span>日報 7日 / 30日</span><b>${c.reports7} / ${c.reports30}件</b></div>
+          <div class="kv"><span>書いた人（7日）</span><b>${c.reporters7}人・${c.days7}日分</b></div>
+          <div class="kv"><span>現場メモ（30日）</span><b>${c.memos30}件</b></div>
+          <div class="kv"><span>請求書（発行済み）</span><b>${c.invoices}枚${c.drafts ? `・下書き ${c.drafts}` : ""}</b></div>
+          <div class="kv"><span>最後の請求書</span><b>${md(c.last_invoice_at)}</b></div>
+          <div class="kv"><span>現場 / 管理者</span><b>${c.sites}件 / ${c.admins}人</b></div>
+          <div class="kv"><span>エラー（7日）</span><b class="${c.errors7 ? "bad" : ""}">${c.errors7}件</b></div>
+          <div class="kv"><span>利用開始</span><b>${md(c.created_at)}</b></div>
+        </div>
+      </div>`;
+    }).join("")}
+    ${d.errors_by_kind.length ? `<div class="c"><div class="c-t"><b>エラーの種類（7日・全社）</b></div>
+      ${d.errors_by_kind.map((e) => `<div class="err"><span>${esc(e.kind)}</span><b>${e.count}件</b></div>`).join("")}
+      ${d.errors_no_company ? `<div class="note">会社が分からないエラー（未登録の人など）${d.errors_no_company}件を含みます</div>` : ""}</div>` : ""}
+    <p class="note">ここに出るのは使われ方の数字だけです。金額・人の名前・日報やメモの中身は出しません（データの取り扱いのお約束 3）。</p>`;
+
+  $("demoToggle").onchange = (e) => {
+    try { localStorage.setItem(SHOW_DEMO_KEY, e.target.checked ? "1" : "0"); } catch (_) {}
+    render();
+  };
+  $("msg").hidden = true;
+  $("view").hidden = false;
+}
+
+async function load() {
+  $("stamp").textContent = "読み込み中…";
+  try {
+    let body;
+    const mock = new URLSearchParams(location.search).get("mock") === "1" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    if (mock) {
+      body = await (await fetch("./ops-mock.json")).json();
+    } else {
+      if (!window.liff) throw new Error("LINE の中で開いてください");
+      if (!liff.isLoggedIn()) { liff.login(); return; }
+      const idToken = liff.getIDToken();
+      const res = await fetch(STATS_FN, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id_token: idToken }) });
+      if (res.status === 403) throw new Error("この画面は運営専用です。");
+      if (res.status === 401) throw new Error("LINE の確認が切れました。閉じて開き直してください。");
+      if (!res.ok) throw new Error(`読み込みに失敗しました（${res.status}）`);
+      body = await res.json();
+    }
+    DATA = body;
+    const t = new Date(body.generated_at);
+    $("stamp").textContent = `${t.getMonth() + 1}/${t.getDate()} ${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")} 時点`;
+    render();
+  } catch (e) {
+    $("view").hidden = true;
+    $("msg").hidden = false;
+    $("msg").textContent = e.message || "読み込みに失敗しました";
+    $("stamp").textContent = "";
+  }
+}
+
+$("reload").onclick = load;
+(async () => {
+  const mock = new URLSearchParams(location.search).get("mock") === "1" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  if (!mock) {
+    try { await liff.init({ liffId: LIFF_ID }); }
+    catch (e) { $("msg").textContent = "LINE の準備に失敗しました。閉じて開き直してください。"; return; }
+  }
+  load();
+})();
+</script>
+</body>
+</html>
