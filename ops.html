@@ -266,7 +266,8 @@ function fitProof() {
   const box = $("proof-out"), t = box.querySelector(".fla-inv");
   if (!t) return;
   t.style.transform = ""; box.style.height = ""; box.style.width = "";
-  const k = Math.min(1, (box.parentElement.clientWidth - 2) / t.offsetWidth);
+  // 枠の内側の幅に合わせる（親の幅だと内側の余白ぶん右端がはみ出していた）
+  const k = Math.min(1, box.clientWidth / t.offsetWidth);
   t.style.transform = `scale(${k})`; box.style.height = Math.ceil(t.offsetHeight * k) + "px";
 }
 const kindText = (layout, kind) => ((layout.fields && layout.fields["kind.texts"]) || { ukeoi: "請負請求書", joyo: "常用・請負外請求書" })[kind];

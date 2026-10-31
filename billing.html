@@ -144,6 +144,9 @@
     #pv-custom .fla-inv{transform-origin:0 0;}
     body.pv-custom-on #screen-print .sheet{display:none !important;} /* 指定書式のときは共通様式を出さない（画面・印刷とも） */
     .pv-note{font-size:12px;color:var(--sub);text-align:center;margin:8px auto 0;max-width:760px;line-height:1.7;}
+    .pdf-panel{max-width:760px;margin:14px auto 0;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px;}
+    .pdf-panel .st{font-size:13px;font-weight:600;}
+    .pdf-panel .btn:disabled{opacity:.5;}
     /* 指定書式だけ A4 横で印刷（共通様式はこれまでどおり） */
     @page inv-landscape{size:A4 landscape;margin:8mm;}
     @media print{
@@ -410,7 +413,7 @@
     </div>
   </div>
   <div class="muted" style="text-align:center;margin:6px 0 12px">内容を直すと、新しい版として履歴に残ります。</div>
-  <button class="btn" style="margin-bottom:8px" onclick="printFromDone()">📄 請求書を表示（印刷/PDF）</button>
+  <button class="btn" style="margin-bottom:8px" onclick="printFromDone()">📄 請求書を表示・PDFで送る</button>
   <button class="btn btn-ghost" onclick="toList()">請求一覧へもどる</button>
 </div>
 
@@ -435,7 +438,7 @@
   </div>
   <div class="sec-label">改訂履歴（最新が正）</div>
   <div class="card" id="dt-history"></div>
-  <button class="btn btn-ghost" id="dt-print" style="display:none;margin-bottom:10px" onclick="openPrint()">📄 請求書を表示（印刷 / PDF）</button>
+  <button class="btn btn-ghost" id="dt-print" style="display:none;margin-bottom:10px" onclick="openPrint()">📄 請求書を表示・PDFで送る</button>
   <div id="dt-actions" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
     <button class="btn btn-ghost" style="border-color:var(--warn);color:var(--warn)" onclick="openVoid()">取消する</button>
     <button class="btn btn-primary" onclick="reviseInvoice()">修正する（改訂）</button>
@@ -481,7 +484,14 @@
   </div>
   <div id="pv-custom" hidden></div>
   <div class="pv-note no-print" id="pv-custom-note" hidden>元請の指定書式で表示しています（元のExcelと同じ形）。</div>
-  <button class="btn btn-primary no-print" style="margin-top:14px;max-width:760px;margin-left:auto;margin-right:auto;display:block" onclick="window.print()">印刷 / PDFに保存</button>
+  <div class="pdf-panel no-print" id="pdf-panel" hidden>
+    <div class="st" id="pdf-status">PDFを準備しています…</div>
+    <button class="btn btn-primary" id="pdf-mail" onclick="pdfAction('mail')" disabled>📧 PCのメールに送る</button>
+    <button class="btn" id="pdf-save" onclick="pdfAction('save')" disabled>📄 スマホに保存</button>
+    <button class="btn btn-ghost" id="pdf-open-ext" hidden onclick="openPdfInBrowser()">ブラウザで開く</button>
+    <div class="muted" id="pdf-hint" style="font-size:12px;line-height:1.7"></div>
+  </div>
+  <button class="btn no-print" style="margin-top:10px;max-width:760px;margin-left:auto;margin-right:auto;display:block" onclick="window.print()">印刷する（PC）</button>
   <div class="muted no-print" style="text-align:center;margin-top:8px">PCのブラウザで開くと「PDFに保存」を選べます。</div>
 </div>
 
@@ -666,6 +676,7 @@ const rDel  = (p)        => FLA.rest(p, { method:"DELETE" });
     cu = { lineId: profile.userId };
     await FLA.ensureToken();
     await boot();
+    await openPdfFromQuery();
   } catch (e) {
     if (e && e.code === "NOT_REGISTERED") {
       document.getElementById("loading").innerHTML = FLA.notRegisteredHtml();
@@ -1434,6 +1445,7 @@ async function openPrint() {
   await renderCustomLayout(inv, plines, comp, st, primeRow, subject);
   showScreen("print");
   fitCustomLayout();
+  preparePdf(inv); // 待たない（準備の様子は PDF の欄に出す）
 }
 
 // ── 元請の指定書式（④d-2）────────────────────────────────────────────
@@ -1490,6 +1502,128 @@ window.addEventListener("beforeprint", () => {
   t.style.transform = `scale(${k})`; box.style.height = Math.ceil(t.offsetHeight * k) + "px"; box.style.width = Math.ceil(t.offsetWidth * k) + "px";
 });
 window.addEventListener("afterprint", fitCustomLayout);
+
+// ── 請求書の PDF（2026-10-31・④d-2）───────────────────────────────────
+// 表示中の請求書（指定書式・共通様式とも）をその場で A4 の PDF にし、鍵付きの置き場（EF invoice-pdf）に保管する。
+// 渡し方は2つ：「PCのメールに送る」「スマホに保存」。どちらもスマホの共有画面（メール・ファイルに保存・LINE など）を使う。
+// LINE の中で共有画面を呼べない機種は「ブラウザで開く」に切り替える。PC はダウンロード。
+const PDF_FN = `${SUPA_URL}/functions/v1/invoice-pdf`;
+const PDF_LIBS = [
+  "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
+];
+let pdfState = { id: null, blob: null, name: "", busy: false };
+function loadScriptOnce(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[data-src="${src}"]`)) return resolve();
+    const s = document.createElement("script");
+    s.src = src; s.dataset.src = src; s.onload = () => resolve(); s.onerror = () => reject(new Error("PDFの部品を読み込めませんでした"));
+    document.head.appendChild(s);
+  });
+}
+function pdfUi(status, ready) {
+  document.getElementById("pdf-panel").hidden = false;
+  document.getElementById("pdf-status").textContent = status;
+  document.getElementById("pdf-mail").disabled = !ready;
+  document.getElementById("pdf-save").disabled = !ready;
+}
+// 表示中の請求書を画面の外に写して A4 の PDF にする（縮小表示に左右されない）
+async function buildPdfBlob() {
+  for (const src of PDF_LIBS) await loadScriptOnce(src);
+  const custom = !document.getElementById("pv-custom").hidden;
+  const src = custom ? document.querySelector("#pv-custom .fla-inv") : document.querySelector("#screen-print .sheet");
+  if (!src) throw new Error("請求書の表示が見つかりません");
+  const holder = document.createElement("div");
+  holder.style.cssText = `position:fixed;left:-20000px;top:0;background:#fff;padding:0;${custom ? "" : "width:760px;"}`;
+  const clone = src.cloneNode(true);
+  clone.style.transform = "none";
+  if (!custom) { clone.style.maxWidth = "none"; clone.style.boxShadow = "none"; clone.style.margin = "0"; }
+  holder.appendChild(clone);
+  document.body.appendChild(holder);
+  try {
+    const canvas = await window.html2canvas(clone, { scale: 2, backgroundColor: "#ffffff", logging: false });
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: custom ? "landscape" : "portrait", unit: "mm", format: "a4" });
+    const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight(), m = 8;
+    const k = Math.min((pw - m * 2) / canvas.width, (ph - m * 2) / canvas.height);
+    const w = canvas.width * k, h = canvas.height * k;
+    doc.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", (pw - w) / 2, m, w, h);
+    return doc.output("blob");
+  } finally {
+    holder.remove();
+  }
+}
+const blobToBase64 = (blob) => new Promise((resolve, reject) => {
+  const r = new FileReader();
+  r.onload = () => resolve(String(r.result).split(",")[1] || "");
+  r.onerror = () => reject(r.error);
+  r.readAsDataURL(blob);
+});
+// 請求書の表示を開いたら、発行済みなら PDF を先に作っておく（共有はボタンを押した瞬間に開くため）
+async function preparePdf(inv) {
+  const panel = document.getElementById("pdf-panel");
+  document.getElementById("pdf-open-ext").hidden = true;
+  document.getElementById("pdf-hint").textContent = "";
+  if (!inv || inv.status !== "issued") { panel.hidden = true; return; }
+  const no = inv.invoice_number || "";
+  pdfState = { id: inv.id, blob: null, name: `請求書_${no || inv.id.slice(0, 8)}_${(inv.prime_contractors?.name ?? "").replace(/[\\/:*?"<>|\s]/g, "")}.pdf`, busy: true };
+  pdfUi("PDFを準備しています…", false);
+  try {
+    const blob = await buildPdfBlob();
+    if (pdfState.id !== inv.id) return; // 途中で別の請求書を開いた
+    pdfState.blob = blob;
+    pdfUi(`PDFの準備ができました（A4・${Math.max(1, Math.round(blob.size / 1024))}KB）`, true);
+    // 保管（失敗しても送る・保存はできる）
+    try {
+      const token = await FLA.ensureToken();
+      const res = await fetch(PDF_FN, { method: "POST", headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "put", invoice_id: inv.id, pdf: await blobToBase64(blob) }) });
+      if (!res.ok) throw new Error(String(res.status));
+    } catch (_e) {
+      document.getElementById("pdf-hint").textContent = "※ PDFの保管に失敗しました（送る・保存はできます）。";
+    }
+  } catch (e) {
+    pdfUi("PDFを作れませんでした：" + (e.message || e), false);
+  } finally {
+    pdfState.busy = false;
+  }
+}
+async function pdfAction(kind) {
+  if (!pdfState.blob) return;
+  const file = new File([pdfState.blob], pdfState.name, { type: "application/pdf" });
+  const hint = document.getElementById("pdf-hint");
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: pdfState.name });
+      hint.textContent = kind === "mail" ? "メールを選んで、PCのメールアドレスに送ってください。" : "「ファイルに保存」を選ぶと、スマホに保存されます。";
+      return;
+    } catch (e) {
+      if (e && e.name === "AbortError") return; // 自分でやめた
+    }
+  }
+  // 共有画面が使えない：LINE の中ならブラウザで開き直す
+  if (window.liff && liff.isInClient && liff.isInClient()) {
+    document.getElementById("pdf-open-ext").hidden = false;
+    hint.textContent = "このスマホでは、LINEの中からPDFを渡せません。下のボタンでブラウザで開き、もう一度押してください。";
+    return;
+  }
+  // PC など：ダウンロード
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(file); a.download = pdfState.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  hint.textContent = kind === "mail" ? "PDFを保存しました。メールに添付して送ってください。" : "PDFを保存しました。";
+}
+function openPdfInBrowser() {
+  if (!pdfState.id || !window.liff) return;
+  liff.openWindow({ url: `https://liff.line.me/${LIFF_ID}?pdf=${encodeURIComponent(pdfState.id)}`, external: true });
+}
+// LINE の外（ブラウザ）で ?pdf=請求ID 付きで開いたときは、その請求書の表示まで進める
+async function openPdfFromQuery() {
+  const id = new URLSearchParams(location.search).get("pdf");
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id) || !cu || !cu.canBill) return;
+  await openDetail(id);
+  if (detailInv && detailInv.id === id) await openPrint();
+}
 
 // ── ⑦ マスタ設定（④c）──────────────────────────────────────────────────
 const rPatch = (p, b) => FLA.rest(p, { method:"PATCH", headers:{ "Content-Type":"application/json", "Prefer":"return=minimal" }, body: JSON.stringify(b) });
