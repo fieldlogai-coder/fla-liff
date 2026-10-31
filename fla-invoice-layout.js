@@ -4,7 +4,11 @@
      const html = FLA_LAYOUT.render(layout, values, { editable: false });
      values = { "company.name": "…", "lines.0.desc": "…", … }（型の slot 名 → 表示する文字）
      FLA_LAYOUT.values(layout, inv, plines, comp, st, subject) で請求データから values を作れる
-   editable: true のときは差し込みのマスに data-slot を付け、タップで直せるようにする（手直しの画面＝段C）。 */
+   直接直せる表（2026-10-31）:
+     const sheet = FLA_LAYOUT.mount(箱の要素, layout, values, { params: { "kind.text": "請負請求書" } });
+     様式で「入力してよいマス」（型の in）だけをタップして直せる。それ以外は触れない。
+     様式の計算式（型の f：SUM・IF・ROUND・四則演算など）を画面の中で計算し直し、計算のマスに出す。
+     sheet.setParam(名前, 値) で印刷範囲の外の値（請求書の種類など）を変える。sheet.inputs() で直した値を取り出す。 */
 (function (global) {
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   // 入力欄の目印（黄色）は、出来上がりの請求書には出さない
@@ -52,7 +56,11 @@
         if (!cell) { h += "<td></td>"; continue; }
         const span = (cell.rs > 1 ? ` rowspan="${cell.rs}"` : "") + (cell.cs > 1 ? ` colspan="${cell.cs}"` : "");
         let text = cell.slot ? (values[cell.slot] ?? "") : (cell.text ?? "");
-        const slotAttr = cell.slot && opts.editable ? ` data-slot="${esc(cell.slot)}" class="fla-slot"` : "";
+        let slotAttr = "";
+        if (opts.editable && cell.a) {
+          if (cell.in) slotAttr = ` data-a="${esc(cell.a)}" class="fla-in" contenteditable="true" spellcheck="false" inputmode="${cell.z ? "decimal" : "text"}"`;
+          else if (cell.f) { slotAttr = ` data-a="${esc(cell.a)}" class="fla-f"`; text = ""; }
+        }
         // 縮小して全体を表示（Excel の「縮小して全体を表示」）は、長い文字だけ小さくする
         let st = cellStyle(cell.s || {});
         if (cell.s && cell.s.shrink && text) {
@@ -137,5 +145,179 @@
     return { values: v, overflow: rows.length > max };
   }
 
-  global.FLA_LAYOUT = { render, values };
+  // ── Excel の計算式を画面の中で計算する（様式で使われる範囲：四則演算・比較・&・SUM/IF/ROUND ほか）──
+  const colNum = (s) => { let n = 0; for (const ch of s) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
+  const colName = (n) => { let s = ""; n++; while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+  const splitA = (a) => { const d = /^([A-Z]+)(\d+)$/.exec(a); return d ? [colNum(d[1]), +d[2] - 1] : null; };
+  const ERR = { err: true };
+  function tokenize(src) {
+    const t = []; let i = 0;
+    while (i < src.length) {
+      const ch = src[i], rest = src.slice(i);
+      if (/\s/.test(ch)) { i++; continue; }
+      if (ch === '"') {
+        let j = i + 1, v = "";
+        while (j < src.length) { if (src[j] === '"') { if (src[j + 1] === '"') { v += '"'; j += 2; continue; } break; } v += src[j++]; }
+        t.push({ k: "str", v }); i = j + 1; continue;
+      }
+      let m = /^[A-Z][A-Z0-9.]*(?=\()/.exec(rest);
+      if (m) { t.push({ k: "fn", v: m[0] }); i += m[0].length; continue; }
+      m = /^\$?([A-Z]{1,3})\$?(\d+)(?::\$?([A-Z]{1,3})\$?(\d+))?/.exec(rest);
+      if (m) { t.push(m[3] ? { k: "rng", a: [colNum(m[1]), +m[2] - 1], b: [colNum(m[3]), +m[4] - 1] } : { k: "ref", c: colNum(m[1]), r: +m[2] - 1 }); i += m[0].length; continue; }
+      m = /^\d+(\.\d+)?%?/.exec(rest);
+      if (m) { t.push({ k: "num", v: m[0].endsWith("%") ? parseFloat(m[0]) / 100 : parseFloat(m[0]) }); i += m[0].length; continue; }
+      m = /^(<>|<=|>=|[-+*/&=<>(),^])/.exec(rest);
+      if (m) { t.push({ k: "op", v: m[0] }); i += m[0].length; continue; }
+      throw new Error("式を読めません: " + src);
+    }
+    return t;
+  }
+  function parse(src) {
+    const t = tokenize(src); let p = 0;
+    const isOp = (v) => t[p] && t[p].k === "op" && t[p].v === v;
+    const CMP = ["=", "<>", "<", ">", "<=", ">="];
+    function cmp() { let l = cat(); while (t[p] && t[p].k === "op" && CMP.includes(t[p].v)) { const o = t[p++].v; l = { o, l, r: cat() }; } return l; }
+    function cat() { let l = add(); while (isOp("&")) { p++; l = { o: "&", l, r: add() }; } return l; }
+    function add() { let l = mul(); while (isOp("+") || isOp("-")) { const o = t[p++].v; l = { o, l, r: mul() }; } return l; }
+    function mul() { let l = pw(); while (isOp("*") || isOp("/")) { const o = t[p++].v; l = { o, l, r: pw() }; } return l; }
+    function pw() { let l = un(); while (isOp("^")) { p++; l = { o: "^", l, r: un() }; } return l; }
+    function un() { if (isOp("-")) { p++; return { o: "neg", l: un() }; } if (isOp("+")) { p++; return un(); } return prim(); }
+    function prim() {
+      const k = t[p]; if (!k) throw new Error("式が途中で終わっています");
+      if (k.k === "num" || k.k === "str") { p++; return { lit: k.v }; }
+      if (k.k === "ref") { p++; return { ref: [k.c, k.r] }; }
+      if (k.k === "rng") { p++; return { rng: [k.a, k.b] }; }
+      if (k.k === "fn") {
+        p += 2; const args = [];
+        if (!isOp(")")) { args.push(cmp()); while (isOp(",")) { p++; args.push(cmp()); } }
+        if (!isOp(")")) throw new Error("括弧が閉じていません"); p++;
+        return { fn: k.v, args };
+      }
+      if (isOp("(")) { p++; const e = cmp(); if (!isOp(")")) throw new Error("括弧が閉じていません"); p++; return e; }
+      throw new Error("式を読めません");
+    }
+    const e = cmp(); if (p !== t.length) throw new Error("式の終わりが読めません"); return e;
+  }
+  const toNum = (v) => {
+    if (v === ERR) return ERR;
+    if (v === "" || v == null) return 0;
+    if (typeof v === "number") return v;
+    if (typeof v === "boolean") return v ? 1 : 0;
+    const n = +String(v).replace(/,/g, ""); return isNaN(n) ? ERR : n;
+  };
+  // Excel の ROUND は 0.5 を 0 から遠い方へ丸める
+  const roundX = (n, d, mode) => {
+    const f = Math.pow(10, d), x = n * f;
+    const r = mode === "down" ? Math.trunc(x) : mode === "up" ? (x < 0 ? Math.floor(x) : Math.ceil(x)) : Math.sign(x) * Math.round(Math.abs(x) + 1e-9);
+    return r / f;
+  };
+  const truthy = (v) => v === true || (typeof v === "number" && v !== 0) || (typeof v === "string" && v !== "" && v.toUpperCase() === "TRUE");
+  const FN = {
+    SUM: (a) => a.flat().reduce((s, v) => s + (typeof v === "number" ? v : 0), 0),
+    IF: (a) => truthy(a[0]) ? (a.length > 1 ? a[1] : true) : (a.length > 2 ? a[2] : false),
+    ROUND: (a) => roundX(toNum(a[0]), toNum(a[1] ?? 0)),
+    ROUNDDOWN: (a) => roundX(toNum(a[0]), toNum(a[1] ?? 0), "down"),
+    ROUNDUP: (a) => roundX(toNum(a[0]), toNum(a[1] ?? 0), "up"),
+    INT: (a) => Math.floor(toNum(a[0])), ABS: (a) => Math.abs(toNum(a[0])),
+    MAX: (a) => { const n = a.flat().filter((v) => typeof v === "number"); return n.length ? Math.max(...n) : 0; },
+    MIN: (a) => { const n = a.flat().filter((v) => typeof v === "number"); return n.length ? Math.min(...n) : 0; },
+    AND: (a) => a.flat().every(truthy), OR: (a) => a.flat().some(truthy),
+  };
+
+  function mount(box, layout, values, opts) {
+    opts = opts || {};
+    values = values || {};
+    const params = Object.assign({}, opts.params || {});
+    const byA = {}, byRC = {};
+    for (const c of layout.cells) if (c.a) { byA[c.a] = c; const rc = splitA(c.a); if (rc) byRC[rc[0] + "," + rc[1]] = c; }
+    const ast = {};
+    for (const c of layout.cells) if (c.f) { try { ast[c.a] = parse(c.f); } catch (e) { ast[c.a] = { lit: ERR }; console.warn("[FLA_LAYOUT]", c.a, e.message); } }
+    const paramAt = Object.assign({}, layout.params || {});
+    const parseIn = (txt) => { const t = String(txt ?? "").replace(/[,，¥￥円\s]/g, ""); return /^-?\d+(\.\d+)?$/.test(t) ? +t : String(txt ?? "").trim(); };
+    // 入力マスの値：最初は values（slot の文字）から
+    const inp = {};
+    for (const c of layout.cells) if (c.in) inp[c.a] = c.slot ? String(values[c.slot] ?? "") : "";
+    let memo = {};
+    function cellVal(c, r) {
+      const key = c + "," + r, cell = byRC[key], a = colName(c) + (r + 1);
+      if (paramAt[a]) return params[paramAt[a]] ?? "";
+      if (!cell) return "";
+      if (cell.f) { if (key in memo) return memo[key]; memo[key] = ERR; const v = ev(ast[cell.a]); memo[key] = v; return v; }
+      if (cell.in) return parseIn(inp[cell.a]);
+      if (cell.slot) return parseIn(values[cell.slot]);
+      return cell.text ?? "";
+    }
+    function ev(n) {
+      if (!n) return ERR;
+      if ("lit" in n) return n.lit;
+      if (n.ref) return cellVal(n.ref[0], n.ref[1]);
+      if (n.rng) {
+        const out = [];
+        for (let r = n.rng[0][1]; r <= n.rng[1][1]; r++) for (let c = n.rng[0][0]; c <= n.rng[1][0]; c++) if (byRC[c + "," + r]) out.push(cellVal(c, r));
+        return out;
+      }
+      if (n.fn) {
+        const f = FN[n.fn]; if (!f) return ERR;
+        if (n.fn === "IF") { const cond = ev(n.args[0]); if (cond === ERR) return ERR; return truthy(cond) ? (n.args[1] ? ev(n.args[1]) : true) : (n.args[2] ? ev(n.args[2]) : false); }
+        const args = n.args.map(ev); if (args.some((v) => v === ERR)) return ERR; return f(args);
+      }
+      if (n.o === "neg") { const v = toNum(ev(n.l)); return v === ERR ? ERR : -v; }
+      const L = ev(n.l), R = ev(n.r);
+      if (L === ERR || R === ERR) return ERR;
+      if (n.o === "&") return String(L ?? "") + String(R ?? "");
+      if (["=", "<>", "<", ">", "<=", ">="].includes(n.o)) {
+        const num = typeof L === "number" && typeof R === "number";
+        const a = num ? L : String(L ?? ""), b = num ? R : String(R ?? "");
+        return n.o === "=" ? a === b : n.o === "<>" ? a !== b : n.o === "<" ? a < b : n.o === ">" ? a > b : n.o === "<=" ? a <= b : a >= b;
+      }
+      const a = toNum(L), b = toNum(R); if (a === ERR || b === ERR) return ERR;
+      if (n.o === "+") return a + b; if (n.o === "-") return a - b; if (n.o === "*") return a * b; if (n.o === "^") return Math.pow(a, b);
+      if (n.o === "/") return b === 0 ? ERR : a / b;
+      return ERR;
+    }
+    function show(cell, v) {
+      if (v === ERR || v === "" || v == null || v === false) return "";
+      if (v === true) return "TRUE";
+      if (typeof v === "number") {
+        if (cell.z === "pct1") return (v * 100).toFixed(1) + "%";
+        if (cell.z === "pct0") return Math.round(v * 100) + "%";
+        if (cell.z === "num") return roundX(v, 0).toLocaleString("ja-JP");
+        return String(roundX(v, 6));
+      }
+      return String(v);
+    }
+    box.innerHTML = render(layout, values, { editable: true });
+    const tds = {};
+    box.querySelectorAll("[data-a]").forEach((el) => { tds[el.dataset.a] = el; });
+    function recalc() {
+      memo = {};
+      for (const c of layout.cells) if (c.f && tds[c.a]) { const rc = splitA(c.a); tds[c.a].textContent = show(c, cellVal(rc[0], rc[1])); }
+      if (opts.onChange) opts.onChange();
+    }
+    for (const c of layout.cells) if (c.in && tds[c.a]) { const v = parseIn(inp[c.a]); tds[c.a].textContent = typeof v === "number" && c.z ? show(c, v) : inp[c.a]; }
+    const inCell = (e) => e.target && e.target.closest ? e.target.closest(".fla-in") : null;
+    box.addEventListener("input", (e) => { const el = inCell(e); if (!el) return; inp[el.dataset.a] = el.textContent; recalc(); });
+    box.addEventListener("keydown", (e) => { const el = inCell(e); if (el && e.key === "Enter") { e.preventDefault(); el.blur(); } });
+    box.addEventListener("focusout", (e) => {
+      const el = inCell(e); if (!el) return;
+      const c = byA[el.dataset.a]; const v = parseIn(inp[c.a]);
+      if (typeof v === "number" && c.z) el.textContent = show(c, v);
+    });
+    // 貼り付けは文字だけ（書式やリンクを持ち込まない）
+    box.addEventListener("paste", (e) => {
+      const el = inCell(e); if (!el) return; e.preventDefault();
+      const txt = ((e.clipboardData || window.clipboardData).getData("text") || "").replace(/[\r\n]+/g, " ");
+      document.execCommand("insertText", false, txt);
+    });
+    recalc();
+    return {
+      setParam(name, v) { params[name] = v; recalc(); },
+      inputs() { return Object.assign({}, inp); },
+      value(a) { const rc = splitA(a); memo = {}; return rc ? cellVal(rc[0], rc[1]) : undefined; },
+      setInput(a, text) { if (!byA[a] || !byA[a].in) return; inp[a] = String(text); if (tds[a]) { const c = byA[a]; const v = parseIn(text); tds[a].textContent = typeof v === "number" && c.z ? show(c, v) : String(text); } recalc(); },
+      recalc,
+    };
+  }
+
+  global.FLA_LAYOUT = { render, values, mount };
 })(window);

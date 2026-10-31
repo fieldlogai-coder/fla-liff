@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>運営ダッシュボード</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="./fla-invoice-layout.js?v=2026-10-31b"></script>
+  <script src="./fla-invoice-layout.js?v=2026-10-31c"></script>
   <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-12" />
   <style>
     /* 運営専用（2026-10-30）。数字は EF ops-stats から。運営の LINE だけが開ける（サーバで確認）。
@@ -58,7 +58,11 @@
     body.proof-on main{max-width:1180px;} /* PC で試し刷りを大きく見る */
     #proof-out{background:#fff;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;margin-top:10px;}
     #proof-out .fla-inv{transform-origin:0 0;}
-    [data-kind="joyo"] .only-ukeoi,[data-kind="ukeoi"] .only-joyo{display:none;}
+    #proof-out .fla-in{background:#eaf2ff !important;outline:1px dashed #6f9fe0;outline-offset:-2px;cursor:text;}
+    #proof-out .fla-in:hover{background:#dce9ff !important;}
+    #proof-out .fla-in:focus{background:#fff6d1 !important;outline:2px solid #2f6fd0;outline-offset:-2px;}
+    .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;color:var(--sub);margin-top:8px;align-items:center;}
+    .legend i{display:inline-block;width:18px;height:12px;border:1px dashed #6f9fe0;background:#eaf2ff;vertical-align:-2px;margin-right:4px;}
     @page proof{size:A4 landscape;margin:8mm;}
     @media print{
       header,.no-print,#view,#msg{display:none !important;}
@@ -67,6 +71,7 @@
       #proof{page:proof;}
       #proof .c{box-shadow:none;padding:0;margin:0;}
       #proof-out{border:none;border-radius:0;margin:0;}
+      #proof-out .fla-in{background:none !important;outline:none !important;}
     }
   </style>
 </head>
@@ -79,33 +84,21 @@
 <main>
   <div id="msg">読み込み中…</div>
   <div id="view" hidden></div>
-  <section id="proof" hidden data-kind="ukeoi">
+  <section id="proof" hidden>
     <div class="c no-print">
       <div class="c-t"><b>様式の試し刷り</b><span>お客さんの請求データは使いません</span></div>
       <div class="pf">
         <label style="grid-column:1/-1">会社 ／ 元請（型のあるもの）<select id="pf-prime"><option value="">読み込み中…</option></select></label>
         <label>請求書の種類<select id="pf-kind"><option value="ukeoi">請負</option><option value="joyo">常用・請負外</option></select></label>
-        <label>発行日<input id="pf-date" type="date"></label>
-        <label>現場名（試し）<input id="pf-site" value="〇〇マンション改修工事"></label>
-        <label>番号（注文番号／工事番号）<input id="pf-no" value="（番号）"></label>
-        <label>元請の現場担当者<input id="pf-staff" value="（ご担当）"></label>
-        <label class="only-ukeoi">請負金額（税抜）<input id="pf-contract" inputmode="numeric" value="3000000"></label>
-        <label class="only-ukeoi">前月までの累計（税抜）<input id="pf-prev" inputmode="numeric" value="600000"></label>
-        <label class="only-ukeoi">今月の請求額（税抜）<input id="pf-this" inputmode="numeric" value="900000"></label>
-        <label class="only-ukeoi">工事内容<input id="pf-desc" value="外壁シーリング打替え工事（出来高）"></label>
-        <label class="only-joyo">工種<input id="pf-wt" value="シーリング工（常用）"></label>
-        <label class="only-joyo">単価（終日）<input id="pf-up" inputmode="numeric" value="25000"></label>
-        <label class="only-joyo">単価（半日）<input id="pf-hp" inputmode="numeric" value="13000"></label>
-        <label class="only-joyo">人工（終日）<input id="pf-full" inputmode="numeric" value="10"></label>
-        <label class="only-joyo">人工（半日）<input id="pf-half" inputmode="numeric" value="2"></label>
-        <label class="only-joyo">材料費<input id="pf-mat" inputmode="numeric" value="34000"></label>
       </div>
       <button type="button" class="pbtn" id="pf-run">試し刷りする</button>
       <p class="note" id="pf-note">発行元（会社名・住所・代表者・電話・登録番号）はその会社の登録内容、口座は「（口座）」と出します。開いた記録は運営の記録に残ります。</p>
     </div>
     <div class="c" id="proof-card" hidden>
-      <div class="c-t no-print"><b id="pf-title">試し刷り</b><span>元の Excel と見比べてください</span></div>
+      <div class="c-t no-print"><b id="pf-title">試し刷り</b><button type="button" class="hbtn" id="pf-reset" style="background:var(--bg);color:var(--acc);border:1px solid var(--line)">例を入れ直す</button></div>
+      <div class="legend no-print"><span><i></i>青い点線のマスはタップして直せます（元の Excel の黄色いマス）</span><span>金額・合計・出来高は Excel と同じ式で自動で計算されます</span></div>
       <div id="proof-out"></div>
+      <p class="note no-print">ここで直した内容は保存されません（試し刷りです）。元の Excel と同じ数字を入れて見比べてください。</p>
       <button type="button" class="pbtn sub no-print" onclick="window.print()">印刷 / PDFに保存（A4 横）</button>
     </div>
   </section>
@@ -268,7 +261,7 @@ async function loadProofList() {
     sel.innerHTML = opts.length ? opts.join("") : '<option value="">型のある元請はまだありません</option>';
   } catch (e) { sel.innerHTML = `<option value="">${esc(e.message)}</option>`; PROOF_LIST = null; }
 }
-const num = (id) => Number(String($(id).value).replace(/[^0-9.-]/g, "")) || 0;
+let PROOF = null; // { r: ops-layout の応答, sheet: FLA_LAYOUT.mount の戻り }
 function fitProof() {
   const box = $("proof-out"), t = box.querySelector(".fla-inv");
   if (!t) return;
@@ -276,36 +269,46 @@ function fitProof() {
   const k = Math.min(1, (box.parentElement.clientWidth - 2) / t.offsetWidth);
   t.style.transform = `scale(${k})`; box.style.height = Math.ceil(t.offsetHeight * k) + "px";
 }
+const kindText = (layout, kind) => ((layout.fields && layout.fields["kind.texts"]) || { ukeoi: "請負請求書", joyo: "常用・請負外請求書" })[kind];
+// 例の値（入力マスの最初の中身）。計算のマスは様式の式で計算される
+function sampleValues(r, kind) {
+  const d = new Date(Date.now() + 9 * 3600000);
+  const v = {
+    "date.wy": String(d.getUTCFullYear() - 2018), "date.m": String(d.getUTCMonth() + 1), "date.d": String(d.getUTCDate()),
+    "prime.onchu": r.prime.name + "　御中",
+    "company.name": r.company.name || "", "company.address": r.company.address || "", "company.rep": r.company.representative_name || "",
+    "company.phone": r.company.phone || "", "company.reg": r.company.registration_number || "",
+    "site.name": "〇〇マンション改修工事", "extra.現場担当者": "（ご担当）", "kind.number": "（番号）",
+    "bank.name": "（口座）", "bank.branch": "（口座）", "bank.type": "", "bank.no": "（口座）", "bank.kana": "", "bank.holder": "（口座）",
+  };
+  const L = (i, desc, qty, unit, price) => { v[`lines.${i}.desc`] = desc; v[`lines.${i}.qty`] = String(qty); v[`lines.${i}.unit`] = unit; v[`lines.${i}.price`] = Number(price).toLocaleString("ja-JP"); };
+  if (kind === "ukeoi") {
+    v["contract.original"] = "3,000,000"; v["contract.change"] = "0"; v["dekidaka.prev"] = "600,000";
+    L(0, "外壁シーリング打替え工事", 1, "式", 600000);
+    L(1, "バルコニー床シーリング工事", 1, "式", 300000);
+  } else {
+    L(0, "シーリング工（常用・終日）", 10, "人工", 25000);
+    L(1, "シーリング工（常用・半日）", 2, "人工", 13000);
+    L(2, "材料費", 1, "式", 34000);
+  }
+  return v;
+}
+function mountProof() {
+  const { r } = PROOF, kind = $("pf-kind").value;
+  PROOF.sheet = FLA_LAYOUT.mount($("proof-out"), r.layout, sampleValues(r, kind), { params: { "kind.text": kindText(r.layout, kind) } });
+  fitProof();
+}
 async function runProof() {
   const primeId = $("pf-prime").value;
   if (!primeId) return;
   $("pf-run").disabled = true; $("pf-run").textContent = "読み込み中…";
   try {
     const r = await opsLayout({ action: "layout", prime_contractor_id: primeId });
-    const kind = $("pf-kind").value;
-    const date = $("pf-date").value ? new Date($("pf-date").value + "T10:00:00+09:00") : new Date();
-    const rate = 0.1;
-    let plines, sub;
-    if (kind === "ukeoi") {
-      plines = [{ mode: "A2_rate", contract_id: "x", description: $("pf-desc").value, amount: num("pf-this"), billed_before: num("pf-prev"), cumulative_amount: num("pf-prev") + num("pf-this"),
-        __contract: { original_amount: num("pf-contract"), adjustment_amount: 0, contract_amount: num("pf-contract") } }];
-      sub = num("pf-this");
-    } else {
-      plines = [{ mode: "A1_unit", description: $("pf-wt").value, unit_price: num("pf-up"), half_price: num("pf-hp"), jinku_full: num("pf-full"), jinku_half: num("pf-half"), material_amount: num("pf-mat") }];
-      sub = num("pf-up") * num("pf-full") + num("pf-hp") * num("pf-half") + num("pf-mat");
-    }
-    const tax = Math.round(sub * rate);
-    const inv = { invoice_type: kind === "ukeoi" ? "ukeoi" : "joyo_other", issued_at: date.toISOString(), tax_rate: "0.100", tax_category: "taxable",
-      prime_contractors: { name: r.prime.name }, sites: { name: $("pf-site").value },
-      extra_fields: { [kind === "ukeoi" ? "注文番号" : "工事番号"]: $("pf-no").value, "現場担当者": $("pf-staff").value },
-      subtotal_amount: sub, tax_amount: tax, total_amount: sub + tax };
-    const st = { address: r.company.address, representative_name: r.company.representative_name, phone: r.company.phone, registration_number: r.company.registration_number,
-      bank_name: "（口座）", bank_branch: "（口座）", bank_account_type: "", bank_account_no: "（口座）", bank_account_name: "（口座）" };
-    const { values } = FLA_LAYOUT.values(r.layout, inv, plines, { name: r.company.name }, st, "");
-    $("proof-out").innerHTML = FLA_LAYOUT.render(r.layout, values);
-    $("pf-title").textContent = `試し刷り：${r.company.name} ／ ${r.prime.name}（${kind === "ukeoi" ? "請負" : "常用・請負外"}）`;
+    if (!r.layout || r.layout.v < 2) throw new Error("この元請の型は古い形です（直せるマスと計算式がありません）。型を作り直してください。");
+    PROOF = { r, sheet: null };
+    $("pf-title").textContent = `試し刷り：${r.company.name} ／ ${r.prime.name}`;
     $("proof-card").hidden = false;
-    fitProof();
+    mountProof();
     $("proof-card").scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (e) {
     $("pf-note").textContent = e.message || "読み込みに失敗しました";
@@ -313,9 +316,11 @@ async function runProof() {
     $("pf-run").disabled = false; $("pf-run").textContent = "試し刷りする";
   }
 }
+// 種類の切り替えは Excel と同じ（印刷範囲の外の「請求書の種類」）。直した中身はそのまま、見出しなどの式だけが変わる
+$("pf-kind").onchange = () => { if (PROOF && PROOF.sheet) PROOF.sheet.setParam("kind.text", kindText(PROOF.r.layout, $("pf-kind").value)); };
+$("pf-reset").onclick = () => { if (PROOF) mountProof(); };
 $("tab-stats").onclick = () => showTab("stats");
 $("tab-proof").onclick = () => showTab("proof");
-$("pf-kind").onchange = () => { $("proof").dataset.kind = $("pf-kind").value; };
 $("pf-run").onclick = runProof;
 window.addEventListener("resize", fitProof);
 window.addEventListener("beforeprint", () => {
