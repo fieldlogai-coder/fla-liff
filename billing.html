@@ -636,7 +636,7 @@
 
 <script src="./fla-core.js?v=2026-10-30"></script>
 <script src="./fla-support.js?v=2026-10-30"></script>
-<script src="./fla-invoice-layout.js?v=2026-10-31"></script>
+<script src="./fla-invoice-layout.js?v=2026-10-31b"></script>
 <script>
 // ── 設定 ───────────────────────────────────────────────────────────────
 const LIFF_ID   = "2009694631-7HvWrIGj";
@@ -1450,72 +1450,9 @@ async function fetchLayout(primeId) {
   } catch (_e) { return null; }
   return layoutCache[primeId];
 }
-// 和暦（令和）の年。令和元年＝2019年
-const reiwa = (d) => d ? String(d.getFullYear() - 2018) : "";
-function ymd(v) { if (!v) return null; const d = new Date(v); return isNaN(d) ? null : d; }
-// 請求データ → 型の差し込み名ごとの文字
-function layoutValues(layout, inv, plines, comp, st, subject) {
-  const ex = inv.extra_fields || {};
-  const disp = ex._display || {}; // 見た目だけの上書き（手直しの画面＝段C）
-  const yen = (n) => (n === null || n === undefined || n === "") ? "" : fmt(n);
-  const v = {};
-  const issued = ymd(inv.issued_at) || new Date();
-  v["date.wy"] = reiwa(issued); v["date.m"] = String(issued.getMonth() + 1); v["date.d"] = String(issued.getDate());
-  v["prime.onchu"] = (inv.prime_contractors?.name ?? "") + "　御中";
-  v["company.name"] = comp.name ?? ""; v["company.address"] = st.address ?? ""; v["company.rep"] = st.representative_name ?? "";
-  v["company.phone"] = st.phone ?? ""; v["company.reg"] = st.registration_number ?? "";
-  v["site.name"] = inv.sites?.name ?? "";
-  v["extra.現場担当者"] = ex["現場担当者"] ?? "";
-  const wf = ymd(ex["工期開始"]), wt = ymd(ex["工期終了"]);
-  if (wf) { v["work.from.wy"] = reiwa(wf); v["work.from.m"] = String(wf.getMonth() + 1); v["work.from.d"] = String(wf.getDate()); }
-  if (wt) { v["work.to.wy"] = reiwa(wt); v["work.to.m"] = String(wt.getMonth() + 1); v["work.to.d"] = String(wt.getDate()); }
-  // 請求書の種類で切り替える（テクノ様式の「請負請求書／常用・請負外請求書」と同じ）。
-  //   請負　　　　　＝見出し「注文番号」・上の注文金額（A）〜請求残額（E）に出来高を入れる
-  //   常用・請負外＝見出し「工事番号」・上の請負の欄は空のまま（アフター工事は工事番号に「アフター」）
-  const isUkeoi = inv.invoice_type ? inv.invoice_type === "ukeoi" : plines.some(l => l.mode === "A2_rate");
-  const a2 = isUkeoi ? plines.find(l => l.mode === "A2_rate") : null;
-  const labels = (layout.fields && layout.fields["kind.labels"]) || { ukeoi: "注文番号", joyo: "工事番号" };
-  v["kind.label"] = isUkeoi ? labels.ukeoi : labels.joyo;
-  v["kind.number"] = (isUkeoi ? (ex["注文番号"] ?? ex["工事番号"]) : (ex["工事番号"] ?? ex["注文番号"])) ?? "";
-  if (a2 && a2.__contract) {
-    const c = a2.__contract;
-    const total = c.contract_amount ?? ((c.original_amount ?? 0) + (c.adjustment_amount ?? 0));
-    v["contract.original"] = yen(c.original_amount); v["contract.change"] = yen(c.adjustment_amount ?? 0); v["contract.total"] = yen(total);
-    const prev = a2.billed_before ?? 0, cum = a2.cumulative_amount ?? (prev + (a2.amount ?? 0));
-    v["dekidaka.this"] = yen(a2.amount ?? 0); v["dekidaka.prev"] = yen(prev); v["dekidaka.cum"] = yen(cum);
-    v["dekidaka.pct"] = total ? Math.round((cum / total) * 1000) / 10 + "%" : "";
-    v["dekidaka.remain"] = yen(total - cum);
-  }
-  // 明細（型の行数まで。常用は終日・半日・材料費を別の行に）
-  // tax_rate は 0.100 の形で入っている（10% なら 0.1）。非課税の請求は 0
-  const rate = inv.tax_category && inv.tax_category !== "taxable" ? 0 : Number(inv.tax_rate ?? 0.1);
-  const rows = [];
-  const multiA1 = plines.filter(l => l.mode === "A1_unit").length > 1;
-  for (const line of plines) {
-    if (line.mode === "A1_unit") {
-      const up = line.unit_price ?? 0, hp = line.half_price ?? Math.round(up / 2), nm = line.description ?? "常用";
-      if ((line.jinku_full ?? 0) > 0) rows.push({ desc: nm + "（終日）", qty: line.jinku_full, unit: "人工", price: up, amount: line.jinku_full * up });
-      if ((line.jinku_half ?? 0) > 0) rows.push({ desc: nm + "（半日）", qty: line.jinku_half, unit: "人工", price: hp, amount: line.jinku_half * hp });
-      if ((line.material_amount ?? 0) > 0) rows.push({ desc: multiA1 ? nm + "　材料費" : "材料費", qty: 1, unit: "式", price: line.material_amount, amount: line.material_amount });
-    } else {
-      rows.push({ desc: line.description || subject || "一式", qty: 1, unit: "式", price: line.amount ?? 0, amount: line.amount ?? 0 });
-    }
-  }
-  const max = (layout.fields && layout.fields["lines.max"]) || 5;
-  rows.slice(0, max).forEach((r, i) => {
-    const tax = Math.round(r.amount * rate);
-    v[`lines.${i}.desc`] = r.desc; v[`lines.${i}.qty`] = String(r.qty); v[`lines.${i}.unit`] = r.unit;
-    v[`lines.${i}.price`] = yen(r.price); v[`lines.${i}.amount`] = yen(r.amount); v[`lines.${i}.tax`] = yen(tax); v[`lines.${i}.incl`] = yen(r.amount + tax);
-  });
-  v["total.subtotal"] = yen(inv.subtotal_amount ?? 0); v["total.tax"] = yen(inv.tax_amount ?? 0);
-  v["total.incl"] = yen(inv.total_amount ?? 0); v["total.incl2"] = yen(inv.total_amount ?? 0);
-  v["bank.name"] = st.bank_name ?? ""; v["bank.branch"] = st.bank_branch ?? "";
-  v["bank.type"] = st.bank_account_type === "touza" ? "当座" : st.bank_account_type === "futsu" ? "普通" : "";
-  v["bank.no"] = st.bank_account_no ?? ""; v["bank.holder"] = st.bank_account_name ?? ""; v["bank.kana"] = ex["口座名義カナ"] ?? "";
-  // 見た目だけの上書き（備考・宛名の書き方など）を最後に重ねる
-  for (const [k, val] of Object.entries(disp)) if (typeof val === "string") v[k] = val;
-  return { values: v, overflow: rows.length > max };
-}
+// 請求データ → 型の差し込み名ごとの文字は共通部品（fla-invoice-layout.js の FLA_LAYOUT.values）で作る
+//   運営の「様式の試し刷り」（ops.html）と同じ処理にするため
+const layoutValues = (...a) => FLA_LAYOUT.values(...a);
 async function renderCustomLayout(inv, plines, comp, st, primeRow, subject) {
   const box = document.getElementById("pv-custom"), note = document.getElementById("pv-custom-note");
   box.hidden = true; note.hidden = true; document.body.classList.remove("pv-custom-on");

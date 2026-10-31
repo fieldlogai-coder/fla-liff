@@ -6,6 +6,7 @@
   <meta name="robots" content="noindex, nofollow" />
   <title>運営ダッシュボード</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="./fla-invoice-layout.js?v=2026-10-31b"></script>
   <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-12" />
   <style>
     /* 運営専用（2026-10-30）。数字は EF ops-stats から。運営の LINE だけが開ける（サーバで確認）。
@@ -45,16 +46,69 @@
     .opt{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px;margin:4px 2px 10px;}
     .note{font-size:11px;color:var(--sub);line-height:1.7;margin-top:6px;}
     .err{font-size:12.5px;display:flex;justify-content:space-between;padding:3px 0;}
+    /* 様式の試し刷り（2026-10-31）：お客さんの請求データは使わず、型＋発行元情報＋試し用の金額で描く */
+    .tabs{display:flex;gap:6px;margin-top:8px;}
+    .tabs button{flex:1;border:none;border-radius:var(--r-sm);padding:7px 6px;font-size:12.5px;font-family:inherit;background:rgba(255,255,255,.14);color:#fff;cursor:pointer;}
+    .tabs button.on{background:#fff;color:var(--acc);font-weight:bold;}
+    .pf{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 12px;}
+    .pf label{font-size:11.5px;color:var(--sub);display:flex;flex-direction:column;gap:3px;}
+    .pf input,.pf select{font:inherit;font-size:14px;padding:7px 8px;border:1px solid var(--line);border-radius:var(--r-sm);background:#fff;color:var(--ink);min-width:0;}
+    .pbtn{display:block;width:100%;border:none;border-radius:var(--r-sm);padding:11px;font:inherit;font-size:14px;font-weight:bold;background:var(--acc);color:#fff;cursor:pointer;margin-top:10px;}
+    .pbtn.sub{background:var(--bg);color:var(--acc);border:1px solid var(--line);}
+    body.proof-on main{max-width:1180px;} /* PC で試し刷りを大きく見る */
+    #proof-out{background:#fff;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;margin-top:10px;}
+    #proof-out .fla-inv{transform-origin:0 0;}
+    [data-kind="joyo"] .only-ukeoi,[data-kind="ukeoi"] .only-joyo{display:none;}
+    @page proof{size:A4 landscape;margin:8mm;}
+    @media print{
+      header,.no-print,#view,#msg{display:none !important;}
+      body{background:#fff !important;}
+      main{padding:0 !important;max-width:none !important;}
+      #proof{page:proof;}
+      #proof .c{box-shadow:none;padding:0;margin:0;}
+      #proof-out{border:none;border-radius:0;margin:0;}
+    }
   </style>
 </head>
 <body>
 <header>
   <div class="top"><h1>運営ダッシュボード</h1><button class="hbtn" id="reload" type="button">↻ 更新</button></div>
   <div class="sub" id="stamp">読み込み中…</div>
+  <div class="tabs no-print"><button type="button" id="tab-stats" class="on">使われ方</button><button type="button" id="tab-proof">様式の試し刷り</button></div>
 </header>
 <main>
   <div id="msg">読み込み中…</div>
   <div id="view" hidden></div>
+  <section id="proof" hidden data-kind="ukeoi">
+    <div class="c no-print">
+      <div class="c-t"><b>様式の試し刷り</b><span>お客さんの請求データは使いません</span></div>
+      <div class="pf">
+        <label style="grid-column:1/-1">会社 ／ 元請（型のあるもの）<select id="pf-prime"><option value="">読み込み中…</option></select></label>
+        <label>請求書の種類<select id="pf-kind"><option value="ukeoi">請負</option><option value="joyo">常用・請負外</option></select></label>
+        <label>発行日<input id="pf-date" type="date"></label>
+        <label>現場名（試し）<input id="pf-site" value="〇〇マンション改修工事"></label>
+        <label>番号（注文番号／工事番号）<input id="pf-no" value="（番号）"></label>
+        <label>元請の現場担当者<input id="pf-staff" value="（ご担当）"></label>
+        <label class="only-ukeoi">請負金額（税抜）<input id="pf-contract" inputmode="numeric" value="3000000"></label>
+        <label class="only-ukeoi">前月までの累計（税抜）<input id="pf-prev" inputmode="numeric" value="600000"></label>
+        <label class="only-ukeoi">今月の請求額（税抜）<input id="pf-this" inputmode="numeric" value="900000"></label>
+        <label class="only-ukeoi">工事内容<input id="pf-desc" value="外壁シーリング打替え工事（出来高）"></label>
+        <label class="only-joyo">工種<input id="pf-wt" value="シーリング工（常用）"></label>
+        <label class="only-joyo">単価（終日）<input id="pf-up" inputmode="numeric" value="25000"></label>
+        <label class="only-joyo">単価（半日）<input id="pf-hp" inputmode="numeric" value="13000"></label>
+        <label class="only-joyo">人工（終日）<input id="pf-full" inputmode="numeric" value="10"></label>
+        <label class="only-joyo">人工（半日）<input id="pf-half" inputmode="numeric" value="2"></label>
+        <label class="only-joyo">材料費<input id="pf-mat" inputmode="numeric" value="34000"></label>
+      </div>
+      <button type="button" class="pbtn" id="pf-run">試し刷りする</button>
+      <p class="note" id="pf-note">発行元（会社名・住所・代表者・電話・登録番号）はその会社の登録内容、口座は「（口座）」と出します。開いた記録は運営の記録に残ります。</p>
+    </div>
+    <div class="c" id="proof-card" hidden>
+      <div class="c-t no-print"><b id="pf-title">試し刷り</b><span>元の Excel と見比べてください</span></div>
+      <div id="proof-out"></div>
+      <button type="button" class="pbtn sub no-print" onclick="window.print()">印刷 / PDFに保存（A4 横）</button>
+    </div>
+  </section>
 </main>
 <script>
 // LINE Developers で発行した「運営ダッシュボード」の LIFF ID（チャネル FLA現場メモ 配下）
@@ -152,7 +206,7 @@ function render() {
     render();
   };
   $("msg").hidden = true;
-  $("view").hidden = false;
+  $("view").hidden = !$("proof").hidden; // 試し刷りを開いている時は出さない
 }
 
 async function load() {
@@ -178,13 +232,99 @@ async function load() {
     render();
   } catch (e) {
     $("view").hidden = true;
-    $("msg").hidden = false;
+    $("msg").hidden = !$("proof").hidden;
     $("msg").textContent = e.message || "読み込みに失敗しました";
     $("stamp").textContent = "";
   }
 }
 
 $("reload").onclick = load;
+
+// ── 様式の試し刷り ─────────────────────────────────────────────
+const LAYOUT_FN = "https://qxeqaqnzbsuykmzwkvhx.supabase.co/functions/v1/ops-layout";
+let PROOF_LIST = null;
+async function opsLayout(payload) {
+  if (!window.liff) throw new Error("LINE の中で開いてください");
+  if (!liff.isLoggedIn()) { liff.login(); throw new Error("ログインし直しています"); }
+  const res = await fetch(LAYOUT_FN, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id_token: liff.getIDToken(), ...payload }) });
+  if (res.status === 403) throw new Error("この画面は運営専用です。");
+  if (res.status === 401) throw new Error("LINE の確認が切れました。閉じて開き直してください。");
+  if (!res.ok) throw new Error(`読み込みに失敗しました（${res.status}）`);
+  return res.json();
+}
+function showTab(which) {
+  const proof = which === "proof";
+  $("tab-stats").classList.toggle("on", !proof); $("tab-proof").classList.toggle("on", proof);
+  $("proof").hidden = !proof; document.body.classList.toggle("proof-on", proof);
+  if (proof) { $("view").hidden = true; $("msg").hidden = true; if (!PROOF_LIST) loadProofList(); }
+  else if (DATA) { $("view").hidden = false; } else { $("msg").hidden = false; }
+}
+async function loadProofList() {
+  const sel = $("pf-prime");
+  try {
+    PROOF_LIST = await opsLayout({ action: "list" });
+    const opts = [];
+    for (const co of PROOF_LIST.companies || []) for (const p of co.primes) opts.push(`<option value="${esc(p.id)}">${esc(co.name)} ／ ${esc(p.name)}</option>`);
+    sel.innerHTML = opts.length ? opts.join("") : '<option value="">型のある元請はまだありません</option>';
+  } catch (e) { sel.innerHTML = `<option value="">${esc(e.message)}</option>`; PROOF_LIST = null; }
+}
+const num = (id) => Number(String($(id).value).replace(/[^0-9.-]/g, "")) || 0;
+function fitProof() {
+  const box = $("proof-out"), t = box.querySelector(".fla-inv");
+  if (!t) return;
+  t.style.transform = ""; box.style.height = ""; box.style.width = "";
+  const k = Math.min(1, (box.parentElement.clientWidth - 2) / t.offsetWidth);
+  t.style.transform = `scale(${k})`; box.style.height = Math.ceil(t.offsetHeight * k) + "px";
+}
+async function runProof() {
+  const primeId = $("pf-prime").value;
+  if (!primeId) return;
+  $("pf-run").disabled = true; $("pf-run").textContent = "読み込み中…";
+  try {
+    const r = await opsLayout({ action: "layout", prime_contractor_id: primeId });
+    const kind = $("pf-kind").value;
+    const date = $("pf-date").value ? new Date($("pf-date").value + "T10:00:00+09:00") : new Date();
+    const rate = 0.1;
+    let plines, sub;
+    if (kind === "ukeoi") {
+      plines = [{ mode: "A2_rate", contract_id: "x", description: $("pf-desc").value, amount: num("pf-this"), billed_before: num("pf-prev"), cumulative_amount: num("pf-prev") + num("pf-this"),
+        __contract: { original_amount: num("pf-contract"), adjustment_amount: 0, contract_amount: num("pf-contract") } }];
+      sub = num("pf-this");
+    } else {
+      plines = [{ mode: "A1_unit", description: $("pf-wt").value, unit_price: num("pf-up"), half_price: num("pf-hp"), jinku_full: num("pf-full"), jinku_half: num("pf-half"), material_amount: num("pf-mat") }];
+      sub = num("pf-up") * num("pf-full") + num("pf-hp") * num("pf-half") + num("pf-mat");
+    }
+    const tax = Math.round(sub * rate);
+    const inv = { invoice_type: kind === "ukeoi" ? "ukeoi" : "joyo_other", issued_at: date.toISOString(), tax_rate: "0.100", tax_category: "taxable",
+      prime_contractors: { name: r.prime.name }, sites: { name: $("pf-site").value },
+      extra_fields: { [kind === "ukeoi" ? "注文番号" : "工事番号"]: $("pf-no").value, "現場担当者": $("pf-staff").value },
+      subtotal_amount: sub, tax_amount: tax, total_amount: sub + tax };
+    const st = { address: r.company.address, representative_name: r.company.representative_name, phone: r.company.phone, registration_number: r.company.registration_number,
+      bank_name: "（口座）", bank_branch: "（口座）", bank_account_type: "", bank_account_no: "（口座）", bank_account_name: "（口座）" };
+    const { values } = FLA_LAYOUT.values(r.layout, inv, plines, { name: r.company.name }, st, "");
+    $("proof-out").innerHTML = FLA_LAYOUT.render(r.layout, values);
+    $("pf-title").textContent = `試し刷り：${r.company.name} ／ ${r.prime.name}（${kind === "ukeoi" ? "請負" : "常用・請負外"}）`;
+    $("proof-card").hidden = false;
+    fitProof();
+    $("proof-card").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) {
+    $("pf-note").textContent = e.message || "読み込みに失敗しました";
+  } finally {
+    $("pf-run").disabled = false; $("pf-run").textContent = "試し刷りする";
+  }
+}
+$("tab-stats").onclick = () => showTab("stats");
+$("tab-proof").onclick = () => showTab("proof");
+$("pf-kind").onchange = () => { $("proof").dataset.kind = $("pf-kind").value; };
+$("pf-run").onclick = runProof;
+window.addEventListener("resize", fitProof);
+window.addEventListener("beforeprint", () => {
+  const t = $("proof-out").querySelector(".fla-inv"); if (!t || $("proof").hidden) return;
+  const k = Math.min(1, 1060 / t.offsetWidth);
+  t.style.transform = `scale(${k})`; $("proof-out").style.height = Math.ceil(t.offsetHeight * k) + "px"; $("proof-out").style.width = Math.ceil(t.offsetWidth * k) + "px";
+});
+window.addEventListener("afterprint", fitProof);
+try { $("pf-date").value = new Date(Date.now() + 9 * 3600000).toISOString().slice(0, 10); } catch (_) {}
 (async () => {
   const mock = new URLSearchParams(location.search).get("mock") === "1" && /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
   if (!mock) {
