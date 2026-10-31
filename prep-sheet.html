@@ -444,6 +444,42 @@ function loadLocal() {
   } catch (e) {}
 }
 
+/* ---- 下書きつきで開く（2026-10-31） ----
+   運営が登録済みの内容を下書きにしてリンクに付ける（#pre=…・招待リンク ?i= と組み合わせる）。
+   「見るだけ」の #s= と違い、そのまま直して書き足し、送れる。下書きを入れるのは最初の1回だけ
+   （同じ下書きで開き直しても、書いた続きを消さない）。下書きのリンクは scripts/prep-inbox.js prefill で作る */
+const PRE_KEY = "fla_prep_prefill_done";
+async function applyPrefill() {
+  const m = location.hash.match(/^#pre=([A-Za-z0-9_-]+)$/);
+  if (!m) return false;
+  const bn = $("sharedBanner");
+  bn.hidden = false;
+  const tag = m[1].length + ":" + m[1].slice(0, 24) + m[1].slice(-24);
+  let done = "";
+  try { done = localStorage.getItem(PRE_KEY) || ""; } catch (e) {}
+  let d;
+  try { d = await decode(m[1]); if (!d || d.v !== VER) throw new Error("ver"); }
+  catch (e) {
+    bn.className = "banner noprint err";
+    bn.textContent = "下書きを開けませんでした。リンクが途中で切れているか、古いブラウザの可能性があります。お手数ですが運営にご連絡ください。";
+    return false;
+  }
+  const note = "<b>運営が登録済みの内容を入れてあります</b>。" +
+    // 案内文はリンクから来るので、必ず文字として出す（HTMLとして扱わない）
+    (typeof d.note === "string" && d.note ? d.note.slice(0, 300).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])) : "中身を確かめて、足りないところを書き足してください。") +
+    "<br>書き終わったら、いちばん下の「この内容を FIELDLOG に送る」を押してください。";
+  if (done === tag) {
+    loadLocal();   // 2回目以降：書いた続きを出す
+    bn.innerHTML = note;
+    return true;
+  }
+  fill(d);
+  try { localStorage.setItem(PRE_KEY, tag); } catch (e) {}
+  saveLocal();
+  bn.innerHTML = note;
+  return true;
+}
+
 /* ---- 画面の動き ---- */
 document.querySelectorAll(".addrow").forEach((b) => b.addEventListener("click", () => { addRow(b.dataset.t); saveLocal(); }));
 document.querySelectorAll(".keepchk").forEach((cb) => cb.addEventListener("change", () => { secOf(cb).classList.toggle("excluded", cb.checked); saveLocal(); }));
@@ -472,7 +508,7 @@ async function boot() {
     $("clearBtn").hidden = true;
     return;
   }
-  loadLocal();
+  if (!(await applyPrefill())) loadLocal();
   document.addEventListener("input", (ev) => { if (ev.target.matches('input[type="text"]')) saveLocal(); });
 }
 
