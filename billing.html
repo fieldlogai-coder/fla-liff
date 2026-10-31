@@ -501,9 +501,12 @@
     <button class="btn" id="pdf-save" onclick="pdfAction('save')" disabled>📄 スマホに保存</button>
     <button class="btn btn-ghost" id="pdf-open-ext" hidden onclick="openPdfInBrowser()">ブラウザで開く</button>
     <div class="muted" id="pdf-hint" style="font-size:12px;line-height:1.7"></div>
+    <div class="muted" id="pdf-print-sp" style="font-size:12px;line-height:1.7" hidden>スマホで印刷するときは、「📄 スマホに保存」のあと、保存したPDFを開いて共有 →「プリント」を選んでください。</div>
   </div>
+  <div id="pc-print">
   <button class="btn no-print" style="margin-top:10px;max-width:760px;margin-left:auto;margin-right:auto;display:block" onclick="window.print()">印刷する（PC）</button>
   <div class="muted no-print" style="text-align:center;margin-top:8px">PCのブラウザで開くと「PDFに保存」を選べます。</div>
+  </div>
 </div>
 
 <!-- ⑦ マスタ設定（④c）: メニュー -->
@@ -1455,6 +1458,7 @@ async function openPrint() {
   document.getElementById("pv-bank").textContent = bk ? "お振込先：" + bk : "お振込先：（マスタの自社情報に口座を登録すると印字されます）";
   await renderCustomLayout(inv, plines, comp, st, primeRow, subject);
   showScreen("print");
+  applyPrintMode();
   fitCustomLayout();
   preparePdf(inv); // 待たない（準備の様子は PDF の欄に出す）
 }
@@ -1617,6 +1621,9 @@ async function saveEditInvoice() {
   await doIssue();
 }
 
+// スマホでは印刷の画面を呼べないので、PCの印刷ボタンを出さない（2026-10-31）
+const IS_PHONE = (() => { try { return (window.liff && liff.isInClient && liff.isInClient()) || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent); } catch (_e) { return false; } })();
+function applyPrintMode() { const pc = document.getElementById("pc-print"), sp = document.getElementById("pdf-print-sp"); if (pc) pc.hidden = IS_PHONE; if (sp) sp.hidden = !IS_PHONE; }
 // ── 請求書の PDF（2026-10-31・④d-2）───────────────────────────────────
 // 表示中の請求書（指定書式・共通様式とも）をその場で A4 の PDF にし、鍵付きの置き場（EF invoice-pdf）に保管する。
 // 渡し方は2つ：「PCのメールに送る」「スマホに保存」。どちらもスマホの共有画面（メール・ファイルに保存・LINE など）を使う。
