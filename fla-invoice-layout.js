@@ -16,65 +16,130 @@
   const okColor = (v) => /^#[0-9a-f]{6}$/i.test(v || "") ? v : null;
   const okBorder = (v) => /^\d+px (solid|dashed|dotted|double) #[0-9a-f]{6}$/i.test(v || "") ? v : null;
 
-  function cellStyle(s) {
-    const st = [];
-    if (s.fs) st.push(`font-size:${Math.min(Math.max(+s.fs || 11, 5), 40)}pt`);
-    if (s.b) st.push("font-weight:bold");
-    if (s.u) st.push("text-decoration:underline");
-    if (okColor(s.fc)) st.push(`color:${s.fc}`);
-    if (s.h) st.push(`text-align:${["left", "center", "right", "justify"].includes(s.h) ? s.h : "left"}`);
-    st.push(`vertical-align:${["top", "middle", "bottom"].includes(s.v) ? s.v : "bottom"}`);
-    if (s.vert) st.push("writing-mode:vertical-rl;text-orientation:upright;white-space:pre-wrap;letter-spacing:2px");
-    else if (s.wrap) st.push("white-space:pre-wrap"); else st.push("white-space:nowrap");
-    if (okColor(s.bg) && !HINT_FILLS.has(s.bg.toLowerCase())) st.push(`background:${s.bg}`);
-    for (const [k, side] of [["bl", "left"], ["br", "right"], ["bt", "top"], ["bb", "bottom"]]) {
-      const b = okBorder(s[k]); if (b) st.push(`border-${side}:${b}`);
-    }
-    return st.join(";");
+  // ── 描き方（2026-10-31 改）────────────────────────────────────────────
+  // 表（table）の罫線の重ね合わせは、スマホで PDF を作る部品（html2canvas）が二重・太線・途切れに描いてしまう。
+  // そこで、マスは位置を決めて置き（Excel と同じ列幅・行の高さ）、罫線は Excel と同じく「境目ごとに1本」を
+  // 自分で決めて線として引く（隣り合うマスの線が違うときは太い方）。
+  // フォントは様式どおり MS Pゴシック。入っていない端末（スマホ）は文字幅が同じ BIZ UDPゴシック を読み込む。
+  const FONT_FAMILY = "'MS PGothic','ＭＳ Ｐゴシック','BIZ UDPGothic',sans-serif";
+  const FONT_CSS = "https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&display=swap";
+  function ensureFont() {
+    try {
+      if (typeof document === "undefined" || document.querySelector('link[data-fla-font]')) return;
+      const l = document.createElement("link");
+      l.rel = "stylesheet"; l.href = FONT_CSS; l.dataset.flaFont = "1";
+      document.head.appendChild(l);
+    } catch (_e) { /* 読めなくても既定のフォントで描く */ }
   }
+  // PDF にする前に、使う文字のフォントを読み終えるまで待つ（最大4秒）
+  async function fontsReady(text) {
+    ensureFont();
+    if (typeof document === "undefined" || !document.fonts || !document.fonts.load) return;
+    const t = String(text || "").slice(0, 4000) || "請求書";
+    const wait = Promise.all([
+      document.fonts.load(`400 12px "BIZ UDPGothic"`, t),
+      document.fonts.load(`700 12px "BIZ UDPGothic"`, t),
+    ]).then(() => document.fonts.ready).catch(() => {});
+    await Promise.race([wait, new Promise((r) => setTimeout(r, 4000))]);
+  }
+  // 罫線の強さ（重なったときに強い方を残す）：二重線＞太線＞細線、同じ太さなら実線＞破線＞点線
+  function borderRank(b) {
+    const m = /^(\d+)px (solid|dashed|dotted|double)/.exec(b || ""); if (!m) return 0;
+    return (m[2] === "double" ? 100 : 0) + Number(m[1]) * 10 + ({ solid: 3, dashed: 2, dotted: 1, double: 3 })[m[2]];
+  }
+  const borderW = (b) => { const m = /^(\d+)px/.exec(b || ""); return m ? Number(m[1]) : 0; };
+  // 縦書き：1文字ずつ縦に並べる（括弧は縦書き用の形に）
+  const VERT_MAP = { "(": "︵", ")": "︶", "（": "︵", "）": "︶", "ー": "｜", "-": "｜", "「": "﹁", "」": "﹂" };
+  const toVert = (t) => Array.from(String(t)).map((ch) => VERT_MAP[ch] || ch).join("\n");
 
   function render(layout, values, opts) {
     opts = opts || {};
     values = values || {};
+    ensureFont();
     const nC = layout.cols.length, nR = layout.rows.length;
-    const totalW = layout.cols.reduce((a, b) => a + b, 0);
-    // 行×列の占有表（結合の右下を飛ばすため）
-    const at = {};
-    for (const c of layout.cells) at[c.r + "," + c.c] = c;
-    const skip = new Set();
-    for (const c of layout.cells) {
-      for (let r = c.r; r < c.r + (c.rs || 1); r++) for (let k = c.c; k < c.c + (c.cs || 1); k++) if (r !== c.r || k !== c.c) skip.add(r + "," + k);
-    }
-    let h = `<table class="fla-inv" style="border-collapse:collapse;table-layout:fixed;width:${totalW}px;font-family:'MS PGothic','Hiragino Kaku Gothic ProN','Noto Sans JP',sans-serif;color:#000;background:#fff">`;
-    h += "<colgroup>" + layout.cols.map((w) => `<col style="width:${w}px">`).join("") + "</colgroup>";
-    for (let r = 0; r < nR; r++) {
-      h += `<tr style="height:${layout.rows[r]}pt">`;
-      for (let c = 0; c < nC; c++) {
-        const k = r + "," + c;
-        if (skip.has(k)) continue;
-        const cell = at[k];
-        if (!cell) { h += "<td></td>"; continue; }
-        const span = (cell.rs > 1 ? ` rowspan="${cell.rs}"` : "") + (cell.cs > 1 ? ` colspan="${cell.cs}"` : "");
-        let text = cell.slot ? (values[cell.slot] ?? "") : (cell.text ?? "");
-        let slotAttr = "";
-        if (opts.editable && cell.a) {
-          if (cell.in && !(opts.locked && opts.locked.has(cell.a))) slotAttr = ` data-a="${esc(cell.a)}" class="fla-in" contenteditable="true" spellcheck="false" inputmode="${cell.z ? "decimal" : "text"}"`;
-          else if (cell.in) slotAttr = ` data-a="${esc(cell.a)}" class="fla-lock"`;
-          else if (cell.f) { slotAttr = ` data-a="${esc(cell.a)}" class="fla-f"`; text = ""; }
-        }
-        // 縮小して全体を表示（Excel の「縮小して全体を表示」）は、長い文字だけ小さくする
-        let st = cellStyle(cell.s || {});
-        if (cell.s && cell.s.shrink && text) {
-          const room = (layout.cols.slice(c, c + (cell.cs || 1)).reduce((a, b) => a + b, 0)) / ((+cell.s.fs || 11) * 1.33);
-          if (String(text).length > room) st += `;font-size:${Math.max(5, ((+cell.s.fs || 11) * room) / String(text).length).toFixed(1)}pt`;
-        }
-        // 見出しは Excel と同じく隣の空いたマスへはみ出してよい。差し込みのマスは枠の中に収める
-        const ov = cell.slot ? "hidden" : "visible";
-        h += `<td${span}${slotAttr} style="${st};overflow:${ov};padding:0 2px;line-height:1.15">${esc(text)}</td>`;
+    const PT = 4 / 3; // 行の高さ pt → px
+    const X = [0]; for (let c = 0; c < nC; c++) X.push(X[c] + layout.cols[c]);
+    const Y = [0]; for (let r = 0; r < nR; r++) Y.push(Y[r] + layout.rows[r] * PT);
+    const W = X[nC], H = Y[nR];
+    const px = (n) => Math.round(n * 100) / 100 + "px";
+    // 境目ごとの罫線：横線 hE["r,c"]＝r 行目の上の線（c 列ぶん）、縦線 vE["r,c"]＝c 列目の左の線（r 行ぶん）
+    const hE = {}, vE = {};
+    const put = (m, k, b) => { const ok = okBorder(b); if (ok && borderRank(ok) > borderRank(m[k])) m[k] = ok; };
+    let cellsHtml = "";
+    for (const cell of layout.cells) {
+      const s = cell.s || {}, r0 = cell.r, c0 = cell.c, rs = cell.rs || 1, cs = cell.cs || 1;
+      for (let c = c0; c < c0 + cs; c++) { put(hE, r0 + "," + c, s.bt); put(hE, (r0 + rs) + "," + c, s.bb); }
+      for (let r = r0; r < r0 + rs; r++) { put(vE, r + "," + c0, s.bl); put(vE, r + "," + (c0 + cs), s.br); }
+      const x = X[c0], y = Y[r0], w = X[c0 + cs] - x, h = Y[r0 + rs] - y;
+      if (w <= 0 || h <= 0) continue;
+      let text = cell.slot ? (values[cell.slot] ?? "") : (cell.text ?? "");
+      let attr = "";
+      if (opts.editable && cell.a) {
+        if (cell.in && !(opts.locked && opts.locked.has(cell.a))) attr = ` data-a="${esc(cell.a)}" class="fla-in" contenteditable="true" spellcheck="false" inputmode="${cell.z ? "decimal" : "text"}"`;
+        else if (cell.in) attr = ` data-a="${esc(cell.a)}" class="fla-lock"`;
+        else if (cell.f) { attr = ` data-a="${esc(cell.a)}" class="fla-f"`; text = ""; }
       }
-      h += "</tr>";
+      const fs = Math.min(Math.max(+s.fs || 11, 5), 40);
+      let size = fs;
+      const st = [`left:${px(x)}`, `top:${px(y)}`, `width:${px(w)}`, `height:${px(h)}`];
+      const hAlign = ["left", "center", "right", "justify"].includes(s.h) ? s.h : (cell.z && !s.vert ? "right" : "left");
+      const vAlign = ["top", "middle", "bottom"].includes(s.v) ? s.v : "bottom";
+      st.push(`align-items:${{ top: "flex-start", middle: "center", bottom: "flex-end" }[vAlign]}`);
+      st.push(`justify-content:${{ left: "flex-start", justify: "flex-start", center: "center", right: "flex-end" }[hAlign]}`);
+      st.push(`text-align:${hAlign}`);
+      if (s.vert) {
+        // 縦書き：高さに入る文字数を超えるときだけ小さく
+        const n = Array.from(String(text)).length;
+        const room = (h - 2) / (fs * PT * 1.05);
+        if (n > room && n) size = Math.max(4, (fs * room) / n);
+        text = toVert(text);
+        st.push("white-space:pre;line-height:1.05;justify-content:center;text-align:center");
+      } else {
+        if (s.shrink && text) {
+          const room = (w - 4) / (fs * PT);
+          const n = Array.from(String(text)).reduce((a, ch) => a + (/[\x20-\x7e｡-ﾟ]/.test(ch) ? 0.55 : 1), 0);
+          if (n > room) size = Math.max(5, (fs * room) / n);
+        }
+        st.push(s.wrap ? "white-space:pre-wrap;word-break:break-all" : "white-space:pre");
+        // 行の高さいっぱいの文字が下の線にかからないよう、行間は詰め、下寄せは線から少し離す
+        st.push("line-height:1.05");
+        if (vAlign === "bottom") st.push("padding-bottom:1.5px");
+      }
+      st.push(`font-size:${size.toFixed(1)}pt`);
+      if (s.b) st.push("font-weight:bold");
+      if (s.u) st.push("text-decoration:underline");
+      if (okColor(s.fc)) st.push(`color:${s.fc}`);
+      if (okColor(s.bg) && !HINT_FILLS.has(s.bg.toLowerCase())) st.push(`background:${s.bg}`);
+      // 見出しは Excel と同じく隣の空いたマスへはみ出してよい。差し込みのマスは枠の中に収める
+      st.push(`overflow:${cell.slot || cell.in || cell.f ? "hidden" : "visible"}`);
+      cellsHtml += `<div${attr} style="position:absolute;box-sizing:border-box;display:flex;padding:0 2px;${st.join(";")}">${esc(text)}</div>`;
     }
-    return h + "</table>";
+    // 線を引く（同じ種類が続くところは1本にまとめる）。角が欠けないよう、両端を線の太さの半分だけ伸ばす
+    let lines = "";
+    const maxVW = (r, c) => Math.max(borderW(vE[(r - 1) + "," + c]), borderW(vE[r + "," + c]));
+    const maxHW = (r, c) => Math.max(borderW(hE[r + "," + (c - 1)]), borderW(hE[r + "," + c]));
+    for (let r = 0; r <= nR; r++) {
+      let c = 0;
+      while (c < nC) {
+        const b = hE[r + "," + c]; if (!b || layout.cols[c] === 0) { c++; continue; }
+        let e = c + 1; while (e < nC && hE[r + "," + e] === b) e++;
+        const bw = borderW(b), ext0 = maxVW(r, c) / 2, ext1 = maxVW(r, e) / 2;
+        lines += `<div style="position:absolute;left:${px(X[c] - ext0)};top:${px(Y[r] - bw / 2)};width:${px(X[e] - X[c] + ext0 + ext1)};height:0;border-top:${b}"></div>`;
+        c = e;
+      }
+    }
+    for (let c = 0; c <= nC; c++) {
+      let r = 0;
+      while (r < nR) {
+        const b = vE[r + "," + c]; if (!b || layout.rows[r] === 0) { r++; continue; }
+        let e = r + 1; while (e < nR && vE[e + "," + c] === b) e++;
+        const bw = borderW(b), ext0 = maxHW(r, c) / 2, ext1 = maxHW(e, c) / 2;
+        lines += `<div style="position:absolute;left:${px(X[c] - bw / 2)};top:${px(Y[r] - ext0)};width:0;height:${px(Y[e] - Y[r] + ext0 + ext1)};border-left:${b}"></div>`;
+        r = e;
+      }
+    }
+    return `<div class="fla-inv" style="position:relative;width:${px(W + 2)};height:${px(H + 2)};font-family:${FONT_FAMILY};color:#000;background:#fff;-webkit-text-size-adjust:none;text-size-adjust:none">`
+      + `<div style="position:absolute;left:1px;top:1px;width:${px(W)};height:${px(H)}">${cellsHtml}<div style="position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none">${lines}</div></div></div>`;
   }
 
   // ── 請求データ → 型の差し込み名ごとの文字（請求画面と運営の試し刷りで同じ処理を使う）──
@@ -136,7 +201,7 @@
       rows.length = 0;
       for (const r of xrows) {
         const qty = Number(r.qty) || 0, price = Number(r.price) || 0;
-        if (!r.desc && !qty && !price) continue;
+        if (!String(r.desc || "").trim() && !price) continue; // 工事内容も金額も無い行は出さない（数量・単位だけ残った行）
         rows.push({ desc: r.desc || "", qty: r.qty ?? "", unit: r.unit || "", price, amount: qty * price, note: r.note || "" });
       }
     } else if (xrows) {
@@ -338,7 +403,91 @@
     };
   }
 
+  // ── PDF 用の画像を自前で描く（2026-10-31）────────────────────────────────
+  // 画面の部品（html2canvas）は文字を数px下にずらして描くため、指定書式は「画面に並んだとおりの位置」に
+  // 1文字ずつ・1本ずつ描き直す。el は画面に置いた .fla-inv（縮小していないもの）。
+  function toCanvas(el, scale) {
+    scale = scale || 2;
+    const base = el.getBoundingClientRect();
+    const W = Math.ceil(el.offsetWidth), H = Math.ceil(el.offsetHeight);
+    const cv = document.createElement("canvas");
+    cv.width = Math.ceil(W * scale); cv.height = Math.ceil(H * scale);
+    const ctx = cv.getContext("2d");
+    ctx.scale(scale, scale);
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H);
+    const rel = (r) => ({ x: r.left - base.left, y: r.top - base.top, w: r.width, h: r.height });
+    const divs = Array.from(el.querySelectorAll("div"));
+    // 1) 塗り
+    for (const d of divs) {
+      const bg = getComputedStyle(d).backgroundColor;
+      if (!bg || bg === "transparent" || /rgba\(.*,\s*0\)$/.test(bg)) continue;
+      const r = rel(d.getBoundingClientRect()); ctx.fillStyle = bg; ctx.fillRect(r.x, r.y, r.w, r.h);
+    }
+    // 2) 文字（1文字ずつ、画面の位置に）
+    const ascentCache = {};
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    let node;
+    while ((node = walker.nextNode())) {
+      const t = node.nodeValue; if (!t || !t.trim()) continue;
+      const host = node.parentElement, cs = getComputedStyle(host);
+      const font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      ctx.font = font;
+      if (!(font in ascentCache)) {
+        const m = ctx.measureText("請Ag");
+        ascentCache[font] = m.fontBoundingBoxAscent != null ? { a: m.fontBoundingBoxAscent, d: m.fontBoundingBoxDescent } : null;
+      }
+      const asc = ascentCache[font];
+      ctx.fillStyle = cs.color || "#000";
+      const under = /underline/.test(cs.textDecorationLine || cs.textDecoration || "");
+      ctx.save();
+      if (cs.overflow === "hidden") { const hr = rel(host.getBoundingClientRect()); ctx.beginPath(); ctx.rect(hr.x, hr.y, hr.w, hr.h); ctx.clip(); }
+      const chars = Array.from(t); let i = 0;
+      for (const ch of chars) {
+        const len = ch.length;
+        if (ch !== "\n" && (ch.trim() || under)) { // 下線は空白（字間）にも引く
+          range.setStart(node, i); range.setEnd(node, i + len);
+          const rr = Array.from(range.getClientRects()).find((q) => q.width > 0 || q.height > 0);
+          if (rr) {
+            const r = rel(rr);
+            // 文字の箱（フォントの上端〜下端）の上端＋フォントの上の高さ＝文字の基準線
+            const by = asc ? r.y + (r.h - (asc.a + asc.d)) / 2 + asc.a : r.y + r.h * 0.86;
+            ctx.textBaseline = "alphabetic";
+            if (ch.trim()) ctx.fillText(ch, r.x, by);
+            if (under) ctx.fillRect(r.x, by + 1.5, r.w, 1);
+          }
+        }
+        i += len;
+      }
+      ctx.restore();
+    }
+    // 3) 罫線（線のマスの上辺・左辺）
+    for (const d of divs) {
+      const cs = getComputedStyle(d);
+      const r = rel(d.getBoundingClientRect());
+      for (const side of ["Top", "Left"]) {
+        const w = parseFloat(cs[`border${side}Width`]) || 0, style = cs[`border${side}Style`];
+        if (!w || !style || style === "none" || style === "hidden") continue;
+        ctx.fillStyle = cs[`border${side}Color`] || "#000";
+        const horiz = side === "Top";
+        const len = horiz ? r.w : r.h;
+        const at = (pos, thick) => horiz ? ctx.fillRect(r.x, r.y + pos, len, thick) : ctx.fillRect(r.x + pos, r.y, thick, len);
+        if (style === "double") { const t = Math.max(0.6, w / 3); at(0, t); at(w - t, t); continue; }
+        if (style === "dotted" || style === "dashed") {
+          const on = style === "dotted" ? Math.max(1, w) : Math.max(3, w * 3), off = style === "dotted" ? Math.max(1, w) * 1.2 : on * 0.7;
+          for (let p = 0; p < len; p += on + off) {
+            const seg = Math.min(on, len - p);
+            if (horiz) ctx.fillRect(r.x + p, r.y, seg, w); else ctx.fillRect(r.x, r.y + p, w, seg);
+          }
+          continue;
+        }
+        at(0, w);
+      }
+    }
+    return cv;
+  }
+
   // slot の名前（正規表現）に合うマスの番地を返す（例：/^company\./ → 発行元のマス）
   function addrsBySlot(layout, re) { return layout.cells.filter((c) => c.a && c.slot && re.test(c.slot)).map((c) => c.a); }
-  global.FLA_LAYOUT = { render, values, mount, addrsBySlot };
+  global.FLA_LAYOUT = { render, values, mount, addrsBySlot, fontsReady, toCanvas };
 })(window);

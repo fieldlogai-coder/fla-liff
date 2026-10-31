@@ -660,7 +660,7 @@
 
 <script src="./fla-core.js?v=2026-10-30"></script>
 <script src="./fla-support.js?v=2026-10-30"></script>
-<script src="./fla-invoice-layout.js?v=2026-10-31d"></script>
+<script src="./fla-invoice-layout.js?v=2026-10-31e"></script>
 <script>
 // ── 設定 ───────────────────────────────────────────────────────────────
 const LIFF_ID   = "2009694631-7HvWrIGj";
@@ -1603,7 +1603,8 @@ async function saveEditInvoice() {
     const B = rows.reduce((s, r) => s + num(r.qty) * r.price, 0);
     if (B <= 0) { toast("内訳の金額が0円です。数量と単価を入れてください", true); return; }
     if (rows.some((r) => (num(r.qty) * r.price) !== Math.round(num(r.qty) * r.price))) { toast("内訳の金額に1円未満の端数があります。数量か単価を直してください", true); return; }
-    ex._rows = rows.map((r) => ({ desc: r.desc, qty: r.qty, unit: r.unit, price: r.price, note: r.note }));
+    // 工事内容も金額も無い行（数量・単位だけ残った行）は捨てる
+    ex._rows = rows.filter((r) => String(r.desc).trim() || r.price).map((r) => ({ desc: r.desc, qty: r.qty, unit: r.unit, price: r.price, note: r.note }));
     // 改訂の仕組みに乗せる（今の請負の明細を読み込み → 今月請求額を内訳の合計に → 記載を付けて発行）
     await reviseInvoice();
     if (!sel || sel.type !== "ukeoi") return;
@@ -1662,7 +1663,9 @@ async function buildPdfBlob() {
   holder.appendChild(clone);
   document.body.appendChild(holder);
   try {
-    const canvas = await window.html2canvas(clone, { scale: 2, backgroundColor: "#ffffff", logging: false });
+    if (custom && window.FLA_LAYOUT && FLA_LAYOUT.fontsReady) await FLA_LAYOUT.fontsReady(clone.textContent); // 様式のフォント（スマホは BIZ UDPゴシック）を読み終えてから写す
+    // 指定書式は画面の位置どおりに自前で描く（html2canvas は文字が数px下にずれる）。共通様式は従来どおり
+    const canvas = custom && FLA_LAYOUT.toCanvas ? FLA_LAYOUT.toCanvas(clone, 2.5) : await window.html2canvas(clone, { scale: 2, backgroundColor: "#ffffff", logging: false });
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: custom ? "landscape" : "portrait", unit: "mm", format: "a4" });
     const pw = doc.internal.pageSize.getWidth(), ph = doc.internal.pageSize.getHeight(), m = 8;
