@@ -58,7 +58,8 @@
         let text = cell.slot ? (values[cell.slot] ?? "") : (cell.text ?? "");
         let slotAttr = "";
         if (opts.editable && cell.a) {
-          if (cell.in) slotAttr = ` data-a="${esc(cell.a)}" class="fla-in" contenteditable="true" spellcheck="false" inputmode="${cell.z ? "decimal" : "text"}"`;
+          if (cell.in && !(opts.locked && opts.locked.has(cell.a))) slotAttr = ` data-a="${esc(cell.a)}" class="fla-in" contenteditable="true" spellcheck="false" inputmode="${cell.z ? "decimal" : "text"}"`;
+          else if (cell.in) slotAttr = ` data-a="${esc(cell.a)}" class="fla-lock"`;
           else if (cell.f) { slotAttr = ` data-a="${esc(cell.a)}" class="fla-f"`; text = ""; }
         }
         // 縮小して全体を表示（Excel の「縮小して全体を表示」）は、長い文字だけ小さくする
@@ -129,10 +130,23 @@
         rows.push({ desc: line.description || subject || "一式", qty: 1, unit: "式", price: line.amount ?? 0, amount: line.amount ?? 0 });
       }
     }
+    // その請求書の記載（表で直した内訳）：請負は行そのもの（合計＝今月請求額）、常用は名前と備考だけを重ねる
+    const xrows = Array.isArray(ex._rows) ? ex._rows : null;
+    if (xrows && isUkeoi) {
+      rows.length = 0;
+      for (const r of xrows) {
+        const qty = Number(r.qty) || 0, price = Number(r.price) || 0;
+        if (!r.desc && !qty && !price) continue;
+        rows.push({ desc: r.desc || "", qty: r.qty ?? "", unit: r.unit || "", price, amount: qty * price, note: r.note || "" });
+      }
+    } else if (xrows) {
+      xrows.forEach((r, i) => { if (!rows[i]) return; if (r.desc) rows[i].desc = r.desc; if (r.note) rows[i].note = r.note; });
+    }
     const max = (layout.fields && layout.fields["lines.max"]) || 5;
     rows.slice(0, max).forEach((r, i) => {
       const tax = Math.round(r.amount * rate);
       v[`lines.${i}.desc`] = r.desc; v[`lines.${i}.qty`] = String(r.qty); v[`lines.${i}.unit`] = r.unit;
+      v[`lines.${i}.note`] = r.note || "";
       v[`lines.${i}.price`] = yen(r.price); v[`lines.${i}.amount`] = yen(r.amount); v[`lines.${i}.tax`] = yen(tax); v[`lines.${i}.incl`] = yen(r.amount + tax);
     });
     v["total.subtotal"] = yen(inv.subtotal_amount ?? 0); v["total.tax"] = yen(inv.tax_amount ?? 0);
@@ -231,7 +245,9 @@
     const byA = {}, byRC = {};
     for (const c of layout.cells) if (c.a) { byA[c.a] = c; const rc = splitA(c.a); if (rc) byRC[rc[0] + "," + rc[1]] = c; }
     const ast = {};
-    for (const c of layout.cells) if (c.f) { try { ast[c.a] = parse(c.f); } catch (e) { ast[c.a] = { lit: ERR }; console.warn("[FLA_LAYOUT]", c.a, e.message); } }
+    // 式の差し替え（opts.formulas：番地 → 式。例：消費税の合計を請求データと同じ「合計から切り捨て」にする）
+    const fOver = opts.formulas || {};
+    for (const c of layout.cells) if (c.f || fOver[c.a]) { try { ast[c.a] = parse(fOver[c.a] || c.f); } catch (e) { ast[c.a] = { lit: ERR }; console.warn("[FLA_LAYOUT]", c.a, e.message); } }
     const paramAt = Object.assign({}, layout.params || {});
     const parseIn = (txt) => { const t = String(txt ?? "").replace(/[,，¥￥円\s]/g, ""); return /^-?\d+(\.\d+)?$/.test(t) ? +t : String(txt ?? "").trim(); };
     // 入力マスの値：最初は values（slot の文字）から
@@ -286,7 +302,8 @@
       }
       return String(v);
     }
-    box.innerHTML = render(layout, values, { editable: true });
+    const locked = opts.locked instanceof Set ? opts.locked : new Set(opts.locked || []);
+    box.innerHTML = render(layout, values, { editable: true, locked });
     const tds = {};
     box.querySelectorAll("[data-a]").forEach((el) => { tds[el.dataset.a] = el; });
     function recalc() {
@@ -295,7 +312,7 @@
       if (opts.onChange) opts.onChange();
     }
     for (const c of layout.cells) if (c.in && tds[c.a]) { const v = parseIn(inp[c.a]); tds[c.a].textContent = typeof v === "number" && c.z ? show(c, v) : inp[c.a]; }
-    const inCell = (e) => e.target && e.target.closest ? e.target.closest(".fla-in") : null;
+    const inCell = (e) => e.target && e.target.closest ? e.target.closest(".fla-in") : null; // .fla-lock は対象外
     box.addEventListener("input", (e) => { const el = inCell(e); if (!el) return; inp[el.dataset.a] = el.textContent; recalc(); });
     box.addEventListener("keydown", (e) => { const el = inCell(e); if (el && e.key === "Enter") { e.preventDefault(); el.blur(); } });
     box.addEventListener("focusout", (e) => {
@@ -315,9 +332,13 @@
       inputs() { return Object.assign({}, inp); },
       value(a) { const rc = splitA(a); memo = {}; return rc ? cellVal(rc[0], rc[1]) : undefined; },
       setInput(a, text) { if (!byA[a] || !byA[a].in) return; inp[a] = String(text); if (tds[a]) { const c = byA[a]; const v = parseIn(text); tds[a].textContent = typeof v === "number" && c.z ? show(c, v) : String(text); } recalc(); },
+      // 入力マスの値を差し込み名（slot）ごとに返す（保存用）
+      bySlot() { const o = {}; for (const c of layout.cells) if (c.in && c.slot) o[c.slot] = String(inp[c.a] ?? "").trim(); return o; },
       recalc,
     };
   }
 
-  global.FLA_LAYOUT = { render, values, mount };
+  // slot の名前（正規表現）に合うマスの番地を返す（例：/^company\./ → 発行元のマス）
+  function addrsBySlot(layout, re) { return layout.cells.filter((c) => c.a && c.slot && re.test(c.slot)).map((c) => c.a); }
+  global.FLA_LAYOUT = { render, values, mount, addrsBySlot };
 })(window);

@@ -144,6 +144,10 @@
     #pv-custom .fla-inv{transform-origin:0 0;}
     body.pv-custom-on #screen-print .sheet{display:none !important;} /* 指定書式のときは共通様式を出さない（画面・印刷とも） */
     .pv-note{font-size:12px;color:var(--sub);text-align:center;margin:8px auto 0;max-width:760px;line-height:1.7;}
+    #pv-custom.editing .fla-in{background:#eaf2ff !important;outline:1px dashed #6f9fe0;outline-offset:-2px;cursor:text;}
+    #pv-custom.editing .fla-in:focus{background:#fff6d1 !important;outline:2px solid #2f6fd0;outline-offset:-2px;}
+    .edit-bar{max-width:760px;margin:12px auto 0;display:flex;flex-direction:column;gap:8px;}
+    .edit-bar .hint{font-size:12.5px;line-height:1.7;color:var(--ink);background:#eaf2ff;border-radius:var(--r-sm);padding:9px 12px;}
     .pdf-panel{max-width:760px;margin:14px auto 0;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:12px;display:flex;flex-direction:column;gap:8px;}
     .pdf-panel .st{font-size:13px;font-weight:600;}
     .pdf-panel .btn:disabled{opacity:.5;}
@@ -152,6 +156,7 @@
     @media print{
       body{background:#fff !important;}
       header,#toast,.no-print,.fla-support{display:none !important;}
+      #pv-custom .fla-in{background:none !important;outline:none !important;}
       #pv-custom{overflow:hidden !important;padding:0 !important;margin:0 !important;background:#fff !important;border-radius:0 !important;}
       body.pv-custom-on #screen-print{page:inv-landscape;}
       .screen{padding:0 !important;}
@@ -484,6 +489,12 @@
   </div>
   <div id="pv-custom" hidden></div>
   <div class="pv-note no-print" id="pv-custom-note" hidden>元請の指定書式で表示しています（元のExcelと同じ形）。</div>
+  <button class="btn no-print" id="pv-edit-start" hidden style="max-width:760px;margin:12px auto 0;display:block" onclick="startEditInvoice()">✏️ この請求書を直す</button>
+  <div class="edit-bar no-print" id="pv-edit-bar" hidden>
+    <div class="hint" id="pv-edit-hint"></div>
+    <button class="btn btn-primary" onclick="saveEditInvoice()">直した内容で改訂する（第2版として発行）</button>
+    <button class="btn btn-ghost" onclick="cancelEditInvoice()">やめる（直す前に戻す）</button>
+  </div>
   <div class="pdf-panel no-print" id="pdf-panel" hidden>
     <div class="st" id="pdf-status">PDFを準備しています…</div>
     <button class="btn btn-primary" id="pdf-mail" onclick="pdfAction('mail')" disabled>📧 PCのメールに送る</button>
@@ -646,7 +657,7 @@
 
 <script src="./fla-core.js?v=2026-10-30"></script>
 <script src="./fla-support.js?v=2026-10-30"></script>
-<script src="./fla-invoice-layout.js?v=2026-10-31c"></script>
+<script src="./fla-invoice-layout.js?v=2026-10-31d"></script>
 <script>
 // ── 設定 ───────────────────────────────────────────────────────────────
 const LIFF_ID   = "2009694631-7HvWrIGj";
@@ -1297,7 +1308,7 @@ async function doIssue() {
       sel.existingDraftId = invoiceId;   // 発行に失敗しても次の「発行する」で同じ下書きを再利用（孤児の下書きを増やさない）
     }
     // 1.5 元請の必須欄（工事番号/注文番号など）を保存（列未適用でも発行は止めない）
-    sel.extraFields = collectExtraFields();
+    sel.extraFields = sel.extraOverride || collectExtraFields();
     const xr = await rPatch(`/billing_invoices?id=eq.${invoiceId}`, { extra_fields: sel.extraFields });
     if (!xr.ok) console.error("[extra]", xr.status);
     // 2. 明細（種類で分岐）。常用は複数工種＝複数行。調整行は mode='direct' で末尾に。金額はサーバ(issue_invoice)が確定。
@@ -1468,6 +1479,7 @@ const layoutValues = (...a) => FLA_LAYOUT.values(...a);
 async function renderCustomLayout(inv, plines, comp, st, primeRow, subject) {
   const box = document.getElementById("pv-custom"), note = document.getElementById("pv-custom-note");
   box.hidden = true; note.hidden = true; document.body.classList.remove("pv-custom-on");
+  lastLayoutCtx = null; showEditBar(false);
   if (!primeRow.invoice_template_ref) return;
   const layout = await fetchLayout(inv.prime_contractor_id);
   if (!layout || !window.FLA_LAYOUT) return;
@@ -1477,11 +1489,14 @@ async function renderCustomLayout(inv, plines, comp, st, primeRow, subject) {
     if (cr.ok) a2.__contract = (await cr.json())[0] || null;
   }
   const { values, overflow } = layoutValues(layout, inv, plines, comp, st, subject);
+  lastLayoutCtx = { layout, inv, values };
+  editCtx = null; box.classList.remove("editing");
   box.innerHTML = FLA_LAYOUT.render(layout, values);
   box.hidden = false; note.hidden = false; document.body.classList.add("pv-custom-on");
   note.textContent = overflow
     ? "元請の指定書式で表示しています。明細が欄の数より多いため、入りきらない行があります（手直しの画面で調整できるようになります）。"
     : "元請の指定書式で表示しています（元のExcelと同じ形）。";
+  showEditBar(false);
 }
 // 画面の幅に合わせて縮める（印刷時は A4 横に収める）
 function fitCustomLayout() {
@@ -1502,6 +1517,105 @@ window.addEventListener("beforeprint", () => {
   t.style.transform = `scale(${k})`; box.style.height = Math.ceil(t.offsetHeight * k) + "px"; box.style.width = Math.ceil(t.offsetWidth * k) + "px";
 });
 window.addEventListener("afterprint", fitCustomLayout);
+
+// ── 請求書の画面で直接直す（段C・2026-10-31）──────────────────────────────
+// 指定書式の請求書を、元の Excel で黄色だったマスだけタップで直し、「直した内容で改訂する」で第2版として発行する。
+// 直せないマス：請負の契約（当初・増減）・前月までの累計（請求データから決まる）／発行元・振込先（会社の登録情報）／非課税の○
+//   常用・請負外は、人工・単価・数量も直せない（人工の集計を崩さないため。人工は「修正する（改訂）」の入力画面で直す）
+// 行き先：注文番号・工事番号・現場担当者・工期＝その請求書の記載（extra_fields）／内訳＝請負は行の税抜合計が今月請求額、
+//   行の書き分けは extra_fields._rows／常用は名前と備考だけ _rows に重ねる／発行日の印字は extra_fields._display
+let editCtx = null;   // 直している請求書 { inv, layout, values, sheet }
+let lastLayoutCtx = null;
+function showEditBar(on) {
+  document.getElementById("pv-edit-start").hidden = on || !lastLayoutCtx || !cu || !cu.canBill || lastLayoutCtx.inv.status !== "issued";
+  document.getElementById("pv-edit-bar").hidden = !on;
+  document.getElementById("pdf-panel").hidden = on || document.getElementById("pdf-panel").dataset.ready !== "1";
+}
+function startEditInvoice() {
+  if (!lastLayoutCtx) return;
+  const { layout, inv, values } = lastLayoutCtx;
+  const isUkeoi = inv.invoice_type ? inv.invoice_type === "ukeoi" : true;
+  const A = (re) => FLA_LAYOUT.addrsBySlot(layout, re);
+  const locked = new Set([
+    ...A(/^company\./), ...A(/^bank\./), ...A(/^contract\./), ...A(/^dekidaka\.prev$/), ...A(/^lines\.\d+\.nontax$/),
+    ...(isUkeoi ? [] : A(/^lines\.\d+\.(qty|unit|price)$/)),
+  ]);
+  // 消費税の合計・税込合計は、請求データと同じ「税抜合計から切り捨て」で出す（行ごとの四捨五入の和とは1〜2円ずれることがある）
+  const [taxA] = A(/^total\.tax$/), [subA] = A(/^total\.subtotal$/), [inclA] = A(/^total\.incl2$/);
+  const formulas = {};
+  if (taxA && subA) formulas[taxA] = `ROUNDDOWN(${subA}*0.1,0)`;
+  if (inclA && subA && taxA) formulas[inclA] = `${subA}+${taxA}`;
+  const kindTexts = (layout.fields && layout.fields["kind.texts"]) || { ukeoi: "請負請求書", joyo: "常用・請負外請求書" };
+  const box = document.getElementById("pv-custom");
+  const sheet = FLA_LAYOUT.mount(box, layout, values, { locked, formulas, params: { "kind.text": isUkeoi ? kindTexts.ukeoi : kindTexts.joyo } });
+  editCtx = { inv, layout, values, sheet, isUkeoi };
+  box.classList.add("editing");
+  document.getElementById("pv-edit-hint").textContent = isUkeoi
+    ? "青い点線のマスをタップして直せます。内訳の税抜合計が「(B) 今月請求額」になります。契約金額・前月までの累計・発行元・振込先は、ここでは直せません。"
+    : "青い点線のマスをタップして直せます（工事内容の名前・備考・番号・工期など）。人工・単価は「修正する（改訂）」の入力画面で直してください。";
+  showEditBar(true);
+  fitCustomLayout();
+}
+function cancelEditInvoice() {
+  if (!lastLayoutCtx) return;
+  editCtx = null;
+  const box = document.getElementById("pv-custom");
+  box.classList.remove("editing");
+  box.innerHTML = FLA_LAYOUT.render(lastLayoutCtx.layout, lastLayoutCtx.values);
+  showEditBar(false);
+  fitCustomLayout();
+}
+const toYmd = (wy, m, d) => {
+  const y = Number(wy), mm = Number(m), dd = Number(d);
+  if (!y || !mm || !dd) return null;
+  return `${y + 2018}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+};
+async function saveEditInvoice() {
+  if (!editCtx || submitting) return;
+  const { inv, layout, sheet, isUkeoi, values } = editCtx;
+  const v = sheet.bySlot();
+  const ex = Object.assign({}, inv.extra_fields || {});
+  // 番号・担当者・工期
+  const numKey = isUkeoi ? "注文番号" : "工事番号";
+  if ("kind.number" in v) { if (v["kind.number"]) ex[numKey] = v["kind.number"]; else delete ex[numKey]; }
+  if ("extra.現場担当者" in v) { if (v["extra.現場担当者"]) ex["現場担当者"] = v["extra.現場担当者"]; else delete ex["現場担当者"]; }
+  const wf = toYmd(v["work.from.wy"], v["work.from.m"], v["work.from.d"]), wt = toYmd(v["work.to.wy"], v["work.to.m"], v["work.to.d"]);
+  if (wf) ex["工期開始"] = wf; else delete ex["工期開始"];
+  if (wt) ex["工期終了"] = wt; else delete ex["工期終了"];
+  // 発行日の印字（変えたときだけ）
+  const disp = Object.assign({}, ex._display || {});
+  for (const k of ["date.wy", "date.m", "date.d"]) { if (k in v && v[k] !== String(values[k] ?? "")) disp[k] = v[k]; }
+  if (Object.keys(disp).length) ex._display = disp; else delete ex._display;
+  // 内訳
+  const max = (layout.fields && layout.fields["lines.max"]) || 5;
+  const num = (t) => Number(String(t ?? "").replace(/[,，¥￥円\s]/g, "")) || 0;
+  const rows = [];
+  for (let i = 0; i < max; i++) {
+    const r = { desc: v[`lines.${i}.desc`] || "", qty: v[`lines.${i}.qty`] || "", unit: v[`lines.${i}.unit`] || "", price: num(v[`lines.${i}.price`]), note: v[`lines.${i}.note`] || "" };
+    rows.push(r);
+  }
+  while (rows.length && !rows[rows.length - 1].desc && !num(rows[rows.length - 1].qty) && !rows[rows.length - 1].price && !rows[rows.length - 1].note) rows.pop();
+  if (isUkeoi) {
+    const B = rows.reduce((s, r) => s + num(r.qty) * r.price, 0);
+    if (B <= 0) { toast("内訳の金額が0円です。数量と単価を入れてください", true); return; }
+    if (rows.some((r) => (num(r.qty) * r.price) !== Math.round(num(r.qty) * r.price))) { toast("内訳の金額に1円未満の端数があります。数量か単価を直してください", true); return; }
+    ex._rows = rows.map((r) => ({ desc: r.desc, qty: r.qty, unit: r.unit, price: r.price, note: r.note }));
+    // 改訂の仕組みに乗せる（今の請負の明細を読み込み → 今月請求額を内訳の合計に → 記載を付けて発行）
+    await reviseInvoice();
+    if (!sel || sel.type !== "ukeoi") return;
+    document.getElementById("in-b").value = fmt(B);
+    recalc(B);
+    sel.adjustments = [];   // 内訳がすべて：今月請求額は内訳の合計だけで決める
+  } else {
+    ex._rows = rows.map((r) => ({ desc: r.desc, note: r.note }));
+    await reviseInvoice();   // 人工・単価・材料費は今のまま
+    if (!sel || sel.type !== "joyo") return;
+  }
+  sel.extraOverride = ex;
+  editCtx = null;
+  document.getElementById("pv-custom").classList.remove("editing");
+  await doIssue();
+}
 
 // ── 請求書の PDF（2026-10-31・④d-2）───────────────────────────────────
 // 表示中の請求書（指定書式・共通様式とも）をその場で A4 の PDF にし、鍵付きの置き場（EF invoice-pdf）に保管する。
@@ -1564,6 +1678,7 @@ async function preparePdf(inv) {
   const panel = document.getElementById("pdf-panel");
   document.getElementById("pdf-open-ext").hidden = true;
   document.getElementById("pdf-hint").textContent = "";
+  panel.dataset.ready = "";
   if (!inv || inv.status !== "issued") { panel.hidden = true; return; }
   const no = inv.invoice_number || "";
   pdfState = { id: inv.id, blob: null, name: `請求書_${no || inv.id.slice(0, 8)}_${(inv.prime_contractors?.name ?? "").replace(/[\\/:*?"<>|\s]/g, "")}.pdf`, busy: true };
@@ -1573,6 +1688,8 @@ async function preparePdf(inv) {
     if (pdfState.id !== inv.id) return; // 途中で別の請求書を開いた
     pdfState.blob = blob;
     pdfUi(`PDFの準備ができました（A4・${Math.max(1, Math.round(blob.size / 1024))}KB）`, true);
+    document.getElementById("pdf-panel").dataset.ready = "1";
+    if (editCtx) document.getElementById("pdf-panel").hidden = true;
     // 保管（失敗しても送る・保存はできる）
     try {
       const token = await FLA.ensureToken();
