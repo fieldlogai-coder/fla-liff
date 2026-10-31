@@ -59,6 +59,12 @@
   .sendbox .warn{font-size:12px;color:var(--sub);margin-top:6px;}
   .btn.danger{background:#fff;color:#a33;border:1px solid #d9b3b3;}
   /* 行の追加・運営に送らない区分（2026-10 v2） */
+  /* 入れると使えるようになること（2026-10-31）：何のために書くかを各区分の頭で示す */
+  .gain{background:var(--info-bg);border-radius:var(--r-sm);padding:9px 12px;margin:0 0 10px;font-size:13px;line-height:1.7;color:var(--ink);}
+  .gain b{display:block;color:var(--info-ink);font-size:12.5px;margin-bottom:2px;}
+  .gain ul{margin:0;padding-left:1.2em;}
+  .gain li{margin:1px 0;}
+  .gain li span{color:var(--sub);font-size:12px;}
   .keep{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--ink);background:#faf9f5;border:1px dashed var(--line);border-radius:var(--r-sm);padding:8px 10px;margin-bottom:10px;cursor:pointer;}
   .keep input{width:18px;height:18px;margin-top:2px;flex-shrink:0;accent-color:var(--acc);}
   .keep small{display:block;color:var(--sub);font-size:11.5px;}
@@ -117,6 +123,7 @@
 <!-- ① 会社情報 -->
 <section class="sec" data-sec="s1" data-name="① 会社情報">
 <h2>① 会社情報 <span>請求書に印字されます</span></h2>
+<div class="gain"><b>✨ 入れると使えるようになること</b><ul><li>会社名・住所・電話・登録番号 → 請求書の発行元が自動で印字されます（インボイスの登録番号も）</li><li>振込先 → 請求書に振込先が自動で印字されます</li></ul></div>
 <div class="card">
   <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：運営に送る</span><small>口座なども含め、この区分は送られません。アプリの請求画面の「自社情報」から入れられます<span class="stop">入れるまで：請求書に会社名・住所・振込先が出ません</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
@@ -142,6 +149,7 @@
 <!-- ② 使う方 -->
 <section class="sec" data-sec="s2" data-name="② 使う方">
 <h2>② 使う方 <span>作業員の方も含めて全員</span></h2>
+<div class="gain"><b>✨ 入れると使えるようになること</b><ul><li>請求書を作る方（事務など） → 社長以外の方も請求書を作れ、ダッシュボードを見られます</li><li>職長・作業員の方 → LINEで登録して日報を出せます。日報の人工が請求書に自動で入ります</li></ul></div>
 <div class="card">
   <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：運営に送る</span><small>アプリの「設定」の作業員タブから、管理者の方が追加できます<span class="stop">入れるまで：職人さんがLINEで登録できません（名簿に名前が無いため）</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
@@ -165,6 +173,7 @@
 <!-- ③ 元請 -->
 <section class="sec" data-sec="s3" data-name="③ 請求先（元請）">
 <h2>③ 請求先（元請）ごとに <span>取引のある元請の数だけ</span></h2>
+<div class="gain"><b>✨ 入れると使えるようになること</b><ul><li>会社名・締め日 → その元請の請求書が作れます。締め日で請求の期間が自動で決まります</li><li>入金の条件 → ダッシュボードに入金予定・入金遅れが出ます</li><li>請求書に必ず書く欄 → 工事番号・注文番号などの書き忘れを防げます</li><li>指定の様式（＋請求書のExcel） → 今出している物と同じ形の請求書が作れ、PDFでメールに送る・スマホに保存できます</li></ul></div>
 <div class="card">
   <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：運営に送る</span><small>アプリの請求画面の「元請」から入れられます<span class="stop">入れるまで：請求書を作れません</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
@@ -187,6 +196,7 @@
 <!-- ④ 現場 -->
 <section class="sec" data-sec="s4" data-name="④ いま動いている現場">
 <h2>④ いま動いている現場</h2>
+<div class="gain"><b>✨ 入れると使えるようになること</b><ul><li>現場名 → 日報と請求書で、その現場を選べます</li><li>請負金額・工事名 → 請負の請求書で注文金額・出来高・残額が自動で計算されます。件名に工事名が入ります</li></ul></div>
 <div class="card">
   <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：運営に送る</span><small>アプリの請求画面の「現場」から入れられます。請負金額だけ隠したいときは、金額の欄を空けたまま送ってください<span class="stop">入れるまで：日報と請求書で、その現場を選べません</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
@@ -208,6 +218,7 @@
 <!-- ⑤ 常用単価 -->
 <section class="sec" data-sec="s5" data-name="⑤ 常用（人工）の単価">
 <h2>⑤ 常用（人工）の単価 <span>元請に請求する単価・常用の請求をする場合</span></h2>
+<div class="gain"><b>✨ 入れると使えるようになること</b><ul><li>工種ごとの終日・半日の単価 → 常用の請求は、人工を入れるだけで金額が出ます</li></ul></div>
 <div class="card">
   <label class="keep"><input type="checkbox" class="keepchk"><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：運営に送る</span><small>アプリの請求画面の「単価」から入れられます。単価は、別にお送りいただく請求書のExcelにも載っています<span class="stop">入れるまで：常用の請求書に単価が自動で入りません（手で入れれば作れます）</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
@@ -228,6 +239,7 @@
 <!-- ⑥ 経営の数字 -->
 <section class="sec excluded" data-sec="s6" data-name="⑥ 経営の数字">
 <h2>⑥ 経営の数字（ダッシュボード）のために <span>ざっくりで構いません</span></h2>
+<div class="gain"><b>✨ 入れると使えるようになること</b><ul><li>人工1人1日の原価 → ダッシュボードに人件費と粗利が出ます</li><li>会計年度の開始月 → 「今期」の売上や利益が、自社の年度で集計されます</li><li>利益率が低いと感じるライン → 利益が出ていない現場を、ダッシュボードが知らせます</li></ul></div>
 <div class="card">
   <label class="keep"><input type="checkbox" class="keepchk" checked><span>自分でアプリに入れる（運営に送らない）<span class="rec">おすすめ：自分で入れる</span><small>アプリのダッシュボードの「設定」から入れられます。原価や利益のラインは請求書にも載らない社内の数字なので、自分で入れるのがおすすめです。運営に任せたいときはチェックを外して書いてください<span class="stop">入れるまで：ダッシュボードの人件費・利益率が出ません</span></small></span></label>
   <div class="printnote">この区分は、自分でアプリに入れます</div>
