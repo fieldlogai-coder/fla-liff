@@ -449,16 +449,29 @@ function loadLocal() {
    「見るだけ」の #s= と違い、そのまま直して書き足し、送れる。下書きを入れるのは最初の1回だけ
    （同じ下書きで開き直しても、書いた続きを消さない）。下書きのリンクは scripts/prep-inbox.js prefill で作る */
 const PRE_KEY = "fla_prep_prefill_done";
-async function applyPrefill() {
+// 下書きの出どころ：①リンクの #pre=… ②招待リンク（?i=）で開いた時に、運営が招待に預けた下書きをサーバから受け取る（短いリンクで済む）
+async function prefillSource() {
   const m = location.hash.match(/^#pre=([A-Za-z0-9_-]+)$/);
-  if (!m) return false;
+  if (m) return m[1];
+  const urlInvite = new URLSearchParams(location.search).get("i");
+  if (!INVITE || urlInvite !== INVITE) return "";   // 招待リンクを開いた時だけ（2回目以降に覚えた招待では取りに行かない）
+  try {
+    const res = await fetch(INTAKE_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "draft", i: INVITE }) });
+    if (!res.ok) return "";
+    const r = await res.json();
+    return typeof r.prefill === "string" && /^[zp][A-Za-z0-9_-]+$/.test(r.prefill) ? r.prefill : "";
+  } catch (e) { return ""; }
+}
+async function applyPrefill() {
+  const src = await prefillSource();
+  if (!src) return false;
   const bn = $("sharedBanner");
   bn.hidden = false;
-  const tag = m[1].length + ":" + m[1].slice(0, 24) + m[1].slice(-24);
+  const tag = src.length + ":" + src.slice(0, 24) + src.slice(-24);
   let done = "";
   try { done = localStorage.getItem(PRE_KEY) || ""; } catch (e) {}
   let d;
-  try { d = await decode(m[1]); if (!d || d.v !== VER) throw new Error("ver"); }
+  try { d = await decode(src); if (!d || d.v !== VER) throw new Error("ver"); }
   catch (e) {
     bn.className = "banner noprint err";
     bn.textContent = "下書きを開けませんでした。リンクが途中で切れているか、古いブラウザの可能性があります。お手数ですが運営にご連絡ください。";
