@@ -376,6 +376,8 @@ let pBilling   = "";     // pending billing name
 let pSiteId    = null;   // pending site id (終了・編集用)
 let pWorkerId  = null;   // pending worker id (編集用)
 let allSubs    = [];     // 協力会社
+let allSubWorkers = [];  // 協力会社の作業員（2026-11-01）
+let swSubId    = null;   // 作業員の画面を開いている協力会社
 let pSubId     = null;   // pending subcontractor id
 let pSubName   = "";     // pending subcontractor name (類似確認待ち)
 
@@ -594,6 +596,8 @@ async function loadSubs() {
   const res = await get(`/subcontractors?company_id=eq.${cu.companyId}&select=id,name,active,sort_order&order=sort_order,name`);
   if (!res.ok) { document.getElementById("subs-list").innerHTML = '<div class="empty">取得に失敗しました</div>'; return; }
   allSubs = await res.json();
+  const wr = await get(`/subcontractor_workers?company_id=eq.${cu.companyId}&select=id,subcontractor_id,name,active,sort_order&order=sort_order,name`);
+  allSubWorkers = wr.ok ? await wr.json() : [];
   renderSubs();
 }
 function renderSubs() {
@@ -602,9 +606,12 @@ function renderSubs() {
   document.getElementById("subs-list").innerHTML = on.length ? on.map((x, i) => `<div class="card">
       <div class="card-title">${esc(x.name)}</div>
       ${i >= 11 ? '<div class="card-sub">12社目以降は日報のボタンに出ません（手で入力すれば使えます）</div>' : ""}
+      ${(() => { const ws = allSubWorkers.filter(w => w.subcontractor_id === x.id && w.active);
+        return `<div class="card-sub">作業員：${ws.length ? ws.map(w => esc(w.name)).join("、") : "未登録（日報では人数で入れます）"}</div>`; })()}
       ${edit ? `<div class="card-actions">
         ${i > 0 ? `<button class="btn-sm" onclick="moveSub('${x.id}')">↑ 上へ</button>` : ""}
-        <button class="btn-sm primary" onclick="openEditSub('${x.id}')">名前を直す</button>
+        <button class="btn-sm primary" onclick="openSubWorkers('${x.id}')">作業員</button>
+        <button class="btn-sm" onclick="openEditSub('${x.id}')">名前を直す</button>
         <button class="btn-sm danger" onclick="openOffSub('${x.id}')">使わない</button></div>` : ""}
     </div>`).join("") : '<div class="empty">協力会社はまだ登録されていません</div>';
   document.getElementById("subs-off").innerHTML = off.length ? `<div class="section-label" style="margin-top:14px">使わなくなった会社</div>` + off.map(x => `<div class="card">
@@ -674,6 +681,63 @@ async function setSubActive(id, active) {
   if (!res.ok) { toast("更新に失敗しました", true); return; }
   closeModal(); toast(active ? "また使えるようにしました" : "使わないにしました"); await loadSubs();
 }
+// ── 協力会社の作業員（2026-11-01）。日報で会社を選んだあと、来た人を名前のボタンで選べる ──
+function openSubWorkers(subId) {
+  swSubId = subId; modalMode = "sub-workers";
+  renderSubWorkers();
+}
+function renderSubWorkers() {
+  const sub = allSubs.find(x => x.id === swSubId); if (!sub) return;
+  const ws = allSubWorkers.filter(w => w.subcontractor_id === swSubId);
+  const on = ws.filter(w => w.active), off = ws.filter(w => !w.active);
+  const row = (w, active) => `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)">
+      <span style="flex:1;min-width:0;font-size:14px;${active ? "" : "color:var(--sub)"}">${esc(w.name)}</span>
+      ${active ? `<button class="btn-sm" onclick="renameSubWorker('${w.id}')">直す</button>
+        <button class="btn-sm danger" onclick="setSubWorkerActive('${w.id}', false)">使わない</button>`
+        : `<button class="btn-sm" onclick="setSubWorkerActive('${w.id}', true)">また使う</button>`}
+    </div>`;
+  setModal(`${esc(sub.name)} の作業員`, `
+    <p class="modal-note" style="margin:0 0 8px">日報でこの会社を選ぶと、ここの名前がボタンで出ます（上から10人）。</p>
+    ${on.length ? on.map(w => row(w, true)).join("") : '<div class="empty" style="padding:12px 0">まだ登録されていません</div>'}
+    ${off.length ? `<div class="info-label" style="margin-top:12px">使わなくなった人</div>` + off.map(w => row(w, false)).join("") : ""}
+    <div class="form-group" style="margin-top:14px"><label>名前を追加</label>
+      <div style="display:flex;gap:8px"><input type="text" id="mi-sw-name" placeholder="山田" maxlength="40" style="flex:1;min-width:0" />
+      <button class="btn-sm primary" onclick="addSubWorker()">追加</button></div></div>
+  `, `<button class="btn-cancel" onclick="closeModal()">閉じる</button>`);
+}
+async function addSubWorker() {
+  const name = val("mi-sw-name");
+  if (!name) { toast("名前を入力してください", true); return; }
+  const ws = allSubWorkers.filter(w => w.subcontractor_id === swSubId);
+  if (ws.some(w => w.name.trim() === name)) { toast("同じ名前がもう登録されています", true); return; }
+  const next = ws.reduce((m, w) => Math.max(m, w.sort_order || 0), 0) + 1;
+  const res = await post("/subcontractor_workers", { company_id: cu.companyId, subcontractor_id: swSubId, name, sort_order: next, created_by: cu.workerId });
+  if (!res.ok) { console.error("[addSubWorker]", res.status, await res.text().catch(() => "")); toast("登録に失敗しました", true); return; }
+  toast(`「${name}」を登録しました`); await loadSubs(); renderSubWorkers();
+}
+function renameSubWorker(id) {
+  const w = allSubWorkers.find(v => v.id === id); if (!w) return;
+  modalMode = "rename-sw";
+  setModal("名前を直す", `
+    <div class="form-group"><label>名前</label><input type="text" id="mi-sw-rename" value="${esc(w.name)}" maxlength="40" /></div>
+    <p class="modal-note">これまでの日報に残っている名前は変わりません。</p>
+  `, `<button class="btn-cancel" onclick="renderSubWorkers()">戻る</button>
+     <button class="btn-submit" onclick="doRenameSubWorker('${id}')">保存</button>`);
+}
+async function doRenameSubWorker(id) {
+  const name = val("mi-sw-rename");
+  if (!name) { toast("名前を入力してください", true); return; }
+  if (allSubWorkers.some(w => w.id !== id && w.subcontractor_id === swSubId && w.name.trim() === name)) { toast("同じ名前がもう登録されています", true); return; }
+  const res = await patch(`/subcontractor_workers?id=eq.${id}`, { name });
+  if (!res.ok) { toast("更新に失敗しました", true); return; }
+  toast("名前を直しました"); await loadSubs(); renderSubWorkers();
+}
+async function setSubWorkerActive(id, active) {
+  const res = await patch(`/subcontractor_workers?id=eq.${id}`, { active });
+  if (!res.ok) { toast("更新に失敗しました", true); return; }
+  await loadSubs(); renderSubWorkers();
+}
+
 async function moveSub(id) {
   const on = allSubs.filter(x => x.active);
   const i = on.findIndex(x => x.id === id); if (i <= 0) return;
