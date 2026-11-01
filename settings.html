@@ -304,7 +304,7 @@
   </div>
   <!-- 運営のサポート（管理者だけ・2026-10-31） -->
   <div id="support-wrap" style="display:none">
-    <div class="section-label">運営のサポート（請求の画面を見せる）</div>
+    <div class="section-label">運営のサポート（画面を見せる）</div>
     <div class="card" id="support-card"><div class="empty">読み込み中…</div></div>
   </div>
 </div>
@@ -453,10 +453,11 @@ function applyView(v) {
 // ── 運営のサポート（2026-10-31）──────────────────────────────────────
 // 管理者が「運営に見せる」を押すと、30日のあいだ運営（FIELDLOG サポート）が請求の画面を「見るだけ」で開ける。
 // いつでもやめられる。運営が見た日時はここに出る。許可の出し入れは EF support-access（管理者の証明でだけ動く）。
+// 2026-11-01: 見せる範囲を選べる（請求だけ／全部）。全部＝日報・現場メモ・作業員・日給・支払/入金・見込みも見るだけで見られる。
 const SUPPORT_FN = `${FLA.SUPA_URL}/functions/v1/support-access`;
-async function supportCall(action) {
+async function supportCall(action, extra) {
   const t = await FLA.ensureToken();
-  const r = await fetch(SUPPORT_FN, { method: "POST", headers: { "Authorization": `Bearer ${t}`, "Content-Type": "application/json" }, body: JSON.stringify({ action }) });
+  const r = await fetch(SUPPORT_FN, { method: "POST", headers: { "Authorization": `Bearer ${t}`, "Content-Type": "application/json" }, body: JSON.stringify({ action, ...(extra || {}) }) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
@@ -469,16 +470,21 @@ function renderSupport(d) {
   const g = d.grant;
   const views = d.views || [];
   const until = g ? new Date(g.expires_at).toLocaleDateString("ja-JP") : "";
+  const cur = g && g.scope === "all" ? "all" : "billing";
+  const opt = (v, title, body) => `<label style="display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line, #e2e0d8);border-radius:10px;margin-top:6px;font-size:13px;line-height:1.7;cursor:pointer">
+      <input type="radio" name="sup-scope" value="${v}" ${cur === v ? "checked" : ""} style="margin-top:4px">
+      <span><b>${title}</b><br>${body}</span></label>`;
   document.getElementById("support-card").innerHTML = `
     <div style="font-size:13px;line-height:1.8;color:var(--ink)">
-      困ったときに、運営（FIELDLOG サポート）があなたの会社の<b>請求の画面を「見るだけ」</b>で確認できるようにします。<br>
-      ・見られるもの：請求書・元請・現場・請負金額・単価・振込先<br>
-      ・見られないもの：日報・作業員・現場メモ<br>
-      ・運営は<b>直したり発行したりできません</b>。30日で自動で終わり、いつでもやめられます。
+      困ったときに、運営（FIELDLOG サポート）があなたの会社の画面を<b>「見るだけ」</b>で確認できるようにします。
+      運営は<b>直したり発行したりできません</b>。30日で自動で終わり、いつでもやめられます。
     </div>
-    <div style="margin:12px 0 4px;font-size:14px;font-weight:bold">${g ? `✅ 運営に見せています（${esc(until)} まで）` : "いまは見せていません"}</div>
+    <div class="info-label" style="margin-top:10px">見せる範囲</div>
+    ${opt("billing", "請求だけ", "請求書・元請・現場・請負金額・単価・振込先・協力会社")}
+    ${opt("all", "全部", "請求に加えて、ダッシュボード（作業員の日給・支払/入金の予定・見込みの案件を含む）・日報・休み・現場メモ・作業員の名前。<br>作業員の LINE の情報は見られません")}
+    <div style="margin:12px 0 4px;font-size:14px;font-weight:bold">${g ? `✅ 運営に見せています（${cur === "all" ? "全部" : "請求だけ"}・${esc(until)} まで）` : "いまは見せていません"}</div>
     <div class="card-actions" style="margin-top:8px">
-      ${g ? `<button class="btn-sm danger" onclick="supportSet('revoke')">見せるのをやめる</button><button class="btn-sm primary" onclick="supportSet('grant')">今日から30日に延ばす</button>`
+      ${g ? `<button class="btn-sm danger" onclick="supportSet('revoke')">見せるのをやめる</button><button class="btn-sm primary" onclick="supportSet('grant')">選んだ範囲で今日から30日に</button>`
            : `<button class="btn-sm primary" onclick="supportSet('grant')">運営に見せる（30日）</button>`}
     </div>
     <div class="info-label" style="margin-top:12px">運営が見た記録（最近20回）</div>
@@ -486,8 +492,10 @@ function renderSupport(d) {
 }
 async function supportSet(action) {
   try {
-    await supportCall(action);
-    toast(action === "grant" ? "運営に見せるようにしました（30日）" : "運営に見せるのをやめました");
+    const sel = document.querySelector('input[name="sup-scope"]:checked');
+    const scope = sel && sel.value === "all" ? "all" : "billing";
+    await supportCall(action, action === "grant" ? { scope } : null);
+    toast(action === "grant" ? `運営に見せるようにしました（${scope === "all" ? "全部" : "請求だけ"}・30日）` : "運営に見せるのをやめました");
     await loadSupport();
   } catch (e) { toast("うまくいきませんでした：" + e.message, true); }
 }

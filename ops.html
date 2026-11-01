@@ -105,7 +105,7 @@
   <section id="sup" hidden>
     <div class="c">
       <div class="c-t"><b>お客さんの画面（許可があるときだけ）</b></div>
-      <p class="note">お客さんの管理者が、設定の画面で「運営に見せる（30日）」を押している会社だけが出ます。開くと、その会社の請求の画面を<b>見るだけ</b>で開きます（直す・発行する・取消はできません。1回1時間）。開いた日時はお客さんの設定の画面に出ます。</p>
+      <p class="note">お客さんの管理者が、設定の画面で「運営に見せる（30日）」を押している会社だけが出ます。範囲は「請求だけ」か「全部」をお客さんが選びます。開くと、その会社の画面を<b>見るだけ</b>で開きます（直す・発行する・取消はできません。1回1時間）。開いた日時はお客さんの設定の画面に出ます。</p>
     </div>
     <div id="sup-list"><div class="c note">読み込み中…</div></div>
   </section>
@@ -324,8 +324,13 @@ async function loadSupList() {
     if (!res.ok) throw new Error(`読み込みに失敗しました（${res.status}）`);
     const d = await res.json();
     const gs = d.grants || [];
-    box.innerHTML = gs.length ? gs.map((g) => `<div class="c"><div class="c-t"><b>${esc(g.company_name)}</b><span>${esc(new Date(g.expires_at).toLocaleDateString("ja-JP"))} まで</span></div>
-      <a class="pbtn" style="display:block;text-align:center;text-decoration:none;margin-top:6px" href="${BILLING_LIFF}?support=${encodeURIComponent(g.company_id)}">請求の画面を開く（見るだけ）</a></div>`).join("")
+    // 開ける画面（scope: billing＝請求だけ／all＝全部）。ダッシュボード・現場メモ・登録は「見るだけ」対応ができたら足す
+    const SCREENS = [{ label: "請求の画面", url: BILLING_LIFF, scopes: ["billing", "all"] }];
+    box.innerHTML = gs.length ? gs.map((g) => {
+      const sc = g.scope === "all" ? "all" : "billing";
+      return `<div class="c"><div class="c-t"><b>${esc(g.company_name)}</b><span>${sc === "all" ? "全部" : "請求だけ"}・${esc(new Date(g.expires_at).toLocaleDateString("ja-JP"))} まで</span></div>
+      ${SCREENS.filter((x) => x.scopes.includes(sc)).map((x) => `<a class="pbtn" style="display:block;text-align:center;text-decoration:none;margin-top:6px" href="${x.url}?support=${encodeURIComponent(g.company_id)}">${x.label}を開く（見るだけ）</a>`).join("")}</div>`;
+    }).join("")
       : '<div class="c note">いま許可を出している会社はありません。</div>';
   } catch (e) { box.innerHTML = `<div class="c note">${esc(e.message)}</div>`; }
 }
