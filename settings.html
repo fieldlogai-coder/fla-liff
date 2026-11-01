@@ -273,7 +273,11 @@
     #toast.err { background: var(--warn); }
 
     .empty { text-align: center; color: #aaa; padding: 30px 0; font-size: 14px; }
-  </style>
+    /* 運営の「見るだけ」（?support=会社ID・お客さんが「全部」を許可している間だけ・2026-11-01）＝現場・人の登録だけを見る */
+  .fla-support-bar{position:static !important;}
+  body.support-mode #view-switch, body.support-mode #add-site-note, body.support-mode #add-sub-note,
+  body.support-mode .add-btn, body.support-mode [data-fla-snap]{display:none !important;}
+</style>
 </head>
 <body>
 
@@ -352,7 +356,7 @@
 
 <div id="toast"></div>
 
-<script src="./fla-core.js?v=2026-11-01"></script>
+<script src="./fla-core.js?v=2026-11-01b"></script>
 <script src="./fla-support.js?v=2026-11-01"></script>
 <script>
 // ── 定数 ─────────────────────────────────────────────────────────────
@@ -397,6 +401,16 @@ let view = START_VIEW;
     if (!liff.isLoggedIn()) { liff.login(); return; }
     const profile = await liff.getProfile();
     cu = { lineId: profile.userId };
+    const supportCid = FLA.supportCompanyId();
+    if (supportCid) {
+      let d;
+      try { d = await FLA.openSupport(supportCid, "all"); }
+      catch (e) { document.getElementById("loading").innerHTML = `<div class="empty" style="padding:24px 16px">${esc(e.message)}</div>`; return; }
+      cu = { ...cu, workerId: null, name: "運営（見るだけ）", role: "support", companyId: supportCid, companyName: d.company_name || "", canBill: false, support: true };
+      await Promise.all([loadSites(), loadWorkers(), loadSubs()]);
+      hide(); applyView("register");
+      return;
+    }
     await FLA.ensureToken();   // 認証経路を先に確立（失敗ならここで止める）
     await boot();
   } catch (e) {
@@ -1012,8 +1026,10 @@ function onModalBg(e) { if (e.target === document.getElementById("modal")) close
 
 // ── REST ヘルパー（共通基盤 FLA.rest の薄いラッパ。挙動は従来どおり）──
 const get   = p       => FLA.rest(p);
-const post  = (p, b)  => FLA.rest(p, { method: "POST",  headers: { "Content-Type": "application/json", "Prefer": "return=representation" }, body: JSON.stringify(b) });
-const patch = (p, b)  => FLA.rest(p, { method: "PATCH", headers: { "Content-Type": "application/json", "Prefer": "return=minimal" }, body: JSON.stringify(b) });
+// 運営の「見るだけ」では書き込みを送らない（DB 側でも読むことしかできない）
+const readOnly = () => { toast("運営は見るだけです（変更はできません）", true); return Promise.resolve(new Response("[]", { status: 403 })); };
+const post  = (p, b)  => cu && cu.support ? readOnly() : FLA.rest(p, { method: "POST",  headers: { "Content-Type": "application/json", "Prefer": "return=representation" }, body: JSON.stringify(b) });
+const patch = (p, b)  => cu && cu.support ? readOnly() : FLA.rest(p, { method: "PATCH", headers: { "Content-Type": "application/json", "Prefer": "return=minimal" }, body: JSON.stringify(b) });
 
 // ── 類似名チェック ────────────────────────────────────────────────────
 function levenshtein(a, b) {

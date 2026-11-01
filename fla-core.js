@@ -43,7 +43,10 @@
   //     need="all" のときは、お客さんが「全部」を選んでいないと開かない。失敗は Error(画面に出す文)。
   //   戻り値 { company_name, grant_expires_at, scope }。画面の上に紫の帯を出し、body に support-mode を付ける
   function supportCompanyId() {
-    const v = new URLSearchParams(global.location.search).get("support");
+    const q = new URLSearchParams(global.location.search);
+    let v = q.get("support");
+    // LINE が最初の読み込みで liff.state に包んで渡すことがある
+    if (!v && q.get("liff.state")) { try { v = new URLSearchParams(q.get("liff.state").replace(/^[^?]*\?/, "")).get("support"); } catch (_e) { /* 無視 */ } }
     return v && /^[0-9a-f-]{36}$/i.test(v) ? v : null;
   }
   async function openSupport(cid, need) {

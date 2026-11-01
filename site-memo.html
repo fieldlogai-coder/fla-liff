@@ -313,6 +313,10 @@
       z-index: 200;
     }
     #toast.show { opacity: 1; }
+    /* 運営の「見るだけ」（?support=会社ID・お客さんが「全部」を許可している間だけ・2026-11-01） */
+    .fla-support-bar{position:static !important;}
+    body.support-mode #fab, body.support-mode .confirm-btn, body.support-mode .delete-btn, body.support-mode [data-fla-snap]{display:none !important;}
+    body.support-mode .st-badge{pointer-events:none;}
   </style>
 </head>
 <body>
@@ -367,7 +371,7 @@
 <!-- hidden file input -->
 <input type="file" id="file-input" accept="image/*" style="display:none" onchange="onFileSelected(event)" />
 
-<script src="./fla-core.js?v=2026-11-01"></script>
+<script src="./fla-core.js?v=2026-11-01b"></script>
 <script src="./fla-support.js?v=2026-11-01"></script>
 <script>
 // ── 設定 ───────────────────────────────────────────────────────────────
@@ -395,6 +399,15 @@ let currentScreen = "sites";
     const profile = await liff.getProfile();
     currentUser = { lineId: profile.userId, name: profile.displayName };
 
+    const supportCid = FLA.supportCompanyId();
+    if (supportCid) {
+      try { await FLA.openSupport(supportCid, "all"); }
+      catch (e) { document.getElementById("loading").innerHTML = `<p class="empty" style="padding:24px 16px">${escHtml(e.message)}</p>`; return; }
+      currentUser = { ...currentUser, name: "運営（見るだけ）", workerId: null, companyId: supportCid, support: true };
+      await loadSites();
+      return;
+    }
+
     await FLA.ensureToken();   // 認証経路を先に確立（失敗ならここで止める）
     await loadSites();
   } catch (e) {
@@ -409,18 +422,30 @@ let currentScreen = "sites";
 
 // ── REST 呼び出しヘルパー（共通基盤 FLA.rest の薄いラッパ）──
 // ※ 写真アップロード（Storage）は anon のまま（uploadPhoto は本ヘルパーを通さない）。
-const sbFetch = (path, init) => FLA.rest(path, init);
+// 運営の「見るだけ」では書き込みを送らない（DB 側でも読むことしかできない）
+const sbFetch = (path, init) => {
+  if (currentUser && currentUser.support && init && init.method && init.method !== "GET") {
+    showToast("運営は見るだけです（変更はできません）");
+    return Promise.resolve(new Response("[]", { status: 403 }));
+  }
+  return FLA.rest(path, init);
+};
 
 // ── 現場一覧取得 ─────────────────────────────────────────────────────
 async function loadSites() {
   showLoading();
   try {
-    // 1. workersテーブルでLINEユーザーIDを照合してcompany_idを取得
-    const workerRes = await sbFetch(
-      `/workers?line_user_id=eq.${encodeURIComponent(currentUser.lineId)}&select=id,name,company_id`
-    );
-    if (!workerRes.ok) throw new Error("workers HTTP " + workerRes.status);
-    const workers = await workerRes.json();
+    // 1. workersテーブルでLINEユーザーIDを照合してcompany_idを取得（運営の見るだけは許可の会社をそのまま使う）
+    let workers;
+    if (currentUser.support) {
+      workers = [{ id: null, name: currentUser.name, company_id: currentUser.companyId }];
+    } else {
+      const workerRes = await sbFetch(
+        `/workers?line_user_id=eq.${encodeURIComponent(currentUser.lineId)}&select=id,name,company_id`
+      );
+      if (!workerRes.ok) throw new Error("workers HTTP " + workerRes.status);
+      workers = await workerRes.json();
+    }
 
     const list = document.getElementById("site-list");
 

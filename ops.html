@@ -324,8 +324,8 @@ async function loadSupList() {
     if (!res.ok) throw new Error(`読み込みに失敗しました（${res.status}）`);
     const d = await res.json();
     const gs = d.grants || [];
-    // 開ける画面（scope: billing＝請求だけ／all＝全部）。現場メモ・登録・日報の一覧は「見るだけ」対応ができたら足す
-    const SCREENS = [{ label: "請求の画面", url: BILLING_LIFF, scopes: ["billing", "all"] }, { label: "ダッシュボード", url: "https://liff.line.me/2009694631-JZQ5AgVq", scopes: ["all"] }];
+    // 開ける画面（scope: billing＝請求だけ／all＝全部）
+    const SCREENS = [{ label: "請求の画面", url: BILLING_LIFF, scopes: ["billing", "all"] }, { label: "ダッシュボード（日報を含む）", url: "https://liff.line.me/2009694631-JZQ5AgVq", scopes: ["all"] }, { label: "現場メモ", url: "https://liff.line.me/2009694631-Q9UpokY1", scopes: ["all"] }, { label: "現場・人の登録", url: "https://liff.line.me/2009694631-cnI1l3gj", scopes: ["all"] }];
     box.innerHTML = gs.length ? gs.map((g) => {
       const sc = g.scope === "all" ? "all" : "billing";
       return `<div class="c"><div class="c-t"><b>${esc(g.company_name)}</b><span>${sc === "all" ? "全部" : "請求だけ"}・${esc(new Date(g.expires_at).toLocaleDateString("ja-JP"))} まで</span></div>
