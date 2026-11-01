@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>設定・確認</title>
+  <title>設定</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <link rel="stylesheet" href="./fla-tokens.css?v=2026-07-17" />
   <style>
@@ -277,13 +277,16 @@
 </head>
 <body>
 
-<header><h1>設定・確認</h1></header>
+<header><h1 id="page-title">設定</h1></header>
 
+<!-- 1つの画面を2つの入口で使い分ける（2026-11-01）
+     ・設定（メニュー上の帯の ⚙）＝自分の情報・単価・運営のサポート
+     ・現場・人の登録（日報メニュー）＝現場・作業員。URL に ?view=register -->
 <nav id="tab-bar">
-  <button class="tab active" onclick="showTab('info')">自分の情報</button>
-  <button class="tab" onclick="showTab('sites')">現場</button>
-  <button class="tab" onclick="showTab('workers')">作業員</button>
-  <button class="tab" id="tab-pricing" style="display:none" onclick="showTab('pricing')">単価</button>
+  <button class="tab active" data-view="settings" onclick="showTab('info')">自分の情報</button>
+  <button class="tab" data-view="register" onclick="showTab('sites')">現場</button>
+  <button class="tab" data-view="register" onclick="showTab('workers')">作業員</button>
+  <button class="tab" data-view="settings" data-admin="1" id="tab-pricing" style="display:none" onclick="showTab('pricing')">単価</button>
 </nav>
 
 <div id="loading">読み込み中…</div>
@@ -293,6 +296,11 @@
   <div class="card" id="profile-card"></div>
   <div class="section-label">直近10件の報告履歴</div>
   <div class="card" id="history-card"><div class="empty">読み込み中…</div></div>
+  <div class="section-label">現場・作業員の登録</div>
+  <div class="card">
+    <div class="card-sub" style="margin-top:0;line-height:1.7">新しい現場や作業員は、日報メニューの「現場・人の登録」から入れられます。</div>
+    <div class="card-actions" style="margin-top:8px"><button class="btn-sm primary" onclick="applyView('register')">現場・人の登録を開く</button></div>
+  </div>
   <!-- 運営のサポート（管理者だけ・2026-10-31） -->
   <div id="support-wrap" style="display:none">
     <div class="section-label">運営のサポート（請求の画面を見せる）</div>
@@ -311,6 +319,10 @@
 <div id="section-workers" class="section">
   <div id="workers-list"></div>
   <button class="add-btn" id="add-worker-btn" style="display:none" onclick="openAddWorker()">＋ 作業員を追加</button>
+</div>
+
+<div id="view-switch" style="display:none;text-align:center;padding:0 16px 40px">
+  <button class="btn-sm" onclick="applyView('settings')">⚙ 設定（自分の情報など）へ</button>
 </div>
 
 <!-- セクション4: 単価 (admin only) -->
@@ -354,6 +366,15 @@ let pBilling   = "";     // pending billing name
 let pSiteId    = null;   // pending site id (終了・編集用)
 let pWorkerId  = null;   // pending worker id (編集用)
 
+// どちらの入口から開いたか。liff.line.me/{id}?view=register は、そのまま ?view= か、liff.state に入って届く
+const START_VIEW = (() => {
+  const q = new URLSearchParams(location.search);
+  let v = q.get("view");
+  if (!v && q.get("liff.state")) { try { v = new URLSearchParams(q.get("liff.state").replace(/^[^?]*?/, "")).get("view"); } catch { /* 無視 */ } }
+  return v === "register" ? "register" : "settings";
+})();
+let view = START_VIEW;
+
 // ── 初期化 ───────────────────────────────────────────────────────────
 (async () => {
   try {
@@ -395,7 +416,21 @@ async function boot() {
   document.getElementById("add-site-note").style.display = canEditSites ? "none" : "";
   renderProfile();
   await Promise.all([loadHistory(), loadSites(), loadWorkers(), ...(cu.role === "admin" ? [loadPricing()] : [])]);
-  hide(); showSec("info");
+  hide(); applyView(view);
+}
+
+// 設定 ⇔ 現場・人の登録 の切り替え（同じ画面の中で、出すタブを変えるだけ）
+function applyView(v) {
+  view = v === "register" ? "register" : "settings";
+  const reg = view === "register";
+  document.getElementById("page-title").textContent = reg ? "現場・人の登録" : "設定";
+  document.title = reg ? "現場・人の登録" : "設定";
+  document.querySelectorAll("#tab-bar .tab").forEach((t) => {
+    t.style.display = t.dataset.view === view && (!t.dataset.admin || cu?.role === "admin") ? "" : "none";
+  });
+  document.getElementById("view-switch").style.display = reg ? "" : "none";
+  showTab(reg ? "sites" : "info");
+  window.scrollTo(0, 0);
 }
 
 // ── 運営のサポート（2026-10-31）──────────────────────────────────────
