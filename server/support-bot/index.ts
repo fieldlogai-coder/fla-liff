@@ -269,9 +269,15 @@ Deno.serve(async (req) => {
     });
   }
   if (req.method !== "POST") return new Response("Method Not Allowed", { status: 405 });
-  if (!CHANNEL_SECRET || !CHANNEL_TOKEN) return new Response("not configured", { status: 500 });
+  if (!CHANNEL_SECRET || !CHANNEL_TOKEN) {
+    console.error("[support-bot] not configured", { channel_secret: !!CHANNEL_SECRET, channel_token: !!CHANNEL_TOKEN });
+    return new Response("not configured", { status: 500 });
+  }
   const body = await req.text();
-  if (!(await validSignature(body, req.headers.get("x-line-signature")))) return new Response("unauthorized", { status: 401 });
+  if (!(await validSignature(body, req.headers.get("x-line-signature")))) {
+    console.error("[support-bot] bad signature（OPS_CHANNEL_SECRET がサポート用チャネルのものか確認）");
+    return new Response("unauthorized", { status: 401 });
+  }
 
   let events: LineEvent[] = [];
   try { events = (JSON.parse(body).events ?? []) as LineEvent[]; } catch { return new Response("bad request", { status: 400 }); }
