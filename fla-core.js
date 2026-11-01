@@ -37,6 +37,39 @@
     flaToken = token; flaTokenExp = Date.now() + (Number(expiresIn) || 3600) * 1000; flaFixed = true;
   }
 
+  // 運営の「見るだけ」で開く共通の入口（2026-11-01・ダッシュボード／現場メモ／登録で使う。請求は billing.html に自前の版あり）
+  //   supportCompanyId() … URL の ?support=会社ID（無ければ null）
+  //   openSupport(cid, need) … EF support-access で「見るだけ」の証明をもらい useToken する。
+  //     need="all" のときは、お客さんが「全部」を選んでいないと開かない。失敗は Error(画面に出す文)。
+  //   戻り値 { company_name, grant_expires_at, scope }。画面の上に紫の帯を出し、body に support-mode を付ける
+  function supportCompanyId() {
+    const v = new URLSearchParams(global.location.search).get("support");
+    return v && /^[0-9a-f-]{36}$/i.test(v) ? v : null;
+  }
+  async function openSupport(cid, need) {
+    let res;
+    try {
+      res = await fetch(`${SUPA_URL}/functions/v1/support-access`, { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "session", id_token: liff.getIDToken(), company_id: cid }) });
+    } catch (_e) { throw new Error("通信できませんでした。開き直してください。"); }
+    if (res.status === 403) {
+      const e = (await res.json().catch(() => ({}))).error;
+      throw new Error(e === "no grant" ? "この会社からの許可がありません（期限切れ・取り消しを含む）。お客さんに設定の画面で「運営に見せる」を押してもらってください。" : "この画面は運営専用です。");
+    }
+    if (!res.ok) throw new Error(`開けませんでした（HTTP ${res.status}）。`);
+    const d = await res.json();
+    if (need === "all" && d.scope !== "all") throw new Error("この会社は「請求だけ」を見せる許可です。この画面を見るには、お客さんに設定の画面で範囲を「全部」にしてもらってください。");
+    useToken(d.access_token, d.expires_in);
+    global.document.body.classList.add("support-mode");
+    const bar = global.document.createElement("div");
+    bar.className = "fla-support-bar no-print";
+    bar.setAttribute("style", "position:sticky;top:0;z-index:150;background:#5b3fd0;color:#fff;font-size:13px;line-height:1.6;padding:8px 14px;text-align:center");
+    const until = d.grant_expires_at ? new Date(d.grant_expires_at).toLocaleDateString("ja-JP") : "";
+    bar.textContent = `👀 運営が見ています（見るだけ）｜${d.company_name || ""}｜許可は ${until} まで・この画面は1時間で閉じます`;
+    global.document.body.prepend(bar);
+    return d;
+  }
+
   // LINE ID トークン → auth-session → Supabase JWT。期限が近ければ再取得。
   async function ensureToken() {
     if (flaFixed) {
@@ -153,5 +186,5 @@
 
   const recentErrors = () => recent.slice();
   const isSupportView = () => flaFixed;
-  global.FLA = { SUPA_URL, SUPA_ANON, AUTH_FN, ensureToken, useToken, rest, esc, billingPeriod, notRegisteredHtml, recentErrors, remember, isSupportView };
+  global.FLA = { SUPA_URL, SUPA_ANON, AUTH_FN, ensureToken, useToken, rest, esc, billingPeriod, notRegisteredHtml, recentErrors, remember, isSupportView, supportCompanyId, openSupport };
 })(window);
