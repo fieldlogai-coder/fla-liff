@@ -286,6 +286,7 @@
   <button class="tab active" data-view="settings" onclick="showTab('info')">自分の情報</button>
   <button class="tab" data-view="register" onclick="showTab('sites')">現場</button>
   <button class="tab" data-view="register" onclick="showTab('workers')">作業員</button>
+  <button class="tab" data-view="register" onclick="showTab('subs')">協力会社</button>
   <button class="tab" data-view="settings" data-admin="1" id="tab-pricing" style="display:none" onclick="showTab('pricing')">単価</button>
 </nav>
 
@@ -319,6 +320,15 @@
 <div id="section-workers" class="section">
   <div id="workers-list"></div>
   <button class="add-btn" id="add-worker-btn" style="display:none" onclick="openAddWorker()">＋ 作業員を追加</button>
+</div>
+
+<!-- セクション: 協力会社（2026-11-01）。日報の「下請けあり」で選べる名簿 -->
+<div id="section-subs" class="section">
+  <div class="card-sub" style="margin:0 2px 10px;line-height:1.7">ここに入れた会社は、日報で下請けを報告するときにボタンで選べるようになります（上から順に表示）。</div>
+  <div id="subs-list"></div>
+  <button class="add-btn" id="add-sub-btn" style="display:none" onclick="openAddSub()">＋ 協力会社を追加</button>
+  <div class="empty" id="add-sub-note" style="display:none;border:none;padding:6px 0">協力会社の追加・変更は管理者（または請求担当）が行います。</div>
+  <div id="subs-off"></div>
 </div>
 
 <div id="view-switch" style="display:none;text-align:center;padding:0 16px 40px">
@@ -365,6 +375,9 @@ let pSiteName  = "";     // pending site name (類似確認待ち)
 let pBilling   = "";     // pending billing name
 let pSiteId    = null;   // pending site id (終了・編集用)
 let pWorkerId  = null;   // pending worker id (編集用)
+let allSubs    = [];     // 協力会社
+let pSubId     = null;   // pending subcontractor id
+let pSubName   = "";     // pending subcontractor name (類似確認待ち)
 
 // どちらの入口から開いたか。liff.line.me/{id}?view=register は、そのまま ?view= か、liff.state に入って届く
 const START_VIEW = (() => {
@@ -414,8 +427,10 @@ async function boot() {
   const canEditSites = cu.role === "admin" || cu.canBill;
   document.getElementById("add-site-btn").style.display = canEditSites ? "" : "none";
   document.getElementById("add-site-note").style.display = canEditSites ? "none" : "";
+  document.getElementById("add-sub-btn").style.display = canEditSites ? "" : "none";
+  document.getElementById("add-sub-note").style.display = canEditSites ? "none" : "";
   renderProfile();
-  await Promise.all([loadHistory(), loadSites(), loadWorkers(), ...(cu.role === "admin" ? [loadPricing()] : [])]);
+  await Promise.all([loadHistory(), loadSites(), loadWorkers(), loadSubs(), ...(cu.role === "admin" ? [loadPricing()] : [])]);
   hide(); applyView(view);
 }
 
@@ -571,6 +586,107 @@ function openEndSite(id) {
      <button class="btn-warning" onclick="submitModal()">終了する</button>`);
 }
 
+// ── セクション: 協力会社（2026-11-01）────────────────────────────────
+// 表 subcontractors。消さずに「使わない」（active=false）にする＝過去の日報の名前はそのまま。
+// 追加・変更は管理者か請求担当（DB のルールでも同じ）。並び順＝日報のボタンの順（上から11社）
+const canEditSubs = () => cu.role === "admin" || cu.canBill;
+async function loadSubs() {
+  const res = await get(`/subcontractors?company_id=eq.${cu.companyId}&select=id,name,active,sort_order&order=sort_order,name`);
+  if (!res.ok) { document.getElementById("subs-list").innerHTML = '<div class="empty">取得に失敗しました</div>'; return; }
+  allSubs = await res.json();
+  renderSubs();
+}
+function renderSubs() {
+  const edit = canEditSubs();
+  const on = allSubs.filter(x => x.active), off = allSubs.filter(x => !x.active);
+  document.getElementById("subs-list").innerHTML = on.length ? on.map((x, i) => `<div class="card">
+      <div class="card-title">${esc(x.name)}</div>
+      ${i >= 11 ? '<div class="card-sub">12社目以降は日報のボタンに出ません（手で入力すれば使えます）</div>' : ""}
+      ${edit ? `<div class="card-actions">
+        ${i > 0 ? `<button class="btn-sm" onclick="moveSub('${x.id}')">↑ 上へ</button>` : ""}
+        <button class="btn-sm primary" onclick="openEditSub('${x.id}')">名前を直す</button>
+        <button class="btn-sm danger" onclick="openOffSub('${x.id}')">使わない</button></div>` : ""}
+    </div>`).join("") : '<div class="empty">協力会社はまだ登録されていません</div>';
+  document.getElementById("subs-off").innerHTML = off.length ? `<div class="section-label" style="margin-top:14px">使わなくなった会社</div>` + off.map(x => `<div class="card">
+      <div class="card-title" style="color:var(--sub)">${esc(x.name)}</div>
+      ${edit ? `<div class="card-actions"><button class="btn-sm" onclick="setSubActive('${x.id}', true)">また使う</button></div>` : ""}
+    </div>`).join("") : "";
+}
+function openAddSub() {
+  modalMode = "add-sub";
+  setModal("協力会社を追加", `
+    <div class="form-group"><label>会社名</label>
+      <input type="text" id="mi-sub-name" placeholder="〇〇工業" maxlength="60" /></div>
+    <p class="modal-note">日報で選ぶときに分かる名前にしてください（例：〇〇工業、△△塗装）。</p>
+  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+     <button class="btn-submit" onclick="submitModal()">登録</button>`);
+}
+async function doAddSub() {
+  const name = val("mi-sub-name");
+  if (!name) { toast("会社名を入力してください", true); return; }
+  if (allSubs.some(x => x.name.trim() === name)) { toast("同じ名前の会社がもう登録されています", true); return; }
+  const sim = findSimilar(name, allSubs.map(x => x.name));
+  if (sim) {
+    pSubName = name; modalMode = "similar-sub";
+    setModal("似た名前の会社があります", `
+      <p class="modal-msg">「<strong>${esc(sim)}</strong>」が登録済みです。同じ会社ではありませんか？</p>
+    `, `<button class="btn-submit" onclick="closeModal()">はい（登録しない）</button>
+       <button class="btn-cancel" onclick="insertSub(pSubName)">いいえ（別の会社）</button>`);
+    return;
+  }
+  await insertSub(name);
+}
+async function insertSub(name) {
+  const next = allSubs.reduce((m, x) => Math.max(m, x.sort_order || 0), 0) + 1;
+  const res = await post("/subcontractors", { company_id: cu.companyId, name, sort_order: next, created_by: cu.workerId });
+  if (!res.ok) { console.error("[insertSub]", res.status, await res.text().catch(() => "")); toast("登録に失敗しました", true); return; }
+  closeModal(); toast(`「${name}」を登録しました`); await loadSubs();
+}
+function openEditSub(id) {
+  const x = allSubs.find(v => v.id === id); if (!x) return;
+  pSubId = id; modalMode = "edit-sub";
+  setModal("会社名を直す", `
+    <div class="form-group"><label>会社名</label>
+      <input type="text" id="mi-sub-name" value="${esc(x.name)}" maxlength="60" /></div>
+    <p class="modal-note">これまでの日報に残っている名前は変わりません。</p>
+  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+     <button class="btn-submit" onclick="submitModal()">保存</button>`);
+}
+async function doEditSub() {
+  const name = val("mi-sub-name");
+  if (!name) { toast("会社名を入力してください", true); return; }
+  if (allSubs.some(x => x.id !== pSubId && x.name.trim() === name)) { toast("同じ名前の会社がもう登録されています", true); return; }
+  const res = await patch(`/subcontractors?id=eq.${pSubId}`, { name });
+  if (!res.ok) { toast("更新に失敗しました", true); return; }
+  closeModal(); toast("会社名を直しました"); await loadSubs();
+}
+function openOffSub(id) {
+  const x = allSubs.find(v => v.id === id); if (!x) return;
+  pSubId = id; modalMode = "off-sub";
+  setModal("この会社を使わない", `
+    <p class="modal-msg">「<strong>${esc(x.name)}</strong>」を日報のボタンに出さないようにしますか？</p>
+    <p class="modal-note">これまでの日報はそのまま残ります。「また使う」でいつでも戻せます。</p>
+  `, `<button class="btn-cancel" onclick="closeModal()">キャンセル</button>
+     <button class="btn-warning" onclick="submitModal()">使わない</button>`);
+}
+async function setSubActive(id, active) {
+  const res = await patch(`/subcontractors?id=eq.${id}`, { active });
+  if (!res.ok) { toast("更新に失敗しました", true); return; }
+  closeModal(); toast(active ? "また使えるようにしました" : "使わないにしました"); await loadSubs();
+}
+async function moveSub(id) {
+  const on = allSubs.filter(x => x.active);
+  const i = on.findIndex(x => x.id === id); if (i <= 0) return;
+  // 並び順を 1..n に振り直してから、1つ上と入れ替える
+  const order = on.map(x => x.id); [order[i - 1], order[i]] = [order[i], order[i - 1]];
+  const changes = order.map((oid, k) => ({ oid, k: k + 1 })).filter(({ oid, k }) => on.find(x => x.id === oid).sort_order !== k);
+  for (const { oid, k } of changes) {
+    const res = await patch(`/subcontractors?id=eq.${oid}`, { sort_order: k });
+    if (!res.ok) { toast("並べ替えに失敗しました", true); break; }
+  }
+  await loadSubs();
+}
+
 // ── セクション3: 作業員 ──────────────────────────────────────────────
 async function loadWorkers() {
   const res = await get(`/workers?company_id=eq.${cu.companyId}&select=id,name,role&order=name`);
@@ -693,6 +809,9 @@ async function submitModal() {
     else if (modalMode === "edit-worker")  await doEditWorker();
     else if (modalMode === "change-role")  await doChangeRole();
     else if (modalMode === "edit-cost")    await doEditCost();
+    else if (modalMode === "add-sub")      await doAddSub();
+    else if (modalMode === "edit-sub")     await doEditSub();
+    else if (modalMode === "off-sub")      await setSubActive(pSubId, false);
   } finally {
     if (btn) btn.disabled = false;
   }
