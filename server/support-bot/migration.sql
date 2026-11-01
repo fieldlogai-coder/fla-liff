@@ -15,3 +15,7 @@ create table if not exists public.support_chats (
 comment on table public.support_chats is 'FIELDLOG サポートの AI 一次対応（support-bot）の会話記録。90日で消える。';
 create index if not exists support_chats_user_time on public.support_chats (line_user_id, created_at desc);
 alter table public.support_chats enable row level security;
+
+-- 2026-11-01 追加：どちらのアカウントでのやりとりか
+alter table public.support_chats add column if not exists channel text not null default 'support';
+comment on column public.support_chats.channel is 'main = 本体アカウント（@165bmpmn）／support = 運営アカウント（@556axvhf）';
