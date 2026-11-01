@@ -89,7 +89,7 @@
     <div>
       <div class="step" style="counter-reset:st 3"><span class="n"></span><div><b>終日/半日</b>を選ぶ</div></div>
       <div class="step"><span class="n"></span><div><b>異常・引き継ぎ</b>：なければ「なし」。あれば内容を送信（📷写真も送れます）</div></div>
-      <div class="step"><span class="n"></span><div>最後に<b>「完了」</b>（別の現場があれば「別の現場を追加」）</div></div>
+      <div class="step"><span class="n"></span><div>最後に<b>「完了」</b>（別の現場があれば「別の現場を追加」）。下請けが来た日は「する」→ 会社と人をボタンで</div></div>
     </div>
   </div>
 
@@ -100,9 +100,11 @@
   <div class="cols" style="gap:4mm">
     <div class="box"><span class="bt">途中でやめたい・ボタンが効かない</span><br>「<b>✖ キャンセル</b>」をタップ（どの画面にもあります）。約1時間放置でも自動で最初に戻ります。</div>
     <div class="box"><span class="bt">まちがえて送った</span><br>「<b>日報修正</b>」から当日分は直せます。「登録されていません」と出たら会社の管理者へ。</div>
+    <div class="box"><span class="bt">画面がおかしい</span><br>画面の一番下「<b>📨 今の画面を運営に送る</b>」で運営へ。</div>
+    <div class="box"><span class="bt">ほかの人の分を入れる（許可制）</span><br>「日報報告」→「<b>誰の日報？</b>」で相手を選ぶ。直すのは管理者。</div>
   </div>
 
-  <div class="foot"><span>FIELDLOG かんたんガイド（作業員向け）</span><span>2026-07-20版</span></div>
+  <div class="foot"><span>FIELDLOG かんたんガイド（作業員向け）</span><span>2026-11-01版</span></div>
 </div>
 
 <!-- ═══ 2枚目: 管理者向け ═══ -->
@@ -127,21 +129,24 @@
     <div class="step"><span class="n"></span><div>種類を選ぶ：<b>出来高</b>＝今月分の金額を入力／<b>常用</b>＝工種と人工数（単価は自動・複数工種は「＋明細に追加」）</div></div>
     <div class="step"><span class="n"></span><div>確認画面：<b>端数調整（値引き）</b>で丸い金額に（例 533,400円→530,000円と入力→「値引き −3,400」が自動で明細に）</div></div>
     <div class="step"><span class="n"></span><div><b>「発行する」</b>→ 番号が自動で付いて確定</div></div>
-    <div class="step"><span class="n"></span><div>印刷は 詳細 →「📄 請求書を表示」→ <b>PCのブラウザで開いて印刷/PDF保存</b></div></div>
+    <div class="step"><span class="n"></span><div>詳細 →「<b>📄 請求書を表示・PDFで送る</b>」→ PDFが自動でできます。「<b>📧 PCのメールに送る</b>」か「<b>📄 スマホに保存</b>」</div></div>
   </div>
 
   <h2>発行したあと</h2>
   <div class="cols" style="gap:4mm">
-    <div class="box"><span class="bt">直したい</span><br>詳細 →「<b>修正する（改訂）</b>」。番号は変わらず第2版・第3版…として履歴に残ります。</div>
-    <div class="box"><span class="bt">なかったことにしたい</span><br>詳細 →「<b>取消する</b>」。同じ締め期間で作り直せるようになります。</div>
+    <div class="box"><span class="bt">直したい</span><br>詳細 →「<b>修正する（改訂）</b>」で第2版に（番号は同じ）。指定書式は「✏️ この請求書を直す」。</div>
+    <div class="box"><span class="bt">なかったことにしたい</span><br>詳細 →「<b>取消する</b>」。⚠️ 同じ現場・同じ締め期間の請求書は2枚作れないので、作り直すときは先に取消。</div>
   </div>
 
   <h2>作業員・現場の登録</h2>
-  <p>日報メニューの「<b>現場・人の登録</b>」（またはトークで「<b>設定</b>」と送信）→ <b>作業員を追加/削除・現場を追加/終了・一覧の確認</b>ができます（管理者のみ）。単価の変更は「請求」タブのマスタ →「工種と常用単価」から。</p>
+  <p>日報メニューの「<b>現場・人の登録</b>」（またはトークで「<b>設定</b>」と送信）→ <b>現場・作業員・協力会社</b>（下請けの会社と人）を登録（管理者のみ）。単価の変更は「請求」タブのマスタ →「工種と常用単価」から。</p>
+  <div class="cols" style="gap:4mm">
+    <div class="box"><span class="bt">日報を見る</span><br>「<b>ダッシュボード</b>」→「<b>日報</b>」タブ（月・現場ごと）。</div>
+    <div class="box"><span class="bt">運営に見てもらう</span><br>「<b>⚙ 設定</b>」→「運営に見せる（30日）」。見るだけ・いつでも止められます。</div>
+  </div>
 
-  <div class="box warn"><span class="bt">⚠️ 大事なルール</span><br>同じ現場・同じ締め期間の請求書は2枚作れません（二重請求防止）。作り直すときは先に「取消」してください。</div>
 
-  <div class="foot"><span>FIELDLOG かんたんガイド（管理者向け）</span><span>2026-07-20版</span></div>
+  <div class="foot"><span>FIELDLOG かんたんガイド（管理者向け）</span><span>2026-11-01版</span></div>
 </div>
 
 </body>

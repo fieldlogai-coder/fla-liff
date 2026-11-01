@@ -76,6 +76,8 @@
   <div id="menu">
     <p style="font-size:13px;color:var(--sub);line-height:1.7;margin:2px 2px 12px">見たい操作を選ぶと、実際の画面の流れを1枚ずつ確認できます。<br>黄色い枠＝タップする場所です。</p>
     <div class="course" onclick="start('nippo')"><div class="icn">📋</div><div><div class="t">日報を出す</div><div class="d">作業員向け・毎日の基本</div></div><div class="n">7枚</div></div>
+    <div class="course" onclick="start('shita')"><div class="icn">👷</div><div><div class="t">下請けの人を入れる</div><div class="d">作業員向け・下請けが来た日</div></div><div class="n">4枚</div></div>
+    <div class="course" onclick="start('dairi')"><div class="icn">👤</div><div><div class="t">ほかの人の日報を入れる</div><div class="d">許可された人だけ・代わりに入れる</div></div><div class="n">4枚</div></div>
     <div class="course" onclick="start('yasumi')"><div class="icn">🗓️</div><div><div class="t">休みを報告する</div><div class="d">作業員向け・ワンタップ</div></div><div class="n">2枚</div></div>
     <div class="course" onclick="start('seikyu')"><div class="icn">🧾</div><div><div class="t">請求書をつくる（常用）</div><div class="d">管理者向け・月次の基本</div></div><div class="n">7枚</div></div>
     <div class="course" onclick="start('nebiki')"><div class="icn">💴</div><div><div class="t">端数調整（値引き）</div><div class="d">管理者向け・丸い金額にする</div></div><div class="n">4枚</div></div>
@@ -119,6 +121,26 @@ const COURSES = {
       s: `<div class="bub me">なし</div><div class="bub bot">〇〇現場（終日）を登録しました。<br>続けますか？</div><div class="chips"><span class="chip hl">完了</span><span class="chip">別の現場を追加</span></div>` },
     { c: "これで完了です！ 途中でやめたくなったら、いつでも「✖ キャンセル」で最初に戻れます。",
       s: `<div class="bub bot">✅ 本日の報告を登録しました。<br>お疲れ様でした！</div><div class="fcard"><div class="t">続けての操作はこちらから</div><div class="fchips"><div class="fchip">日報確認</div><div class="fchip">現場メモ</div><div class="fchip">休み報告</div></div></div>` },
+  ]},
+  shita: { name: "下請けの人を入れる", slides: [
+    { c: "日報の最後に「下請け作業員の報告はありますか？」と聞かれます。下請けが来ていたら「する」。",
+      s: `<div class="bub me">完了</div><div class="bub bot">下請け作業員の報告はありますか？</div><div class="chips"><span class="chip">しない</span><span class="chip hl">する</span></div>` },
+    { c: "会社をボタンで選びます。一覧にない会社は名前を入力します。",
+      s: `<div class="bub me">する</div><div class="bub bot">下請けの会社を選んでください<br>（一覧にない会社は、名前を入力してください）</div><div class="chips"><span class="chip hl">△△工業</span><span class="chip">□□塗装</span></div>` },
+    { c: "来た人を名前のボタンで選び、終日か半日かを押します。続けてほかの人も選べます。名前がない会社や「人数で入れる」を押したときは「終日3人半日2人」のように人数で入れます。",
+      s: `<div class="bub me">△△工業</div><div class="bub bot">「△△工業」で来た人を選んでください<br>（一覧にない人は名前を入力／人数だけなら「人数で入れる」）</div><div class="chips"><span class="chip">人数で入れる</span><span class="chip hl">山田</span><span class="chip">佐藤</span></div><div class="bub me">山田</div><div class="bub bot">「山田」は終日ですか？半日ですか？</div><div class="chips"><span class="chip hl">終日</span><span class="chip">半日</span></div>` },
+    { c: "全員入れたら「完了」。別の会社も来ていたら「別の会社を追加」。最後にもう一度「完了」で登録です。",
+      s: `<div class="bub bot">「△△工業」山田（終日）<br>ほかに来た人を選んでください（終わったら「完了」）</div><div class="chips"><span class="chip hl">完了</span><span class="chip">佐藤</span></div><div class="bub bot">「△△工業」を追加しました。<br>別の会社はありますか？</div><div class="chips"><span class="chip hl">完了</span><span class="chip">別の会社を追加</span></div>` },
+  ]},
+  dairi: { name: "ほかの人の日報を入れる", slides: [
+    { c: "許可された人が「日報報告」を押すと、最初に「誰の日報を入れますか？」と出ます。自分の分なら「自分の日報」。",
+      s: `<div class="bub me">日報報告</div><div class="fcard"><div class="t">誰の日報を入れますか？</div><div class="fchips"><div class="fchip gray">自分の日報</div><div class="fchip hl">〇〇 一郎</div><div class="fchip">△△ 二郎</div></div><div class="fchips" style="margin-top:6px"><div class="fchip gray">✖ キャンセル</div></div></div>` },
+    { c: "相手を選ぶと「〇〇さんの日報です」と出ます。ここからはいつもの日報と同じ。昨日と同じ・休み・下請けも使えます。",
+      s: `<div class="bub me">〇〇 一郎</div><div class="fcard"><div class="t">👤 〇〇 一郎さんの日報です。<br>報告の種類を選んでください</div><div class="fchips"><div class="fchip">昨日と同じ</div><div class="fchip hl">通常報告</div><div class="fchip">休み</div></div></div>` },
+    { c: "登録すると「〇〇さんの分として登録しました」と出ます。その人の日報として残り、誰が入れたかも記録されます。",
+      s: `<div class="bub me">完了</div><div class="bub bot">👤 〇〇 一郎さんの分として登録しました<br>✅ 本日の報告を登録しました。<br>代わりに入れた日報の修正は、管理者に頼んでください</div>` },
+    { c: "代わりに入れた日報は LINE からは直せません。間違えたときは管理者に直してもらってください。選べるのは同じ会社の人だけです。",
+      s: `<div class="bub me">日報報告</div><div class="bub me">〇〇 一郎</div><div class="bub bot">📋 〇〇 一郎さんの本日の日報はすでに登録済みです<br><br>・〇〇現場：終日</div><div class="chips"><span class="chip">追加する</span><span class="chip">✖ キャンセル</span></div>` },
   ]},
   yasumi: { name: "休みを報告する", slides: [
     { c: "メニューの「休み報告」をタップするだけです。", s: menuMock("holiday") },
