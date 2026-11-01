@@ -260,13 +260,18 @@ async function handleMain(body: Record<string, unknown>): Promise<boolean> {
   if (!replyToken || !MAIN_TOKEN || MODE === "off") return false;
   return await lineApi("main", "message/reply", {
     replyToken,
+    // URL を文に書くと長い文字とプレビューが出るので、ボタン付きのメッセージにする（本文は160字まで）
     messages: [{
-      type: "text",
-      text: `日報は、下のメニューの「日報報告」からどうぞ。\n\n使い方の質問は「FIELDLOG サポート」で受け付けています。スクショを送っても大丈夫です（AIがすぐお答えします）。\n${SUPPORT_LINK}`,
+      type: "template",
+      altText: "使い方の質問は「FIELDLOG サポート」へどうぞ",
+      template: {
+        type: "buttons",
+        text: "日報は、下のメニューの「日報報告」からどうぞ。\n\n使い方の質問は「FIELDLOG サポート」へ。スクショを送っても大丈夫です（AIがすぐお答えします）。",
+        actions: [{ type: "uri", label: "💬 質問する", uri: SUPPORT_LINK }],
+      },
       quickReply: { items: [
         { type: "action", action: { type: "message", label: "報告", text: "報告" } },
         { type: "action", action: { type: "message", label: "確認", text: "確認" } },
-        { type: "action", action: { type: "uri", label: "質問する", uri: SUPPORT_LINK } },
       ] },
     }],
   });
