@@ -13,6 +13,25 @@
   let flaTokenExp = 0;    // 失効時刻（ms epoch）。余裕をもって再取得する
   let flaFixed    = false; // 運営の「見るだけ」（support-access が出した証明を使う。auth-session は呼ばない）
 
+  // 直前のエラーを覚えておく（「今の画面を運営に送る」で一緒に送る・2026-11-01）。最大10件・中身は短く切る
+  const recent = [];
+  function remember(kind, msg) {
+    try {
+      recent.push({ at: new Date().toISOString(), kind: kind, msg: String(msg == null ? "" : msg).slice(0, 300) });
+      if (recent.length > 10) recent.shift();
+    } catch (_e) { /* 無視 */ }
+  }
+  global.addEventListener("error", function (e) { remember("error", (e && e.message) || "error"); });
+  global.addEventListener("unhandledrejection", function (e) { remember("promise", e && e.reason && (e.reason.message || e.reason)); });
+  // 画面に出したエラーの表示（各画面の toast(…, true)）も拾う
+  (function () {
+    const orig = console.error;
+    console.error = function () {
+      try { remember("console", Array.prototype.map.call(arguments, function (a) { return a && a.message ? a.message : (typeof a === "string" ? a : JSON.stringify(a)); }).join(" ")); } catch (_e) { /* 無視 */ }
+      return orig.apply(console, arguments);
+    };
+  })();
+
   // 運営の「見るだけ」用：渡された証明をそのまま使う（期限が来たら開き直してもらう）
   function useToken(token, expiresIn) {
     flaToken = token; flaTokenExp = Date.now() + (Number(expiresIn) || 3600) * 1000; flaFixed = true;
@@ -75,6 +94,7 @@
     let res = await run();
     if (res.status === 401) { flaToken = ""; await ensureToken(); res = await run(); }
     // 409(重複=UIで案内済み) と app_events 自身は記録しない（ノイズ・再帰防止）
+    if (!res.ok) remember("fetch", (init.method || "GET") + " " + path.split("?")[0] + " → " + res.status);
     if (!res.ok && res.status !== 409 && path.indexOf("/app_events") !== 0) {
       logEvent("liff_fetch_failed", {
         path: path.split("?")[0],
@@ -131,5 +151,7 @@
       .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
   }
 
-  global.FLA = { SUPA_URL, SUPA_ANON, AUTH_FN, ensureToken, useToken, rest, esc, billingPeriod, notRegisteredHtml };
+  const recentErrors = () => recent.slice();
+  const isSupportView = () => flaFixed;
+  global.FLA = { SUPA_URL, SUPA_ANON, AUTH_FN, ensureToken, useToken, rest, esc, billingPeriod, notRegisteredHtml, recentErrors, remember, isSupportView };
 })(window);

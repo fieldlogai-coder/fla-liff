@@ -79,7 +79,7 @@
 <header>
   <div class="top"><h1>運営ダッシュボード</h1><button class="hbtn" id="reload" type="button">↻ 更新</button></div>
   <div class="sub" id="stamp">読み込み中…</div>
-  <div class="tabs no-print"><button type="button" id="tab-stats" class="on">使われ方</button><button type="button" id="tab-proof">様式の試し刷り</button><button type="button" id="tab-sup">お客さんの画面</button></div>
+  <div class="tabs no-print"><button type="button" id="tab-stats" class="on">使われ方</button><button type="button" id="tab-proof">様式の試し刷り</button><button type="button" id="tab-sup">お客さんの画面</button><button type="button" id="tab-snap">届いた画面</button></div>
 </header>
 <main>
   <div id="msg">読み込み中…</div>
@@ -108,6 +108,13 @@
       <p class="note">お客さんの管理者が、設定の画面で「運営に見せる（30日）」を押している会社だけが出ます。開くと、その会社の請求の画面を<b>見るだけ</b>で開きます（直す・発行する・取消はできません。1回1時間）。開いた日時はお客さんの設定の画面に出ます。</p>
     </div>
     <div id="sup-list"><div class="c note">読み込み中…</div></div>
+  </section>
+  <section id="snap" hidden>
+    <div class="c">
+      <div class="c-t"><b>届いた画面（お客さんが「今の画面を運営に送る」を押したもの）</b></div>
+      <p class="note">お客さんが自分で送った画面だけが出ます。問い合わせの対応にだけ使い、30日で自動で消えます。画像は押したときだけ読み込みます（リンクは2分だけ有効）。</p>
+    </div>
+    <div id="snap-list"><div class="c note">読み込み中…</div></div>
   </section>
 </main>
 <script>
@@ -253,14 +260,56 @@ async function opsLayout(payload) {
   return res.json();
 }
 function showTab(which) {
-  for (const t of ["stats", "proof", "sup"]) $("tab-" + t).classList.toggle("on", which === t);
-  $("proof").hidden = which !== "proof"; $("sup").hidden = which !== "sup";
+  for (const t of ["stats", "proof", "sup", "snap"]) $("tab-" + t).classList.toggle("on", which === t);
+  $("proof").hidden = which !== "proof"; $("sup").hidden = which !== "sup"; $("snap").hidden = which !== "snap";
   document.body.classList.toggle("proof-on", which === "proof");
   if (which === "stats") { if (DATA) $("view").hidden = false; else $("msg").hidden = false; }
   else { $("view").hidden = true; $("msg").hidden = true; }
   if (which === "proof" && !PROOF_LIST) loadProofList();
   if (which === "sup") loadSupList();
+  if (which === "snap") loadSnapList();
 }
+// ── 届いた画面（お客さんが自分で送ったもの・30日で消える・2026-11-01）──────────
+const SNAP_FN = "https://qxeqaqnzbsuykmzwkvhx.supabase.co/functions/v1/support-snap";
+async function snapCall(payload) {
+  if (!window.liff || !liff.isLoggedIn()) throw new Error("LINE の中で開いてください");
+  const res = await fetch(SNAP_FN, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id_token: liff.getIDToken(), ...payload }) });
+  if (res.status === 403) throw new Error("この画面は運営専用です。");
+  if (res.status === 401) throw new Error("LINE の確認が切れました。閉じて開き直してください。");
+  if (!res.ok) throw new Error(`読み込みに失敗しました（${res.status}）`);
+  return res.json();
+}
+const jpDT = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+async function loadSnapList() {
+  const box = $("snap-list");
+  box.innerHTML = '<div class="c note">読み込み中…</div>';
+  try {
+    const d = await snapCall({ action: "list" });
+    const xs = d.snaps || [];
+    box.innerHTML = xs.length ? xs.map((x) => {
+      const errs = (x.info && Array.isArray(x.info.errors)) ? x.info.errors : [];
+      return `<div class="c">
+        <div class="c-t"><b>${esc(x.company_name)}　${esc(x.worker_name)}</b><span>${esc(jpDT(x.created_at))}${x.seen_at ? "" : "（未読）"}</span></div>
+        <div class="note" style="margin-top:4px">画面：${esc(x.page_label)}${x.place ? "（" + esc(x.place) + "）" : ""}</div>
+        <div style="margin-top:4px">${x.comment ? "「" + esc(x.comment) + "」" : '<span class="note">一言なし</span>'}</div>
+        ${errs.length ? `<details style="margin-top:6px"><summary class="note">直前のエラー ${errs.length}件</summary><div class="note" style="white-space:pre-wrap;word-break:break-all">${errs.map((e) => esc(jpDT(e.at) + " [" + e.kind + "] " + e.msg)).join("\n")}</div></details>` : ""}
+        ${x.info && x.info.size ? `<div class="note" style="margin-top:4px">画面の大きさ ${esc(x.info.size)}</div>` : ""}
+        ${x.has_image ? `<button type="button" class="pbtn sub" style="margin-top:8px" data-snap-img="${esc(x.id)}">画像を見る</button><div data-snap-out="${esc(x.id)}"></div>` : '<div class="note" style="margin-top:6px">画像なし</div>'}
+      </div>`;
+    }).join("") : '<div class="c note">届いた画面はまだありません。</div>';
+  } catch (e) { box.innerHTML = `<div class="c note">${esc(e.message)}</div>`; }
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest && e.target.closest("[data-snap-img]");
+  if (!b) return;
+  const id = b.getAttribute("data-snap-img"), out = document.querySelector(`[data-snap-out="${id}"]`);
+  b.disabled = true; b.textContent = "読み込み中…";
+  try {
+    const d = await snapCall({ action: "image", id });
+    out.innerHTML = d.url ? `<img src="${esc(d.url)}" alt="届いた画面" style="display:block;max-width:100%;margin-top:8px;border:1px solid var(--line, #e2e0d8);border-radius:6px">` : '<div class="note">画像がありません</div>';
+    b.remove();
+  } catch (err) { b.disabled = false; b.textContent = "画像を見る"; out.innerHTML = `<div class="note">${esc(err.message)}</div>`; }
+});
 // ── お客さんの画面（許可制・見るだけ・2026-10-31）───────────────────────
 const SUPPORT_FN = "https://qxeqaqnzbsuykmzwkvhx.supabase.co/functions/v1/support-access";
 const BILLING_LIFF = "https://liff.line.me/2009694631-7HvWrIGj";
@@ -351,6 +400,7 @@ $("pf-reset").onclick = () => { if (PROOF) mountProof(); };
 $("tab-stats").onclick = () => showTab("stats");
 $("tab-proof").onclick = () => showTab("proof");
 $("tab-sup").onclick = () => showTab("sup");
+$("tab-snap").onclick = () => showTab("snap");
 $("pf-run").onclick = runProof;
 window.addEventListener("resize", fitProof);
 window.addEventListener("beforeprint", () => {
