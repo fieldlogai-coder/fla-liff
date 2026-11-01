@@ -1,7 +1,6 @@
 /* fla-support.js — 「困ったときは」問い合わせ先（2026-10-30）
    正本: liff/ 側（アプリ本体も使うため）。docs/poc-kit/html/ へは sync-poc-kit.js がプレビュー用に複製する。
-   FIELDLOG 本体の LINE トークを、一言入りで開く（2026-11-01 から。質問には AI が答え、分からないものは担当に回る）。
-   運営用アカウント「FIELDLOG サポート」は運営専用なので、お客さんは案内しない。
+   LINE 公式アカウント「FIELDLOG サポート」のトークを、一言入りで開く。質問とスクショには AI（support-bot）が答える（2026-11-01）。
    SUPPORT_ID が空のあいだは何も表示しない（アカウント作成前でも壊れない）。
    使い方:
      <script src="./fla-support.js?v=YYYY-MM-DD"></script> を読み込むと、ページの一番下に帯が付く。
@@ -11,8 +10,8 @@
      押すと画面の画像を作り、送る内容を見せてから、お客さんが「送る」を押したときだけ EF support-snap へ送る。
      運営の「見るだけ」（FLA.isSupportView）では出さない。 */
 (function (global) {
-  // ★ 問い合わせ先＝FIELDLOG 本体のベーシックID（@から始まる）
-  const SUPPORT_ID_RAW = "@165bmpmn";
+  // ★ FIELDLOG サポートのベーシックID（@から始まる）。決まったらここだけ書き換える
+  const SUPPORT_ID_RAW = "@556axvhf";
   // @ と英数字・記号 ._- だけを受け付ける（それ以外なら表示しない）
   const SUPPORT_ID = /^@[A-Za-z0-9._-]{3,20}$/.test(SUPPORT_ID_RAW) ? SUPPORT_ID_RAW : "";
 
@@ -78,7 +77,7 @@
     box.setAttribute("style", "position:fixed;inset:0;z-index:2147483000;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center;font-family:inherit");
     box.innerHTML = '<div style="background:#fff;color:#1f1e1c;width:100%;max-width:520px;max-height:90vh;overflow:auto;border-radius:16px 16px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));box-sizing:border-box;font-size:13.5px;line-height:1.7">' +
       '<div style="font-size:16px;font-weight:bold;margin-bottom:6px">今の画面を運営に送る</div>' +
-      '<div style="color:#6b6a63;font-size:12.5px">次の内容が運営に届きます。送ったものは問い合わせの対応にだけ使い、30日で消えます。</div>' +
+      '<div style="color:#6b6a63;font-size:12.5px">次の内容が FIELDLOG サポートに届きます。送ったものは問い合わせの対応にだけ使い、30日で消えます。</div>' +
       '<div id="fla-snap-img" style="margin:10px 0;background:#f4f3ed;border-radius:10px;padding:8px;text-align:center;color:#6b6a63;font-size:12.5px">画面の画像を作っています…</div>' +
       '<div style="font-size:12.5px"><b>画面：</b>' + escH(where || "（不明）") + '<br><b>直前のエラー：</b>' + (errs.length ? escH(errs.length + "件（" + errs[errs.length - 1].msg.slice(0, 60) + "）") : "なし") + '</div>' +
       '<label style="display:block;margin-top:10px;font-weight:bold">一言（なくても送れます）</label>' +
@@ -108,7 +107,7 @@
         if (res.status === 429) throw new Error("短い時間にたくさん送られています。少し時間をおいてください");
         if (!res.ok) throw new Error("送れませんでした（" + res.status + "）");
         box.firstChild.innerHTML = '<div style="text-align:center;padding:16px 0"><div style="font-size:28px">✅</div><div style="font-weight:bold;font-size:15px;margin-top:6px">運営に届きました</div>' +
-          '<div style="color:#6b6a63;font-size:12.5px;margin-top:6px">確認して、FIELDLOG のLINEトークでご連絡します。</div>' +
+          '<div style="color:#6b6a63;font-size:12.5px;margin-top:6px">確認して、FIELDLOG サポートのLINEからご連絡します。</div>' +
           '<button style="margin-top:14px;padding:11px 28px;border:none;border-radius:12px;background:#f0eee6;font:inherit;font-weight:bold">閉じる</button></div>';
         box.querySelector("button").onclick = closeSnap;
       } catch (e) {
@@ -125,7 +124,7 @@
       '<div style="font-weight:bold;color:#1f1e1c;margin-bottom:6px">困ったときは</div>' +
       (canSnap() ? '<button type="button" data-fla-snap style="display:inline-block;background:#fff;color:#1f1e1c;border:1px solid #d9d7cc;font:inherit;font-weight:bold;padding:9px 18px;border-radius:999px;font-size:13.5px;margin-bottom:8px;cursor:pointer">📨 今の画面を運営に送る</button><br>' : "") +
       '<a href="' + url() + '" style="display:inline-block;background:#06c755;color:#fff;text-decoration:none;font-weight:bold;padding:9px 18px;border-radius:999px;font-size:13.5px">💬 LINEで質問する</a>' +
-      '<div style="margin-top:6px">FIELDLOG のトークが開きます。質問を送ると AI がすぐ答え、答えられないことは担当からご連絡します。</div></div>';
+      '<div style="margin-top:6px">FIELDLOG サポート（ID ' + SUPPORT_ID.replace(/[<>&"']/g, "") + '）が開きます。質問やスクショを送ると、AIがすぐお答えします。<br>友だち追加の画面が出たら、追加してから送ってください。</div></div>';
   }
 
   // 送るボタンはどこに付いても動くように、押されたときに拾う
