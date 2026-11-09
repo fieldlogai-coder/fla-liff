@@ -117,6 +117,53 @@
     .rrow .rs{color:var(--sub);font-size:11px;}
     .rnote{font-size:11.5px;margin-top:3px;line-height:1.5;word-break:break-word;white-space:pre-wrap;}
     .rnote.iss{color:var(--warn);}
+    /* まとめて登録（2026-11-09・管理者が日報をまとめて入れる） */
+    .bseg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;background:#e9e7df;padding:4px;border-radius:10px;margin-bottom:9px;}
+    .bseg button{border:none;background:transparent;border-radius:var(--r-sm);min-height:44px;font-family:inherit;font-size:13px;color:#5c5b55;cursor:pointer;}
+    .bseg button.on{background:#fff;color:var(--ink);font-weight:bold;box-shadow:0 1px 2px rgba(0,0,0,.08);}
+    .bseg small{display:block;font-size:10.5px;font-weight:normal;color:var(--sub);}
+    .bh{font-size:12.5px;font-weight:bold;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px;}
+    .bh span{font-weight:normal;color:var(--sub);font-size:11.5px;}
+    .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;}
+    .cal .wd{font-size:11px;color:var(--sub);text-align:center;}
+    .cal button{height:40px;border-radius:var(--r-sm);border:1px solid var(--line);background:#fff;color:var(--ink);font-family:inherit;font-size:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:0;}
+    .cal button.on{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:bold;}
+    .cal button:disabled{background:var(--bg);border-color:var(--bg);color:#b3b1a8;cursor:default;}
+    .cal i{width:5px;height:5px;border-radius:50%;background:transparent;}
+    .cal i.dot{background:var(--warn);} .cal button.on i.dot{background:#fff;}
+    .calnav{display:flex;align-items:center;gap:6px;}
+    .calnav button,.daynav button{width:40px;height:36px;border-radius:var(--r-sm);border:1px solid var(--line);background:#fff;color:var(--ink);font-size:16px;font-family:inherit;cursor:pointer;}
+    .calnav button:disabled,.daynav button:disabled{color:#c9c6ba;cursor:default;}
+    .daynav{display:flex;align-items:center;gap:6px;}
+    .daynav input{flex:1;text-align:center;font-weight:bold;}
+    .seg{display:flex;border:1px solid var(--line);border-radius:var(--r-sm);overflow:hidden;flex-shrink:0;}
+    .seg button{min-width:46px;min-height:38px;border:none;background:#fff;color:var(--sub);font-family:inherit;font-size:12.5px;cursor:pointer;}
+    .seg button.on{background:var(--acc);color:#fff;font-weight:bold;}
+    .seg button.on.none{background:var(--sub);}
+    .brow{padding:8px 0;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:6px;}
+    .brow:last-child{border-bottom:none;}
+    .brow .top{display:flex;align-items:center;gap:8px;font-size:13px;}
+    .brow .top .nm{flex:1;min-width:0;}
+    .brow .ctl{display:flex;align-items:center;gap:6px;}
+    .brow .ctl select{flex:1;min-width:0;font-size:14px;}
+    .mini{font-size:11.5px;padding:5px 10px;border-radius:999px;border:1px solid var(--acc);background:#fff;color:var(--acc);font-family:inherit;cursor:pointer;white-space:nowrap;}
+    .addsub{width:100%;margin-top:8px;font-size:12.5px;padding:10px;border-radius:var(--r-sm);border:1px dashed #cfcdc2;background:var(--bg);color:var(--sub);font-family:inherit;cursor:pointer;}
+    .subrow{display:grid;grid-template-columns:minmax(0,1fr) 64px 64px 36px;gap:6px;align-items:end;padding:8px 0;border-bottom:1px solid var(--line);}
+    .subrow .lbl{font-size:10.5px;color:var(--sub);margin-bottom:2px;}
+    .subrow .del{height:38px;border:none;background:none;color:var(--warn);font-size:18px;cursor:pointer;}
+    .bfoot{position:sticky;bottom:0;background:var(--bg);padding:8px 0 calc(4px + env(safe-area-inset-bottom));}
+    .bsum{font-size:13px;text-align:center;margin-bottom:7px;}
+    .bsum b{font-size:16px;}
+    .bbig{display:flex;align-items:center;justify-content:center;width:100%;min-height:48px;background:var(--acc);color:#fff;border:none;border-radius:var(--r);font-family:inherit;font-size:15px;font-weight:bold;cursor:pointer;}
+    .bbig.g{background:#fff;color:var(--acc);border:1px solid var(--acc);margin-top:8px;}
+    .bbig:disabled{opacity:.5;cursor:default;}
+    .bnote{border-radius:var(--r-sm);padding:9px 11px;font-size:12.5px;line-height:1.55;margin-bottom:9px;}
+    .bnote.ok{background:var(--ok-bg);color:#146b4b;}
+    .bnote.ng{background:#fdecea;color:#8f2617;}
+    .absrow{display:flex;flex-direction:column;gap:6px;padding:6px 0;}
+    .absrow .seg button{flex:1;min-height:40px;}
+    .absrow .seg button.on{background:#8f2617;}
+    .skip{color:#8a887f;text-decoration:line-through;}
   </style>
 </head>
 <body>
@@ -159,6 +206,8 @@
 <div class="screen" id="s-leadform"><div id="leadform-body"></div></div>
 <!-- ── 設定 ───────────────────────────────────────────────── -->
 <div class="screen" id="s-settings"><div id="settings-body"></div></div>
+<!-- ── 日報をまとめて登録 ─────────────────────────────────── -->
+<div class="screen" id="s-bulk"><div id="bulk-body"></div></div>
 
 <div id="toast"></div>
 
@@ -497,8 +546,8 @@ function setTab(t) { tab = t; ["money","sites","primes","reports"].forEach(k => 
 // ── 画面切替 ───────────────────────────────────────────────────────────
 function go(name) {
   screen = name;
-  ["home","payin","todo","leads","leadform","settings"].forEach(k => document.getElementById("s-"+k).classList.toggle("on", k===name));
-  const titles = { home:"ダッシュボード", payin:"入金予定", todo:"要対応", leads:"見込み案件", leadform:"見込み案件", settings:"ダッシュボードの設定" };
+  ["home","payin","todo","leads","leadform","settings","bulk"].forEach(k => document.getElementById("s-"+k).classList.toggle("on", k===name));
+  const titles = { home:"ダッシュボード", payin:"入金予定", todo:"要対応", leads:"見込み案件", leadform:"見込み案件", settings:"ダッシュボードの設定", bulk:"日報をまとめて登録" };
   document.getElementById("h-title").textContent = titles[name];
   document.getElementById("btn-back").style.display = name === "home" ? "none" : "inline-block";
   document.getElementById("btn-settings").style.display = name === "home" ? "inline-block" : "none";
@@ -508,6 +557,7 @@ function go(name) {
   if (name === "todo") renderTodo();
   if (name === "leads") renderLeads();
   if (name === "settings") renderSettings();
+  if (name === "bulk") renderBulk();
 }
 
 // ── 描画: ホーム ───────────────────────────────────────────────────────
@@ -622,23 +672,30 @@ function reportsHtml() {
   const d = new Date(); d.setDate(1);
   for (let i = 0; i < 13; i++) { months.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`); d.setMonth(d.getMonth()-1); }
   if (!months.includes(rpt.ym)) rpt.ym = months[0];
-  return `<div class="rbar">
+  // 運営の「見るだけ」には出さない（EF 側でも can_bill の本人以外は弾く）
+  const bulkBtn = cu.support ? "" : `<button class="bbig" style="margin-bottom:4px" onclick="openBulk()">＋ まとめて登録</button>
+    <div class="hint" style="margin:0 2px 9px">LINEで報告できなかった分を、まとめて入力できます</div>`;
+  return `${bulkBtn}<div class="rbar">
       <select class="rf" onchange="rpt.ym=this.value;loadReports()">${months.map(m => `<option value="${m}" ${m===rpt.ym?"selected":""}>${Number(m.slice(0,4))}年${Number(m.slice(5))}月</option>`).join("")}</select>
       <select class="rf" onchange="rpt.site=this.value;drawReports()"><option value="">すべての現場</option>${db.sites.map(x => `<option value="${esc(x.id)}" ${x.id===rpt.site?"selected":""}>${esc(x.name)}</option>`).join("")}</select>
     </div>
     <div id="rpt-body"><div class="c empty">読み込み中…</div></div>`;
 }
+// 1ヶ月分の日報と休みを読む（日報タブと「まとめて登録」のカレンダーで共用）。失敗時は false
+async function fetchMonth(ym) {
+  if (rpt.cache[ym]) return true;
+  const c = cu.companyId, from = ym + "-01", to = ym + "-" + String(lastDay(Number(ym.slice(0,4)), Number(ym.slice(5))-1)).padStart(2,"0");
+  const [rr, ar] = await Promise.all([
+    rGet(`/report_details?company_id=eq.${c}&report_date=gte.${from}&report_date=lte.${to}&select=id,report_date,site_id,worker_id,duration,work_description,issue_text,handover_text,is_subcontractor,subcontractor_name,subcontractor_worker_name,reported_by&order=report_date.desc,created_at.asc`),
+    rGet(`/daily_absences?company_id=eq.${c}&absence_date=gte.${from}&absence_date=lte.${to}&select=absence_date,worker_id`),
+  ]);
+  if (!rr.ok) return false;
+  rpt.cache[ym] = { reports: await rr.json(), absences: ar.ok ? await ar.json() : [] };
+  return true;
+}
 async function loadReports() {
   const ym = rpt.ym;
-  if (!rpt.cache[ym]) {
-    const c = cu.companyId, from = ym + "-01", to = ym + "-" + String(lastDay(Number(ym.slice(0,4)), Number(ym.slice(5))-1)).padStart(2,"0");
-    const [rr, ar] = await Promise.all([
-      rGet(`/report_details?company_id=eq.${c}&report_date=gte.${from}&report_date=lte.${to}&select=id,report_date,site_id,worker_id,duration,work_description,issue_text,handover_text,is_subcontractor,subcontractor_name,subcontractor_worker_name&order=report_date.desc,created_at.asc`),
-      rGet(`/daily_absences?company_id=eq.${c}&absence_date=gte.${from}&absence_date=lte.${to}&select=absence_date,worker_id`),
-    ]);
-    if (!rr.ok) { const b = document.getElementById("rpt-body"); if (b) b.innerHTML = '<div class="c empty">日報を読み込めませんでした。開き直してください。</div>'; return; }
-    rpt.cache[ym] = { reports: await rr.json(), absences: ar.ok ? await ar.json() : [] };
-  }
+  if (!(await fetchMonth(ym))) { const b = document.getElementById("rpt-body"); if (b) b.innerHTML = '<div class="c empty">日報を読み込めませんでした。開き直してください。</div>'; return; }
   if (ym === rpt.ym) drawReports();
 }
 function drawReports() {
@@ -658,7 +715,7 @@ function drawReports() {
   const head = `<div class="c"><div class="split">
       <div class="tile" style="cursor:default"><div class="k">自社</div><div class="v">${n1(own.reduce((a,r)=>a+dayVal(r),0))}人工</div><div class="n">${dates.length}日分の日報</div></div>
       <div class="tile" style="cursor:default"><div class="k">下請け</div><div class="v">${n1(sub.reduce((a,r)=>a+dayVal(r),0))}人工</div><div class="n">${issues ? `困りごと ${issues}件` : "困りごとなし"}${abs.length ? `・休み ${abs.length}件` : ""}</div></div>
-    </div><div class="hint">LINE で送られた日報です。直すときは LINE のメニュー「日報修正」からできます。</div></div>`;
+    </div><div class="hint">LINE で送られた日報と、この画面の「まとめて登録」で入れた日報（「管理者入力」の印）です。直すときは LINE のメニュー「日報修正」からできます。</div></div>`;
   if (!dates.length) { body.innerHTML = head + '<div class="c empty">この月の日報はまだありません。</div>'; return; }
   body.innerHTML = head + dates.map(dt => {
     const dObj = new Date(dt + "T00:00:00");
@@ -670,6 +727,7 @@ function drawReports() {
         ${r.work_description ? `<div class="rnote">半日：${esc(r.work_description)}</div>` : ""}
         ${r.issue_text ? `<div class="rnote iss">⚠ 困りごと：${esc(r.issue_text)}</div>` : ""}
         ${r.handover_text ? `<div class="rnote">📝 引き継ぎ：${esc(r.handover_text)}</div>` : ""}</div>
+        ${r.reported_by && r.reported_by !== r.worker_id ? `<span class="pill p-mut">管理者入力</span>` : ""}
         <span class="pill ${r.duration === "full" ? "p-ok" : "p-cau"}">${r.duration === "full" ? "終日" : "半日"}</span></div>`).join("");
     // 下請けは 現場×会社 でまとめる（名前があれば名前、無ければ人工）
     const groups = new Map();
@@ -685,6 +743,331 @@ function drawReports() {
     const absHtml = dayAbs.length ? `<div class="rrow"><div class="rm"><span class="rs">休み：</span>${esc(dayAbs.map(a => nm(a.worker_id)).join("・"))}</div></div>` : "";
     return `<div class="c"><div class="rday">${dObj.getMonth()+1}/${dObj.getDate()}（${WD[dObj.getDay()]}）<span>${n1(total)}人工</span></div>${ownHtml}${subHtml}${absHtml}</div>`;
   }).join("");
+}
+
+// ── 日報をまとめて登録（2026-11-09）─────────────────────────────────
+// 管理者（請求権限あり）が LINE で報告できなかった分をまとめて入れる。入力は2通り：
+//   現場ごと … 1つの現場 × 複数の日 × 複数の人
+//   1日ごと … 1日分を、人ごとに現場を選ぶ
+// 保存は EF report-bulk（preview で判定 → 確認画面 → commit）。本人がLINEで登録済みの分は上書きしない。
+const BULK_FN = `${FLA.SUPA_URL}/functions/v1/report-bulk`;
+let bk = null;
+
+function addDays(s, n) { const d = new Date(s + "T00:00:00"); d.setDate(d.getDate() + n); return iso(d.getFullYear(), d.getMonth(), d.getDate()); }
+function dLabel(s)     { const d = new Date(s + "T00:00:00"); return `${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`; }
+function bulkSites()   { return [...db.sites].sort((a,b) => (a.status === "active" ? 0 : 1) - (b.status === "active" ? 0 : 1)); }
+function bulkWorkers() { return [...db.workers].sort((a,b) => String(a.name).localeCompare(String(b.name), "ja")); }
+function siteOpts(sel, blank) {
+  return (blank ? `<option value="">現場をえらぶ</option>` : "") +
+    bulkSites().map(x => `<option value="${esc(x.id)}" ${x.id === sel ? "selected" : ""}>${esc(x.name)}</option>`).join("");
+}
+function durSeg(cur, onclickFn) {
+  return `<div class="seg">${[["full","終日"],["half","半日"],["none","なし"]].map(([v,l]) =>
+    `<button type="button" class="${cur === v ? "on" : ""} ${v === "none" ? "none" : ""}" aria-pressed="${cur === v}" onclick="${onclickFn}('${v}')">${l}</button>`).join("")}</div>`;
+}
+
+function openBulk() {
+  if (cu.support) { readOnly(); return; }
+  if (!db.sites.length) { toast("先に現場を登録してください", true); return; }
+  bk = { mode: "site", step: "input", busy: false,
+         siteId: bulkSites()[0].id, ym: thisYm(), days: new Set(), dur: {},
+         day: today(), rows: {}, subs: [], payload: null, preview: null, includeAbsent: new Set(), result: null };
+  go("bulk");
+}
+function bulkMode(m) { bk.mode = m; renderBulk(); }
+
+// その日の状況（日報・休み）。月の読み込みが済んでいなければ null
+function dayInfo(day) {
+  const m = rpt.cache[day.slice(0,7)];
+  if (!m) return null;
+  const reported = new Set(m.reports.filter(r => !r.is_subcontractor && r.report_date === day).map(r => r.worker_id));
+  const absent = new Set(m.absences.filter(a => a.absence_date === day).map(a => a.worker_id));
+  return { reported, absent };
+}
+
+// ── 描画 ──
+async function renderBulk() {
+  const el = document.getElementById("bulk-body");
+  if (!bk) { go("home"); return; }
+  if (bk.step === "confirm") { el.innerHTML = bulkConfirmHtml(); return; }
+  if (bk.step === "done")    { el.innerHTML = bulkDoneHtml(); return; }
+  const need = bk.mode === "site" ? bk.ym : bk.day.slice(0,7);
+  if (!rpt.cache[need]) {
+    el.innerHTML = '<div class="c empty">読み込み中…</div>';
+    await fetchMonth(need);   // 読めなくても入力はできる（印が出ないだけ）
+    if (!rpt.cache[need]) rpt.cache[need] = { reports: [], absences: [] };
+  }
+  el.innerHTML = `<div class="bseg" role="tablist" aria-label="入力のしかた">
+      <button type="button" class="${bk.mode === "site" ? "on" : ""}" aria-selected="${bk.mode === "site"}" onclick="bulkMode('site')">現場ごと<small>複数の日をまとめて</small></button>
+      <button type="button" class="${bk.mode === "day" ? "on" : ""}" aria-selected="${bk.mode === "day"}" onclick="bulkMode('day')">1日ごと<small>人ごとに現場を選ぶ</small></button>
+    </div>
+    ${bk.mode === "site" ? bulkSiteHtml() : bulkDayHtml()}
+    ${bulkSubsHtml()}
+    <div class="bfoot"><div class="bsum">${bulkSummary()}</div>
+      <button type="button" class="bbig" onclick="bulkPreview()" ${bk.busy ? "disabled" : ""}>${bk.busy ? "確認しています…" : "確認へ進む"}</button></div>`;
+}
+
+// 現場ごと
+function bulkSiteHtml() {
+  const [y, m] = bk.ym.split("-").map(Number);
+  const first = new Date(y, m-1, 1).getDay(), n = lastDay(y, m-1), t = today();
+  const ws = bulkWorkers();
+  const cells = [];
+  for (let i = 0; i < first; i++) cells.push("<span></span>");
+  for (let d = 1; d <= n; d++) {
+    const ds = iso(y, m-1, d), dow = new Date(y, m-1, d).getDay();
+    const info = dayInfo(ds);
+    // 印：一部の人だけ報告がある日、または平日なのに誰も報告していない日（休みの人は除く）
+    let dot = false;
+    if (info && ds <= t && ws.length) {
+      const missing = ws.filter(w => !info.reported.has(w.id) && !info.absent.has(w.id)).length;
+      dot = missing > 0 && (info.reported.size > 0 || (dow >= 1 && dow <= 5));
+    }
+    const on = bk.days.has(ds);
+    cells.push(`<button type="button" class="${on ? "on" : ""}" ${ds > t ? "disabled" : ""} aria-pressed="${on}" aria-label="${m}月${d}日${dot ? "（未報告あり）" : ""}" onclick="bulkToggleDay('${ds}')">${d}<i class="${dot ? "dot" : ""}"></i></button>`);
+  }
+  const picked = [...bk.days].sort();
+  const curYm = thisYm();
+  return `<div class="c"><label class="bh" for="bk-site">1. 現場</label>
+      <select class="f" id="bk-site" onchange="bk.siteId=this.value">${siteOpts(bk.siteId, false)}</select></div>
+    <div class="c"><div class="bh">2. 日付（複数えらべます）
+        <div class="calnav"><button type="button" aria-label="前の月" onclick="bulkMonth(-1)">‹</button>
+          <span style="font-size:12.5px;white-space:nowrap">${y}年${m}月</span>
+          <button type="button" aria-label="次の月" onclick="bulkMonth(1)" ${bk.ym >= curYm ? "disabled" : ""}>›</button></div></div>
+      <div class="cal">${WD.map(w => `<span class="wd">${w}</span>`).join("")}${cells.join("")}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11px;color:var(--sub)">
+        <span><i style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--warn);margin-right:4px;vertical-align:middle"></i>未報告の人がいる日</span>
+        <button type="button" class="mini" style="margin-left:auto" onclick="bulkThisWeek()">今週の平日をえらぶ</button></div>
+      ${picked.length ? `<div class="hint">えらんだ日：${picked.map(fmtDate).join("・")}　<a href="javascript:void(0)" onclick="bk.days.clear();renderBulk()">クリア</a></div>` : ""}
+    </div>
+    <div class="c"><div class="bh">3. 作業員 <button type="button" class="mini" onclick="bulkAllFull()">全員 終日</button></div>
+      ${ws.length ? ws.map(w => `<div class="brow"><div class="top"><span class="nm">${esc(w.name)}</span>
+          ${durSeg(bk.dur[w.id] || "none", `bulkSetDur.bind(null,'${w.id}')`)}</div></div>`).join("")
+        : '<div class="empty">作業員が登録されていません</div>'}
+    </div>`;
+}
+function bulkToggleDay(ds) { if (bk.days.has(ds)) bk.days.delete(ds); else bk.days.add(ds); renderBulk(); }
+function bulkMonth(n) { const nx = ymPlus(bk.ym, n); if (nx > thisYm()) return; bk.ym = nx; renderBulk(); }
+function bulkThisWeek() {
+  const t = today(), d = new Date(t + "T00:00:00");
+  const mon = addDays(t, -((d.getDay() + 6) % 7));
+  for (let i = 0; i < 5; i++) { const ds = addDays(mon, i); if (ds <= t) bk.days.add(ds); }
+  bk.ym = thisYm(); renderBulk();
+}
+function bulkAllFull() { bulkWorkers().forEach(w => bk.dur[w.id] = "full"); renderBulk(); }
+function bulkSetDur(wid, v) { bk.dur[wid] = v; renderBulk(); }
+
+// 1日ごと
+function bulkDayHtml() {
+  const info = dayInfo(bk.day) || { reported: new Set(), absent: new Set() };
+  const t = today();
+  return `<div class="c"><div class="bh">1. 日付</div>
+      <div class="daynav"><button type="button" aria-label="前の日" onclick="bulkDay(-1)">‹</button>
+        <input type="date" aria-label="日付" value="${bk.day}" max="${t}" onchange="bulkSetDay(this.value)">
+        <button type="button" aria-label="次の日" onclick="bulkDay(1)" ${bk.day >= t ? "disabled" : ""}>›</button></div>
+      <button type="button" class="bbig g" style="min-height:42px;font-size:13px" onclick="bulkCopyPrev()">前日（${fmtDate(addDays(bk.day,-1))}）と同じ内容を入れる</button></div>
+    <div class="c"><div class="bh">2. 作業員ごとに入力</div>
+      ${bulkWorkers().map(w => {
+        const done = info.reported.has(w.id), abs = info.absent.has(w.id);
+        const r = bk.rows[w.id] || { site: "", dur: "none" };
+        return `<div class="brow"><div class="top"><span class="nm"><b>${esc(w.name)}</b></span>
+            ${done ? '<span class="pill p-ok">登録済み</span>' : ""}${abs ? '<span class="pill p-warn">休み報告あり</span>' : ""}</div>
+          ${done ? '<div class="hint" style="margin:0">すでに日報があります。上書きしません</div>' : `<div class="ctl">
+            <select class="f" aria-label="${esc(w.name)}の現場" onchange="bulkRow('${w.id}','site',this.value)">${siteOpts(r.site, true)}</select>
+            ${durSeg(r.dur, `bulkRow.bind(null,'${w.id}','dur')`)}</div>`}</div>`;
+      }).join("") || '<div class="empty">作業員が登録されていません</div>'}
+    </div>`;
+}
+function bulkSetDay(v) { if (!v || v > today()) return; bk.day = v; bk.rows = {}; renderBulk(); }
+function bulkDay(n) { bulkSetDay(addDays(bk.day, n)); }
+function bulkRow(wid, k, v) {
+  const r = bk.rows[wid] || (bk.rows[wid] = { site: "", dur: "none" });
+  r[k] = v;
+  if (k === "site" && v && r.dur === "none") r.dur = "full";   // 現場を選んだら終日を仮で入れる
+  renderBulk();
+}
+async function bulkCopyPrev() {
+  const prev = addDays(bk.day, -1);
+  await fetchMonth(prev.slice(0,7));
+  const m = rpt.cache[prev.slice(0,7)];
+  const reps = (m ? m.reports : []).filter(r => !r.is_subcontractor && r.report_date === prev);
+  if (!reps.length) { toast(`${fmtDate(prev)} の日報がありません`, true); return; }
+  bk.rows = {};
+  reps.forEach(r => { if (!bk.rows[r.worker_id]) bk.rows[r.worker_id] = { site: r.site_id, dur: r.duration === "half" ? "half" : "full" }; });
+  toast(`${fmtDate(prev)} の内容を入れました`);
+  renderBulk();
+}
+
+// 協力会社（両方の入力で共通。現場ごとはえらんだ日すべて、1日ごとは行ごとに現場をえらぶ）
+function bulkSubsHtml() {
+  const rows = bk.subs.map((s, i) => `<div class="subrow">
+      <div><div class="lbl">会社名</div><input type="text" value="${esc(s.name)}" placeholder="△△工業" aria-label="協力会社名" oninput="bk.subs[${i}].name=this.value"></div>
+      <div><div class="lbl">終日 人数</div><input type="number" inputmode="numeric" min="0" max="50" value="${s.full}" aria-label="終日の人数" onchange="bulkSub(${i},'full',this.value)"></div>
+      <div><div class="lbl">半日 人数</div><input type="number" inputmode="numeric" min="0" max="50" value="${s.half}" aria-label="半日の人数" onchange="bulkSub(${i},'half',this.value)"></div>
+      <button type="button" class="del" aria-label="この行を消す" onclick="bk.subs.splice(${i},1);renderBulk()">×</button>
+      ${bk.mode === "day" ? `<select class="f" style="grid-column:1/-1;font-size:14px" aria-label="協力会社の現場" onchange="bk.subs[${i}].site=this.value">${siteOpts(s.site, true)}</select>` : ""}
+    </div>`).join("");
+  return `<div class="c"><div class="bh">協力会社 <span>人数だけでOK</span></div>${rows}
+    <button type="button" class="addsub" onclick="bk.subs.push({name:'',full:0,half:0,site:''});renderBulk()">＋ 協力会社の人数を入れる</button></div>`;
+}
+function bulkSub(i, k, v) { const n = Math.max(0, Math.min(50, parseInt(v, 10) || 0)); bk.subs[i][k] = n; renderBulk(); }
+
+// ── 送る内容をつくる（エラーなら文字列） ──
+function bulkBuild() {
+  const entries = [], subcontractors = [];
+  if (bk.mode === "site") {
+    const days = [...bk.days].sort();
+    if (!bk.siteId) return "現場をえらんでください";
+    if (!days.length) return "日付をえらんでください";
+    days.forEach(d => bulkWorkers().forEach(w => {
+      const v = bk.dur[w.id];
+      if (v === "full" || v === "half") entries.push({ report_date: d, worker_id: w.id, site_id: bk.siteId, duration: v });
+    }));
+    for (const s of bk.subs) {
+      if (!s.full && !s.half) continue;
+      if (!s.name.trim()) return "協力会社の会社名を入れてください";
+      days.forEach(d => subcontractors.push({ report_date: d, site_id: bk.siteId, name: s.name.trim(), full_count: s.full, half_count: s.half }));
+    }
+  } else {
+    const info = dayInfo(bk.day) || { reported: new Set() };
+    for (const w of bulkWorkers()) {
+      const r = bk.rows[w.id];
+      if (!r || r.dur === "none" || info.reported.has(w.id)) continue;
+      if (!r.site) return `${w.name} の現場をえらんでください`;
+      entries.push({ report_date: bk.day, worker_id: w.id, site_id: r.site, duration: r.dur });
+    }
+    for (const s of bk.subs) {
+      if (!s.full && !s.half) continue;
+      if (!s.name.trim()) return "協力会社の会社名を入れてください";
+      if (!s.site) return `${s.name.trim()} の現場をえらんでください`;
+      subcontractors.push({ report_date: bk.day, site_id: s.site, name: s.name.trim(), full_count: s.full, half_count: s.half });
+    }
+  }
+  if (!entries.length && !subcontractors.length) return "登録する人がいません（終日・半日をえらんでください）";
+  if (entries.length + subcontractors.reduce((a, s) => a + s.full_count + s.half_count, 0) > 500) return "一度に登録できるのは500件までです。分けて入力してください";
+  return { entries, subcontractors };
+}
+function bulkSummary() {
+  const p = bulkBuild();
+  if (typeof p === "string") return `<span style="color:var(--sub)">${esc(p)}</span>`;
+  const subN = p.subcontractors.reduce((a, s) => a + s.full_count + s.half_count, 0);
+  const own = bk.mode === "site"
+    ? `${bk.days.size}日 × ${new Set(p.entries.map(e => e.worker_id)).size}人 ＝ <b>${p.entries.length}件</b>`
+    : `${fmtDate(bk.day)} の <b>${p.entries.length}件</b>`;
+  return own + (subN ? `　＋ 協力会社 ${subN}人分` : "");
+}
+
+// ── EF 呼び出し ──
+async function bulkCall(mode, body) {
+  const token = await FLA.ensureToken();
+  const res = await fetch(BULK_FN, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ mode, ...body }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    console.error("[report-bulk]", mode, res.status, data);
+    const msg = res.status === 403 ? "この操作は請求権限のある方だけができます"
+      : res.status === 409 ? "途中で日報が届いたため、登録しませんでした。もう一度確認してください"
+      : res.status === 400 ? `入力を確認してください（${data.error || "不正な入力"}）`
+      : "登録に失敗しました。時間をおいてもう一度お試しください";
+    const e = new Error(msg); e.status = res.status; throw e;
+  }
+  return data;
+}
+async function bulkPreview() {
+  const p = bulkBuild();
+  if (typeof p === "string") { toast(p, true); return; }
+  bk.busy = true; renderBulk();
+  try {
+    bk.preview = await bulkCall("preview", p);
+    bk.payload = p;
+    bk.includeAbsent = new Set();
+    bk.step = "confirm";
+  } catch (e) { toast(e.message, true); }
+  bk.busy = false; renderBulk(); window.scrollTo(0,0);
+}
+
+// ── 確認 ──
+function bulkConfirmHtml() {
+  const pv = bk.preview, wName = new Map(db.workers.map(w => [w.id, w.name])), sName = new Map(db.sites.map(x => [x.id, x.name]));
+  const nm = (id) => esc(wName.get(id) || "（登録にない人）");
+  const own = pv.entries, subs = pv.subcontractors;
+  const skipped = own.filter(e => e.status === "already_reported");
+  const absent = own.filter(e => e.status === "absent");
+  const subSkip = subs.filter(s => s.status === "already_reported");
+  const willOwn = own.filter(e => e.status === "new" || (e.status === "absent" && bk.includeAbsent.has(e.key))).length;
+  const willSub = subs.filter(s => s.status === "new").reduce((a, s) => a + s.full_count + s.half_count, 0);
+  const sites = [...new Set([...own.map(e => e.site_id), ...subs.map(s => s.site_id)])].map(id => esc(sName.get(id) || "")).join("・");
+  const dates = [...new Set([...own.map(e => e.report_date), ...subs.map(s => s.report_date)])].sort();
+  const dayList = dates.map(d => {
+    const items = own.filter(e => e.report_date === d).map(e => {
+      const ok = e.status === "new" || (e.status === "absent" && bk.includeAbsent.has(e.key));
+      const tag = e.status === "already_reported" ? "登録済み" : e.status === "absent" && !ok ? "休み" : (e.duration === "full" ? "終日" : "半日");
+      return `<div class="rrow"><div class="rm ${ok ? "" : "skip"}">${nm(e.worker_id)}　<span class="rs">${esc(sName.get(e.site_id) || "")}</span></div>
+        <span class="pill ${ok ? (e.duration === "full" ? "p-ok" : "p-cau") : "p-mut"}">${tag}</span></div>`;
+    }).concat(subs.filter(s => s.report_date === d).map(s => {
+      const ok = s.status === "new";
+      return `<div class="rrow"><div class="rm ${ok ? "" : "skip"}">下請け ${esc(s.name)}　<span class="rs">${esc(sName.get(s.site_id) || "")}</span></div>
+        <span class="pill p-mut">${ok ? `終日${s.full_count}・半日${s.half_count}` : "登録済み"}</span></div>`;
+    }));
+    return `<div class="c"><div class="rday">${dLabel(d)}</div>${items.join("")}</div>`;
+  }).join("");
+  const total = willOwn + willSub;
+  return `<div class="c"><div class="hint" style="margin:0 0 2px">${sites}${dates.length ? ` ／ ${dates.map(fmtDate).join("・")}` : ""}</div>
+      <div style="font-size:21px;font-weight:bold">${willOwn}件 を登録します</div>
+      ${willSub ? `<div class="hint">ほかに協力会社 ${willSub}人分</div>` : ""}</div>
+    ${skipped.length ? `<div class="bnote ok"><b>${skipped.length}件はスキップ</b>：すでに日報があります（${skipped.map(e => `${nm(e.worker_id)} ${fmtDate(e.report_date)}`).join("・")}）。上書きはしません。</div>` : ""}
+    ${subSkip.length ? `<div class="bnote ok"><b>協力会社 ${subSkip.length}件はスキップ</b>：同じ日・同じ現場・同じ会社の日報がすでにあります。</div>` : ""}
+    ${absent.length ? `<div class="bnote ng"><b>休み報告と重なっています</b>${absent.map(e => {
+        const inc = bk.includeAbsent.has(e.key);
+        return `<div class="absrow"><div>${nm(e.worker_id)} ${dLabel(e.report_date)}</div>
+          <div class="seg"><button type="button" class="${inc ? "" : "on"}" aria-pressed="${!inc}" onclick="bulkAbs('${e.key}',false)">休みのまま（登録しない）</button>
+          <button type="button" class="${inc ? "on" : ""}" aria-pressed="${inc}" onclick="bulkAbs('${e.key}',true)">出勤として登録</button></div></div>`;
+      }).join("")}</div>` : ""}
+    ${dayList}
+    <div class="bfoot">
+      <button type="button" class="bbig" onclick="bulkCommit()" ${bk.busy || !total ? "disabled" : ""}>${bk.busy ? "登録しています…" : total ? `${total}件を登録する` : "登録するものがありません"}</button>
+      <button type="button" class="bbig g" onclick="bk.step='input';renderBulk()" ${bk.busy ? "disabled" : ""}>‹ 入力にもどる</button></div>`;
+}
+function bulkAbs(key, on) { if (on) bk.includeAbsent.add(key); else bk.includeAbsent.delete(key); renderBulk(); }
+
+async function bulkCommit() {
+  if (bk.busy) return;
+  bk.busy = true; renderBulk();
+  try {
+    bk.result = await bulkCall("commit", { ...bk.payload, include_absent: [...bk.includeAbsent] });
+    bk.step = "done";
+    // 登録した月の日報を読み直す（日報タブ・人件費の集計に反映）
+    [...new Set(bk.payload.entries.map(e => e.report_date.slice(0,7)).concat(bk.payload.subcontractors.map(s => s.report_date.slice(0,7))))].forEach(ym => delete rpt.cache[ym]);
+    const rr = await rGet(`/report_details?company_id=eq.${cu.companyId}&is_subcontractor=eq.false&select=site_id,worker_id,duration,report_date`);
+    if (rr.ok) { db.reports = await rr.json(); buildAll(); }
+  } catch (e) {
+    toast(e.message, true);
+    if (e.status === 409) {   // 状況が変わった → 判定し直す
+      try { bk.preview = await bulkCall("preview", bk.payload); bk.includeAbsent = new Set(); } catch (_e) { bk.step = "input"; }
+    }
+  }
+  bk.busy = false; renderBulk(); window.scrollTo(0,0);
+}
+
+// ── 完了 ──
+function bulkDoneHtml() {
+  const r = bk.result || {};
+  const notes = [];
+  if (r.skipped_already_reported) notes.push(`スキップ ${r.skipped_already_reported}件（日報あり）`);
+  if (r.skipped_absent) notes.push(`休み ${r.skipped_absent}件`);
+  if (r.skipped_subcontractor) notes.push(`協力会社 スキップ ${r.skipped_subcontractor}件`);
+  return `<div class="c" style="text-align:center;padding:26px 16px">
+      <div style="width:56px;height:56px;border-radius:50%;background:var(--ok-bg);color:var(--acc);display:flex;align-items:center;justify-content:center;margin:0 auto 10px">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+      <div style="font-size:20px;font-weight:bold">${r.inserted || 0}件を登録しました</div>
+      ${r.inserted_subcontractor_rows ? `<div class="hint">ほかに協力会社 ${r.inserted_subcontractor_rows}人分</div>` : ""}
+      ${notes.length ? `<div class="hint" style="margin-top:6px">${notes.join("・")}</div>` : ""}</div>
+    <div class="bnote ok">日報一覧では「管理者入力」の印がつきます。作業員本人が LINE で「日報確認」をすると、この内容が表示されます。</div>
+    <button type="button" class="bbig g" onclick="openBulk()">続けて入力する</button>
+    <button type="button" class="bbig" style="margin-top:8px" onclick="bk=null;go('home');setTab('reports')">日報一覧へ戻る</button>`;
 }
 
 function moneyHtml() {
